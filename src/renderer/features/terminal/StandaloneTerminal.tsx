@@ -1,10 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { useProjectStore } from '../../stores/projectStore';
 
-interface Props {
-  agentId: string;
-}
+const PTY_ID = 'standalone-terminal';
 
 const CATPPUCCIN_THEME = {
   background: '#1e1e2e',
@@ -31,13 +30,15 @@ const CATPPUCCIN_THEME = {
   brightWhite: '#a6adc8',
 };
 
-export function AgentTerminal({ agentId }: Props) {
+export function StandaloneTerminal() {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const { projects, activeProjectId } = useProjectStore();
+  const projectPath = projects.find((p) => p.id === activeProjectId)?.path;
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || !projectPath) return;
 
     const term = new Terminal({
       theme: CATPPUCCIN_THEME,
@@ -53,31 +54,26 @@ export function AgentTerminal({ agentId }: Props) {
     term.loadAddon(fitAddon);
     term.open(containerRef.current);
 
-    // Initial fit, replay buffered output, and focus
     requestAnimationFrame(() => {
       fitAddon.fit();
-      window.clubhouse.pty.resize(agentId, term.cols, term.rows);
-      term.focus();
-      // Replay buffered output so switching agents restores the terminal
-      window.clubhouse.pty.getBuffer(agentId).then((buf: string) => {
-        if (buf && terminalRef.current === term) {
-          term.write(buf);
-        }
-      });
+      window.clubhouse.pty.resize(PTY_ID, term.cols, term.rows);
     });
 
     terminalRef.current = term;
     fitAddonRef.current = fitAddon;
 
+    // Spawn the shell
+    window.clubhouse.pty.spawnShell(PTY_ID, projectPath);
+
     // Forward user input to PTY
     const inputDisposable = term.onData((data) => {
-      window.clubhouse.pty.write(agentId, data);
+      window.clubhouse.pty.write(PTY_ID, data);
     });
 
     // Receive PTY output
     const removeDataListener = window.clubhouse.pty.onData(
       (id: string, data: string) => {
-        if (id === agentId) {
+        if (id === PTY_ID) {
           term.write(data);
         }
       }
@@ -90,7 +86,7 @@ export function AgentTerminal({ agentId }: Props) {
           fitAddonRef.current.fit();
           if (terminalRef.current) {
             window.clubhouse.pty.resize(
-              agentId,
+              PTY_ID,
               terminalRef.current.cols,
               terminalRef.current.rows
             );
@@ -107,8 +103,9 @@ export function AgentTerminal({ agentId }: Props) {
       term.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
+      window.clubhouse.pty.kill(PTY_ID);
     };
-  }, [agentId]);
+  }, [projectPath]);
 
   return (
     <div

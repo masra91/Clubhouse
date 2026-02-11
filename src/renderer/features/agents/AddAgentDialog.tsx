@@ -8,7 +8,7 @@ interface Props {
 
 export function AddAgentDialog({ onClose, onCreate }: Props) {
   const [name, setName] = useState(generateDurableName());
-  const [color, setColor] = useState(AGENT_COLORS[0].id);
+  const [color, setColor] = useState<string>(AGENT_COLORS[0].id);
   const [localOnly, setLocalOnly] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {

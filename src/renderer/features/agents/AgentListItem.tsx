@@ -17,13 +17,27 @@ const STATUS_CONFIG: Record<string, { label: string; dotClass: string }> = {
   error: { label: 'Error', dotClass: 'bg-red-400' },
 };
 
+const DETAILED_DOT: Record<string, string> = {
+  idle: 'bg-green-400',
+  working: 'bg-blue-400',
+  needs_permission: 'bg-orange-400',
+  tool_error: 'bg-red-400',
+};
+
 export function AgentListItem({ agent, isActive, isThinking, onSelect }: Props) {
-  const { killAgent, removeAgent, deleteDurableAgent, spawnDurableAgent } = useAgentStore();
+  const { killAgent, removeAgent, spawnDurableAgent, openAgentSettings, openDeleteDialog, agentDetailedStatus } = useAgentStore();
   const { projects, activeProjectId } = useProjectStore();
   const activeProject = projects.find((p) => p.id === activeProjectId);
 
   const colorInfo = AGENT_COLORS.find((c) => c.id === agent.color);
   const statusInfo = STATUS_CONFIG[agent.status] || STATUS_CONFIG.stopped;
+  const detailed = agentDetailedStatus[agent.id];
+
+  // Determine what to display for status
+  const hasDetailed = agent.status === 'running' && detailed;
+  const dotClass = hasDetailed ? DETAILED_DOT[detailed.state] || 'bg-green-400' : statusInfo.dotClass;
+  const shouldPulse = hasDetailed ? detailed.state === 'working' : isThinking;
+  const statusLabel = hasDetailed ? detailed.message : (isThinking ? 'Thinking...' : statusInfo.label);
 
   const handleAction = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -34,10 +48,9 @@ export function AgentListItem({ agent, isActive, isThinking, onSelect }: Props) 
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent) => {
+  const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!activeProject) return;
-    await deleteDurableAgent(agent.id, activeProject.path);
+    openDeleteDialog(agent.id);
   };
 
   const handleWake = async (e: React.MouseEvent) => {
@@ -84,11 +97,15 @@ export function AgentListItem({ agent, isActive, isThinking, onSelect }: Props) 
           <span className="text-sm text-ctp-text truncate font-medium">{agent.name}</span>
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">
-          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusInfo.dotClass} ${
-            isThinking ? 'animate-pulse' : ''
+          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotClass} ${
+            shouldPulse ? 'animate-pulse' : ''
           }`} />
-          <span className="text-xs text-ctp-subtext0">
-            {isThinking ? 'Thinking...' : statusInfo.label}
+          <span className={`text-xs truncate ${
+            hasDetailed && detailed.state === 'needs_permission' ? 'text-orange-400' :
+            hasDetailed && detailed.state === 'tool_error' ? 'text-red-400' :
+            'text-ctp-subtext0'
+          }`}>
+            {statusLabel}
           </span>
           {agent.status === 'stopped' && agent.exitCode !== undefined && (
             <span className="text-xs text-ctp-subtext0">· exit {agent.exitCode}</span>
@@ -98,6 +115,18 @@ export function AgentListItem({ agent, isActive, isThinking, onSelect }: Props) 
 
       {/* Actions */}
       <div className="flex items-center gap-1 flex-shrink-0">
+        {isDurable && (
+          <button
+            onClick={(e) => { e.stopPropagation(); openAgentSettings(agent.id); }}
+            title="Agent settings"
+            className="text-xs text-ctp-subtext0 hover:text-ctp-blue transition-colors px-1 cursor-pointer"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+        )}
         {isDurable && agent.status === 'sleeping' && (
           <button
             onClick={handleWake}

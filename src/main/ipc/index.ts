@@ -3,6 +3,8 @@ import { registerProjectHandlers } from './project-handlers';
 import { registerFileHandlers } from './file-handlers';
 import { registerGitHandlers } from './git-handlers';
 import { registerAgentHandlers } from './agent-handlers';
+import { registerAgentSettingsHandlers } from './agent-settings-handlers';
+import * as hookServer from '../services/hook-server';
 
 export function registerAllHandlers(): void {
   registerPtyHandlers();
@@ -10,4 +12,10 @@ export function registerAllHandlers(): void {
   registerFileHandlers();
   registerGitHandlers();
   registerAgentHandlers();
+  registerAgentSettingsHandlers();
+
+  // Start the hook server for agent status events
+  hookServer.start().catch((err) => {
+    console.error('Failed to start hook server:', err);
+  });
 }

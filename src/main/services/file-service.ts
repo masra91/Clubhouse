@@ -41,3 +41,21 @@ export function readFile(filePath: string): string {
 export function writeFile(filePath: string, content: string): void {
   fs.writeFileSync(filePath, content, 'utf-8');
 }
+
+const MIME_TYPES: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  ico: 'image/x-icon',
+  bmp: 'image/bmp',
+};
+
+export function readBinary(filePath: string): string {
+  const ext = path.extname(filePath).slice(1).toLowerCase();
+  const mime = MIME_TYPES[ext] || 'application/octet-stream';
+  const data = fs.readFileSync(filePath);
+  return `data:${mime};base64,${data.toString('base64')}`;
+}

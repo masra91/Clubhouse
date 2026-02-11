@@ -42,7 +42,7 @@ export interface FileNode {
   children?: FileNode[];
 }
 
-export type ExplorerTab = 'files' | 'settings' | 'agents' | 'git';
+export type ExplorerTab = 'files' | 'settings' | 'agents' | 'git' | 'terminal';
 
 export interface GitStatusFile {
   path: string;
@@ -70,6 +70,49 @@ export interface GitInfo {
 }
 
 export interface GitOpResult {
+  ok: boolean;
+  message: string;
+}
+
+export interface McpServerEntry {
+  name: string;
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  scope: 'project' | 'global';
+}
+
+export interface SkillEntry {
+  name: string;
+  path: string;
+  hasReadme: boolean;
+}
+
+export interface AgentHookEvent {
+  eventName: string;
+  toolName?: string;
+  toolInput?: Record<string, unknown>;
+  timestamp: number;
+}
+
+export type AgentDetailedState = 'idle' | 'working' | 'needs_permission' | 'tool_error';
+
+export interface AgentDetailedStatus {
+  state: AgentDetailedState;
+  message: string;
+  toolName?: string;
+  timestamp: number;
+}
+
+export interface WorktreeStatus {
+  isValid: boolean;
+  branch: string;
+  uncommittedFiles: GitStatusFile[];
+  unpushedCommits: GitLogEntry[];
+  hasRemote: boolean;
+}
+
+export interface DeleteResult {
   ok: boolean;
   message: string;
 }

@@ -1,6 +1,7 @@
-import { ipcMain } from 'electron';
+import { ipcMain, dialog, BrowserWindow } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
 import * as agentConfig from '../services/agent-config';
+import { writeHooksConfig } from '../services/agent-hooks';
 
 export function registerAgentHandlers(): void {
   ipcMain.handle(IPC.AGENT.LIST_DURABLE, (_event, projectPath: string) => {
@@ -24,5 +25,44 @@ export function registerAgentHandlers(): void {
 
   ipcMain.handle(IPC.AGENT.SAVE_SETTINGS, (_event, projectPath: string, settings: any) => {
     agentConfig.saveSettings(projectPath, settings);
+  });
+
+  ipcMain.handle(IPC.AGENT.SETUP_HOOKS, async (_event, worktreePath: string, agentId: string) => {
+    await writeHooksConfig(worktreePath, agentId);
+  });
+
+  ipcMain.handle(IPC.AGENT.GET_WORKTREE_STATUS, (_event, projectPath: string, agentId: string) => {
+    return agentConfig.getWorktreeStatus(projectPath, agentId);
+  });
+
+  ipcMain.handle(IPC.AGENT.DELETE_COMMIT_PUSH, (_event, projectPath: string, agentId: string) => {
+    return agentConfig.deleteCommitAndPush(projectPath, agentId);
+  });
+
+  ipcMain.handle(IPC.AGENT.DELETE_CLEANUP_BRANCH, (_event, projectPath: string, agentId: string) => {
+    return agentConfig.deleteWithCleanupBranch(projectPath, agentId);
+  });
+
+  ipcMain.handle(IPC.AGENT.DELETE_SAVE_PATCH, async (_event, projectPath: string, agentId: string) => {
+    const win = BrowserWindow.getFocusedWindow();
+    const result = await dialog.showSaveDialog(win!, {
+      title: 'Save patch file',
+      defaultPath: `agent-${agentId}.patch`,
+      filters: [{ name: 'Patch files', extensions: ['patch'] }],
+    });
+
+    if (result.canceled || !result.filePath) {
+      return { ok: false, message: 'cancelled' };
+    }
+
+    return agentConfig.deleteSaveAsPatch(projectPath, agentId, result.filePath);
+  });
+
+  ipcMain.handle(IPC.AGENT.DELETE_FORCE, (_event, projectPath: string, agentId: string) => {
+    return agentConfig.deleteForce(projectPath, agentId);
+  });
+
+  ipcMain.handle(IPC.AGENT.DELETE_UNREGISTER, (_event, projectPath: string, agentId: string) => {
+    return agentConfig.deleteUnregister(projectPath, agentId);
   });
 }

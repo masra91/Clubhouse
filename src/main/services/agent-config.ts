@@ -1,7 +1,7 @@
 import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { DurableAgentConfig, ProjectSettings } from '../../shared/types';
+import { DurableAgentConfig, ProjectSettings, WorktreeStatus, DeleteResult, GitStatusFile, GitLogEntry } from '../../shared/types';
 
 function ensureDir(dir: string): void {
   if (!fs.existsSync(dir)) {
@@ -171,4 +171,245 @@ export function getSettings(projectPath: string): ProjectSettings {
 export function saveSettings(projectPath: string, settings: ProjectSettings): void {
   ensureDir(clubhouseDir(projectPath));
   fs.writeFileSync(settingsPath(projectPath), JSON.stringify(settings, null, 2), 'utf-8');
+}
+
+function detectBaseBranch(projectPath: string): string {
+  // Try main, then master, then fallback to HEAD
+  for (const candidate of ['main', 'master']) {
+    try {
+      execSync(`git rev-parse --verify ${candidate}`, { cwd: projectPath, encoding: 'utf-8', stdio: 'pipe' });
+      return candidate;
+    } catch {
+      // not found
+    }
+  }
+  return 'HEAD';
+}
+
+function parseStatusLine(line: string): GitStatusFile {
+  const xy = line.substring(0, 2);
+  const filePath = line.substring(3);
+  const staged = xy[0] !== ' ' && xy[0] !== '?';
+  return { path: filePath, status: xy.trim(), staged };
+}
+
+function parseLogLine(line: string): GitLogEntry | null {
+  // format: hash|shortHash|subject|author|date
+  const parts = line.split('|');
+  if (parts.length < 5) return null;
+  return {
+    hash: parts[0],
+    shortHash: parts[1],
+    subject: parts.slice(2, -2).join('|'), // subject may contain |
+    author: parts[parts.length - 2],
+    date: parts[parts.length - 1],
+  };
+}
+
+export function getWorktreeStatus(projectPath: string, agentId: string): WorktreeStatus {
+  const agents = readAgents(projectPath);
+  const agent = agents.find((a) => a.id === agentId);
+  if (!agent) {
+    return { isValid: false, branch: '', uncommittedFiles: [], unpushedCommits: [], hasRemote: false };
+  }
+
+  const wt = agent.worktreePath;
+  if (!fs.existsSync(wt) || !fs.existsSync(path.join(wt, '.git'))) {
+    return { isValid: false, branch: agent.branch, uncommittedFiles: [], unpushedCommits: [], hasRemote: false };
+  }
+
+  // Get uncommitted files
+  let uncommittedFiles: GitStatusFile[] = [];
+  try {
+    const statusOut = execSync('git status --porcelain', { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+    uncommittedFiles = statusOut.trim().split('\n').filter(Boolean).map(parseStatusLine);
+  } catch {
+    // ignore
+  }
+
+  // Detect base branch and get unpushed commits
+  const base = detectBaseBranch(projectPath);
+  let unpushedCommits: GitLogEntry[] = [];
+  try {
+    const logOut = execSync(
+      `git log ${base}..HEAD --format="%H|%h|%s|%an|%ai"`,
+      { cwd: wt, encoding: 'utf-8', stdio: 'pipe' }
+    );
+    unpushedCommits = logOut.trim().split('\n').filter(Boolean)
+      .map(parseLogLine)
+      .filter((e): e is GitLogEntry => e !== null);
+  } catch {
+    // ignore
+  }
+
+  // Check if remote exists
+  let hasRemote = false;
+  try {
+    const remoteOut = execSync('git remote', { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+    hasRemote = remoteOut.trim().length > 0;
+  } catch {
+    // ignore
+  }
+
+  return {
+    isValid: true,
+    branch: agent.branch,
+    uncommittedFiles,
+    unpushedCommits,
+    hasRemote,
+  };
+}
+
+export function deleteCommitAndPush(projectPath: string, agentId: string): DeleteResult {
+  const agents = readAgents(projectPath);
+  const agent = agents.find((a) => a.id === agentId);
+  if (!agent) return { ok: false, message: 'Agent not found' };
+
+  const wt = agent.worktreePath;
+  try {
+    // Stage all and commit
+    execSync('git add -A', { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+    try {
+      execSync('git commit -m "Save work before deletion"', { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+    } catch {
+      // Nothing to commit is OK
+    }
+
+    // Push if remote exists
+    try {
+      const remoteOut = execSync('git remote', { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+      if (remoteOut.trim()) {
+        execSync(`git push -u origin "${agent.branch}"`, { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+      }
+    } catch {
+      // Push failed — continue with deletion, work is committed locally
+    }
+  } catch (err: any) {
+    return { ok: false, message: err.message || 'Failed to commit' };
+  }
+
+  deleteDurable(projectPath, agentId);
+  return { ok: true, message: 'Committed, pushed, and deleted' };
+}
+
+export function deleteWithCleanupBranch(projectPath: string, agentId: string): DeleteResult {
+  const agents = readAgents(projectPath);
+  const agent = agents.find((a) => a.id === agentId);
+  if (!agent) return { ok: false, message: 'Agent not found' };
+
+  const wt = agent.worktreePath;
+  const cleanupBranch = `${agent.name}/cleanup`;
+
+  try {
+    // Create and checkout cleanup branch
+    try {
+      execSync(`git checkout -b "${cleanupBranch}"`, { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+    } catch {
+      // Branch may exist, try just checking out
+      execSync(`git checkout "${cleanupBranch}"`, { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+    }
+
+    // Stage all and commit
+    execSync('git add -A', { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+    try {
+      execSync('git commit -m "Cleanup: save work before agent deletion"', { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+    } catch {
+      // Nothing to commit
+    }
+
+    // Push if remote exists
+    try {
+      const remoteOut = execSync('git remote', { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+      if (remoteOut.trim()) {
+        execSync(`git push -u origin "${cleanupBranch}"`, { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+      }
+    } catch {
+      // Push failed — work is saved locally
+    }
+  } catch (err: any) {
+    return { ok: false, message: err.message || 'Failed to create cleanup branch' };
+  }
+
+  deleteDurable(projectPath, agentId);
+  return { ok: true, message: `Saved to ${cleanupBranch} and deleted` };
+}
+
+export function deleteSaveAsPatch(projectPath: string, agentId: string, savePath: string): DeleteResult {
+  const agents = readAgents(projectPath);
+  const agent = agents.find((a) => a.id === agentId);
+  if (!agent) return { ok: false, message: 'Agent not found' };
+
+  const wt = agent.worktreePath;
+  const base = detectBaseBranch(projectPath);
+
+  try {
+    let patchContent = '';
+
+    // Get diff of uncommitted changes
+    try {
+      const diff = execSync('git diff HEAD', { cwd: wt, encoding: 'utf-8', stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 });
+      if (diff.trim()) {
+        patchContent += `# Uncommitted changes\n${diff}\n`;
+      }
+    } catch {
+      // ignore
+    }
+
+    // Get untracked files diff
+    try {
+      const untracked = execSync('git ls-files --others --exclude-standard', { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+      if (untracked.trim()) {
+        // Stage untracked so we can diff them
+        execSync('git add -A', { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+        const stagedDiff = execSync('git diff --cached', { cwd: wt, encoding: 'utf-8', stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 });
+        if (stagedDiff.trim()) {
+          patchContent += `# Staged changes (including untracked)\n${stagedDiff}\n`;
+        }
+        // Reset staging
+        execSync('git reset HEAD', { cwd: wt, encoding: 'utf-8', stdio: 'pipe' });
+      }
+    } catch {
+      // ignore
+    }
+
+    // Get format-patch for committed but not in base
+    try {
+      const patches = execSync(
+        `git format-patch ${base}..HEAD --stdout`,
+        { cwd: wt, encoding: 'utf-8', stdio: 'pipe', maxBuffer: 50 * 1024 * 1024 }
+      );
+      if (patches.trim()) {
+        patchContent += `# Commits since ${base}\n${patches}\n`;
+      }
+    } catch {
+      // ignore
+    }
+
+    if (!patchContent) {
+      patchContent = '# No changes to export\n';
+    }
+
+    fs.writeFileSync(savePath, patchContent, 'utf-8');
+  } catch (err: any) {
+    return { ok: false, message: err.message || 'Failed to save patch' };
+  }
+
+  deleteDurable(projectPath, agentId);
+  return { ok: true, message: `Patch saved to ${savePath}` };
+}
+
+export function deleteForce(projectPath: string, agentId: string): DeleteResult {
+  try {
+    deleteDurable(projectPath, agentId);
+    return { ok: true, message: 'Force deleted' };
+  } catch (err: any) {
+    return { ok: false, message: err.message || 'Failed to force delete' };
+  }
+}
+
+export function deleteUnregister(projectPath: string, agentId: string): DeleteResult {
+  const agents = readAgents(projectPath);
+  const filtered = agents.filter((a) => a.id !== agentId);
+  writeAgents(projectPath, filtered);
+  return { ok: true, message: 'Removed from agents list (files left on disk)' };
 }

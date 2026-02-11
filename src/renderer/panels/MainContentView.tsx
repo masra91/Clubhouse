@@ -1,16 +1,30 @@
 import { useUIStore } from '../stores/uiStore';
 import { useAgentStore } from '../stores/agentStore';
 import { AgentTerminal } from '../features/agents/AgentTerminal';
+import { SleepingClaude } from '../features/agents/SleepingClaude';
+import { AgentSettingsView } from '../features/agents/AgentSettingsView';
 import { GitLog } from '../features/git/GitLog';
 import { FileViewer } from '../features/files/FileViewer';
 import { ProjectSettings } from '../features/settings/ProjectSettings';
+import { StandaloneTerminal } from '../features/terminal/StandaloneTerminal';
 
 export function MainContentView() {
   const { explorerTab } = useUIStore();
-  const { activeAgentId, agents } = useAgentStore();
+  const { activeAgentId, agents, agentSettingsOpenFor } = useAgentStore();
 
   if (explorerTab === 'agents') {
     const activeAgent = activeAgentId ? agents[activeAgentId] : null;
+
+    // Show settings view if open for the active durable agent
+    if (
+      agentSettingsOpenFor &&
+      agentSettingsOpenFor === activeAgentId &&
+      activeAgent &&
+      activeAgent.kind === 'durable' &&
+      activeAgent.worktreePath
+    ) {
+      return <AgentSettingsView agent={activeAgent} />;
+    }
 
     if (!activeAgent) {
       return (
@@ -23,16 +37,8 @@ export function MainContentView() {
       );
     }
 
-    if (activeAgent.status === 'sleeping') {
-      return (
-        <div className="flex items-center justify-center h-full bg-ctp-base">
-          <div className="text-center text-ctp-subtext0">
-            <p className="text-lg mb-2">{activeAgent.name}</p>
-            <p className="text-sm mb-3">This agent is sleeping</p>
-            <p className="text-xs">Click the play button in the sidebar to wake it</p>
-          </div>
-        </div>
-      );
+    if (activeAgent.status === 'sleeping' || activeAgent.status === 'stopped' || activeAgent.status === 'error') {
+      return <SleepingClaude agent={activeAgent} />;
     }
 
     return (
@@ -40,6 +46,10 @@ export function MainContentView() {
         <AgentTerminal agentId={activeAgentId!} />
       </div>
     );
+  }
+
+  if (explorerTab === 'terminal') {
+    return <StandaloneTerminal />;
   }
 
   if (explorerTab === 'files') {

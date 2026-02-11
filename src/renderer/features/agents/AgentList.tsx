@@ -3,12 +3,14 @@ import { useAgentStore } from '../../stores/agentStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { AgentListItem } from './AgentListItem';
 import { AddAgentDialog } from './AddAgentDialog';
+import { DeleteAgentDialog } from './DeleteAgentDialog';
 
 export function AgentList() {
   const {
     agents, activeAgentId, setActiveAgent,
     spawnQuickAgent, spawnDurableAgent,
     loadDurableAgents, agentActivity, recordActivity,
+    deleteDialogAgent,
   } = useAgentStore();
   const { activeProjectId, projects } = useProjectStore();
 
@@ -170,13 +172,14 @@ export function AgentList() {
         )}
       </div>
 
-      {/* Dialog */}
+      {/* Dialogs */}
       {showDialog && (
         <AddAgentDialog
           onClose={() => setShowDialog(false)}
           onCreate={handleCreateDurable}
         />
       )}
+      {deleteDialogAgent && <DeleteAgentDialog />}
     </div>
   );
 }

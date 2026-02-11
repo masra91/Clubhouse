@@ -1,8 +1,9 @@
+import { ReactNode } from 'react';
 import { useUIStore } from '../stores/uiStore';
 import { useProjectStore } from '../stores/projectStore';
 import { ExplorerTab } from '../../shared/types';
 
-const TABS: { id: ExplorerTab; label: string; icon: JSX.Element }[] = [
+const TABS: { id: ExplorerTab; label: string; icon: ReactNode }[] = [
   {
     id: 'agents',
     label: 'Agents',
@@ -21,6 +22,16 @@ const TABS: { id: ExplorerTab; label: string; icon: JSX.Element }[] = [
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'terminal',
+    label: 'Terminal',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="4 17 10 11 4 5" />
+        <line x1="12" y1="19" x2="20" y2="19" />
       </svg>
     ),
   },

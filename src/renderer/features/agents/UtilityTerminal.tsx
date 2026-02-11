@@ -2,10 +2,6 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 
-interface Props {
-  agentId: string;
-}
-
 const CATPPUCCIN_THEME = {
   background: '#1e1e2e',
   foreground: '#cdd6f4',
@@ -31,10 +27,17 @@ const CATPPUCCIN_THEME = {
   brightWhite: '#a6adc8',
 };
 
-export function AgentTerminal({ agentId }: Props) {
+interface Props {
+  agentId: string;
+  worktreePath: string;
+}
+
+export function UtilityTerminal({ agentId, worktreePath }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+
+  const ptyId = `utility_${agentId}`;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -53,44 +56,38 @@ export function AgentTerminal({ agentId }: Props) {
     term.loadAddon(fitAddon);
     term.open(containerRef.current);
 
-    // Initial fit, replay buffered output, and focus
     requestAnimationFrame(() => {
       fitAddon.fit();
-      window.clubhouse.pty.resize(agentId, term.cols, term.rows);
-      term.focus();
-      // Replay buffered output so switching agents restores the terminal
-      window.clubhouse.pty.getBuffer(agentId).then((buf: string) => {
-        if (buf && terminalRef.current === term) {
-          term.write(buf);
-        }
-      });
+      window.clubhouse.pty.resize(ptyId, term.cols, term.rows);
     });
 
     terminalRef.current = term;
     fitAddonRef.current = fitAddon;
 
-    // Forward user input to PTY
-    const inputDisposable = term.onData((data) => {
-      window.clubhouse.pty.write(agentId, data);
+    // Kill any leftover PTY from a previous mount, then spawn fresh
+    window.clubhouse.pty.kill(ptyId).catch(() => {}).then(() => {
+      window.clubhouse.pty.spawnShell(ptyId, worktreePath);
     });
 
-    // Receive PTY output
+    const inputDisposable = term.onData((data) => {
+      window.clubhouse.pty.write(ptyId, data);
+    });
+
     const removeDataListener = window.clubhouse.pty.onData(
       (id: string, data: string) => {
-        if (id === agentId) {
+        if (id === ptyId) {
           term.write(data);
         }
       }
     );
 
-    // Resize observer
     const resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(() => {
         if (fitAddonRef.current) {
           fitAddonRef.current.fit();
           if (terminalRef.current) {
             window.clubhouse.pty.resize(
-              agentId,
+              ptyId,
               terminalRef.current.cols,
               terminalRef.current.rows
             );
@@ -107,8 +104,9 @@ export function AgentTerminal({ agentId }: Props) {
       term.dispose();
       terminalRef.current = null;
       fitAddonRef.current = null;
+      window.clubhouse.pty.kill(ptyId);
     };
-  }, [agentId]);
+  }, [ptyId, worktreePath]);
 
   return (
     <div

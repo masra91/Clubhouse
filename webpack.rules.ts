@@ -28,4 +28,8 @@ export const rules: Required<ModuleOptions>['rules'] = [
       },
     },
   },
+  {
+    test: /\.ttf$/,
+    type: 'asset/resource',
+  },
 ];
