@@ -110,7 +110,7 @@ export function StandaloneTerminal() {
   return (
     <div
       ref={containerRef}
-      className="w-full h-full"
+      className="w-full h-full overflow-hidden"
       style={{ padding: '8px' }}
     />
   );
