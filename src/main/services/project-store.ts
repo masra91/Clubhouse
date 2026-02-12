@@ -46,7 +46,7 @@ function migrate(raw: unknown): ProjectStoreV1 {
 
   // Already at current version
   if (obj.version === CURRENT_VERSION) {
-    return obj as ProjectStoreV1;
+    return obj as unknown as ProjectStoreV1;
   }
 
   // Future versions we don't understand — preserve projects array if present

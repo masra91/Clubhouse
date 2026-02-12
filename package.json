@@ -2,7 +2,7 @@
   "name": "clubhouse",
   "productName": "Clubhouse",
   "version": "0.5.0",
-  "description": "Claude Agent Manager - Slack-like GUI for managing multiple Claude Code CLI instances",
+  "description": "A place to hangout with your agent BFFs",
   "main": ".webpack/main",
   "private": true,
   "scripts": {

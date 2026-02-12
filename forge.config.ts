@@ -7,22 +7,35 @@ import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-nati
 import { WebpackPlugin } from '@electron-forge/plugin-webpack';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import path from 'path';
 
 import { mainConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';
 
 const config: ForgeConfig = {
   packagerConfig: {
+    icon: path.resolve(__dirname, 'assets', 'icon'),
     asar: {
       unpack: '**/node_modules/node-pty/**',
     },
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({}),
     new MakerZIP({}, ['darwin']),
-    new MakerRpm({}),
-    new MakerDeb({}),
+    new MakerSquirrel({
+      iconUrl: 'https://raw.githubusercontent.com/masonallen/Clubhouse/main/assets/icon.ico',
+      setupIcon: path.resolve(__dirname, 'assets', 'icon.ico'),
+    }),
+    new MakerDeb({
+      options: {
+        icon: path.resolve(__dirname, 'assets', 'icon.png'),
+      },
+    }),
+    new MakerRpm({
+      options: {
+        icon: path.resolve(__dirname, 'assets', 'icon.png'),
+      },
+    }),
   ],
   plugins: [
     new AutoUnpackNativesPlugin({}),
