@@ -40,6 +40,7 @@ export const IPC = {
     DELETE_FORCE: 'agent:delete-force',
     DELETE_UNREGISTER: 'agent:delete-unregister',
     RENAME_DURABLE: 'agent:rename-durable',
+    UPDATE_DURABLE: 'agent:update-durable',
     READ_QUICK_SUMMARY: 'agent:read-quick-summary',
     GET_LOCAL_SETTINGS: 'agent:get-local-settings',
     SAVE_LOCAL_SETTINGS: 'agent:save-local-settings',
@@ -53,6 +54,8 @@ export const IPC = {
     READ_BINARY: 'file:read-binary',
     WRITE: 'file:write',
     SHOW_IN_FOLDER: 'file:show-in-folder',
+    MKDIR: 'file:mkdir',
+    DELETE: 'file:delete',
   },
   GIT: {
     INFO: 'git:info',

@@ -104,9 +104,13 @@ export function App() {
         const name = agent?.name ?? agentId;
         checkAndNotify(name, event.eventName, event.toolName);
 
-        // Auto-exit quick agents when Claude finishes (Stop event)
+        // Auto-exit quick agents when Claude finishes (Stop event).
+        // Short delay lets Claude finish rendering before we send /exit.
+        // pty.kill triggers gracefulKill: sends /exit then force-kills after 5s.
         if (event.eventName === 'Stop' && agent?.kind === 'quick') {
-          window.clubhouse.pty.write(agentId, '/exit\n');
+          setTimeout(() => {
+            window.clubhouse.pty.kill(agentId);
+          }, 500);
         }
       }
     );
@@ -121,6 +125,7 @@ export function App() {
     files: 'Files',
     terminal: 'Terminal',
     git: 'Git',
+    notes: 'Notes',
     hub: 'Hub',
     settings: 'Settings',
   };
