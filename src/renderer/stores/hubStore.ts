@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { useLayoutStore } from './layoutStore';
 
 export type PaneNode =
   | { id: string; type: 'leaf'; agentId: string | null }
@@ -199,8 +198,6 @@ export const useHubStore = create<HubState>((set, get) => ({
       const newFocus = getFirstLeafId(sibling);
       set({ paneTree: newTree, focusedPaneId: newFocus });
       saveToStorage(get().activeProjectId, newTree);
-      // Clean up orphaned split ratio
-      useLayoutStore.getState().removeHubSplitRatio(parent.id);
     }
   },
 

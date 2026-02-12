@@ -1,11 +1,20 @@
 import { useState, useCallback } from 'react';
 import { AgentTerminal } from '../agents/AgentTerminal';
+import { SleepingClaude } from '../agents/SleepingClaude';
 import { AgentPicker } from './AgentPicker';
 import { QuickAgentGhost } from './QuickAgentGhost';
 import { useHubStore } from '../../stores/hubStore';
 import { useAgentStore } from '../../stores/agentStore';
 import { useQuickAgentStore } from '../../stores/quickAgentStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { AgentAvatar } from '../agents/AgentAvatar';
+import { Agent } from '../../../shared/types';
+
+const STATUS_RING_COLOR: Record<string, string> = {
+  running: '#22c55e',
+  sleeping: '#6c7086',
+  error: '#f87171',
+};
 
 interface Props {
   paneId: string;
@@ -27,6 +36,7 @@ export function HubPane({ paneId, agentId, onCloseConfirm }: Props) {
 
   const isFocused = focusedPaneId === paneId;
   const agent = agentId ? agents[agentId] : null;
+  const attentionClass = useAttentionBorder(agent);
 
   // Check if this pane's agent was a completed quick agent (agent removed from store)
   const completedRecord = agentId && !agent
@@ -72,6 +82,10 @@ export function HubPane({ paneId, agentId, onCloseConfirm }: Props) {
             useHubStore.getState().removePanesByAgent(completedRecord.id);
           }}
         />
+        {/* Focus ring overlay */}
+        {isFocused && (
+          <div className="absolute inset-0 border border-indigo-500 pointer-events-none z-20" />
+        )}
       </div>
     );
   }
@@ -83,18 +97,29 @@ export function HubPane({ paneId, agentId, onCloseConfirm }: Props) {
         onClick={() => setFocusedPane(paneId)}
       >
         <AgentPicker paneId={paneId} />
+        {/* Focus ring overlay */}
+        {isFocused && (
+          <div className="absolute inset-0 border border-indigo-500 pointer-events-none z-20" />
+        )}
       </div>
     );
   }
 
   return (
     <div
-      className={`h-full w-full relative overflow-hidden ${isFocused ? 'ring-1 ring-indigo-500 ring-inset' : ''}`}
+      className="h-full w-full relative overflow-hidden"
       onClick={() => setFocusedPane(paneId)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <AgentTerminal agentId={agentId} focused={isFocused} />
+      {agent.status === 'running' ? (
+        <AgentTerminal agentId={agentId} focused={isFocused} />
+      ) : (
+        <SleepingClaude agent={agent} />
+      )}
+
+      {/* Persistent status chip — always visible */}
+      {agent && !hovered && <StatusChip agent={agent} />}
 
       {/* Hover overlay */}
       {hovered && (
@@ -103,10 +128,7 @@ export function HubPane({ paneId, agentId, onCloseConfirm }: Props) {
           <div className="absolute top-0 left-0 right-0 h-8 bg-ctp-mantle/90 border-b border-surface-0 flex items-center px-2 gap-2 z-10">
             {agent && (
               <>
-                <span
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: agent.color }}
-                />
+                <AgentAvatar agent={agent} size="sm" showRing ringColor={STATUS_RING_COLOR[agent.status] || STATUS_RING_COLOR.sleeping} />
                 <span className="text-xs text-ctp-text truncate flex-1">{agent.name}</span>
               </>
             )}
@@ -128,8 +150,46 @@ export function HubPane({ paneId, agentId, onCloseConfirm }: Props) {
           <SplitButton direction="right" paneId={paneId} className="absolute right-1 top-1/2 -translate-y-1/2 z-10" />
         </>
       )}
+
+      {/* Attention border — pulsing orange for needs_permission, static yellow for tool_error */}
+      {attentionClass && (
+        <div className={`absolute inset-0 pointer-events-none z-[19] ${attentionClass}`} />
+      )}
+
+      {/* Focus ring overlay — renders above hover bar */}
+      {isFocused && (
+        <div className="absolute inset-0 border border-indigo-500 pointer-events-none z-20" />
+      )}
     </div>
   );
+}
+
+function StatusChip({ agent }: { agent: Agent }) {
+  const detailed = useAgentStore((s) => s.agentDetailedStatus[agent.id]);
+  const baseRingColor = STATUS_RING_COLOR[agent.status] || STATUS_RING_COLOR.sleeping;
+  const ringColor = agent.status === 'running' && detailed?.state === 'needs_permission' ? '#f97316'
+    : agent.status === 'running' && detailed?.state === 'tool_error' ? '#facc15'
+    : baseRingColor;
+  const isWorking = agent.status === 'running' && detailed?.state === 'working';
+
+  return (
+    <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-1.5 px-1.5 py-0.5 rounded-md bg-ctp-mantle/80 backdrop-blur-sm border border-surface-0/50 pointer-events-none select-none max-w-[45%]">
+      <div className={`relative flex-shrink-0 ${isWorking ? 'animate-pulse-ring' : ''}`}>
+        <AgentAvatar agent={agent} size="sm" showRing ringColor={ringColor} />
+      </div>
+      <span className="text-[10px] text-ctp-subtext1 truncate leading-none">{agent.name}</span>
+    </div>
+  );
+}
+
+function useAttentionBorder(agent: Agent | null): string | null {
+  const detailed = useAgentStore((s) =>
+    agent ? s.agentDetailedStatus[agent.id] : undefined
+  );
+  if (!agent || agent.status !== 'running') return null;
+  if (detailed?.state === 'needs_permission') return 'animate-attention-border attention-border-orange';
+  if (detailed?.state === 'tool_error') return 'attention-border-yellow';
+  return null;
 }
 
 function SplitButton({ direction, paneId, className }: { direction: 'up' | 'down' | 'left' | 'right'; paneId: string; className: string }) {

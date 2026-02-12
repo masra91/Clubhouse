@@ -1,7 +1,7 @@
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
-import { findClaudeBinary } from '../util/shell';
+import { findClaudeBinary, getShellEnvironment } from '../util/shell';
 
 interface ManagedPty {
   process: pty.IPty;
@@ -15,6 +15,8 @@ const ptys = new Map<string, ManagedPty>();
 const outputBuffers = new Map<string, string[]>();
 const bufferSizes = new Map<string, number>();
 const killTimers = new Map<string, ReturnType<typeof setTimeout>>();
+// Pending commands: shell spawns first, command fires after terminal sends real size
+const pendingCommands = new Map<string, string>();
 
 function appendToBuffer(agentId: string, data: string): void {
   let chunks = outputBuffers.get(agentId);
@@ -55,15 +57,20 @@ export function spawn(agentId: string, projectPath: string, claudeArgs: string[]
   bufferSizes.delete(agentId);
 
   const claudePath = findClaudeBinary();
+  const shellCmd = [claudePath, ...claudeArgs].map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ');
+  const shell = process.env.SHELL || '/bin/zsh';
 
-  const proc = pty.spawn(claudePath, claudeArgs, {
+  // Spawn a bare interactive shell first. The claude command is written to stdin
+  // after the terminal mounts and sends the real resize (see pendingCommands).
+  const proc = pty.spawn(shell, ['-il'], {
     name: 'xterm-256color',
     cwd: projectPath,
-    env: { ...process.env } as Record<string, string>,
+    env: getShellEnvironment(),
     cols: 120,
     rows: 30,
   });
 
+  pendingCommands.set(agentId, shellCmd);
   const managed: ManagedPty = { process: proc, agentId, lastActivity: Date.now(), killing: false };
   ptys.set(agentId, managed);
 
@@ -108,10 +115,10 @@ export function spawnShell(id: string, projectPath: string): void {
 
   const shellPath = process.env.SHELL || '/bin/zsh';
 
-  const proc = pty.spawn(shellPath, [], {
+  const proc = pty.spawn(shellPath, ['-il'], {
     name: 'xterm-256color',
     cwd: projectPath,
-    env: { ...process.env } as Record<string, string>,
+    env: getShellEnvironment(),
     cols: 120,
     rows: 30,
   });
@@ -155,6 +162,13 @@ export function resize(agentId: string, cols: number, rows: number): void {
   const managed = ptys.get(agentId);
   if (managed) {
     managed.process.resize(cols, rows);
+  }
+  // If there's a pending command, the terminal just sent its real size — fire it now.
+  const cmd = pendingCommands.get(agentId);
+  if (cmd && managed) {
+    pendingCommands.delete(agentId);
+    // exec replaces the shell so exit signals propagate cleanly
+    managed.process.write(`exec ${cmd}\n`);
   }
 }
 
