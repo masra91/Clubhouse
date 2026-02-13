@@ -201,6 +201,7 @@ export interface ThemeDefinition {
 
 export interface GitStatusFile {
   path: string;
+  origPath?: string;  // For renames/copies: the original path
   status: string;
   staged: boolean;
 }
@@ -222,6 +223,8 @@ export interface GitInfo {
   ahead: number;
   behind: number;
   remote: string;
+  stashCount: number;
+  hasConflicts: boolean;
 }
 
 export interface GitOpResult {

@@ -104,12 +104,22 @@ const api = {
       ipcRenderer.invoke(IPC.GIT.STAGE, dirPath, filePath),
     unstage: (dirPath: string, filePath: string) =>
       ipcRenderer.invoke(IPC.GIT.UNSTAGE, dirPath, filePath),
+    stageAll: (dirPath: string) =>
+      ipcRenderer.invoke(IPC.GIT.STAGE_ALL, dirPath),
+    unstageAll: (dirPath: string) =>
+      ipcRenderer.invoke(IPC.GIT.UNSTAGE_ALL, dirPath),
+    discard: (dirPath: string, filePath: string, isUntracked: boolean) =>
+      ipcRenderer.invoke(IPC.GIT.DISCARD, dirPath, filePath, isUntracked),
     commit: (dirPath: string, message: string) =>
       ipcRenderer.invoke(IPC.GIT.COMMIT, dirPath, message),
     push: (dirPath: string) => ipcRenderer.invoke(IPC.GIT.PUSH, dirPath),
     pull: (dirPath: string) => ipcRenderer.invoke(IPC.GIT.PULL, dirPath),
     diff: (dirPath: string, filePath: string, staged: boolean) =>
       ipcRenderer.invoke(IPC.GIT.DIFF, dirPath, filePath, staged),
+    createBranch: (dirPath: string, branchName: string) =>
+      ipcRenderer.invoke(IPC.GIT.CREATE_BRANCH, dirPath, branchName),
+    stash: (dirPath: string) => ipcRenderer.invoke(IPC.GIT.STASH, dirPath),
+    stashPop: (dirPath: string) => ipcRenderer.invoke(IPC.GIT.STASH_POP, dirPath),
   },
   agentSettings: {
     readClaudeMd: (worktreePath: string) =>
