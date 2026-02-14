@@ -1,6 +1,7 @@
 import { OrchestratorId, OrchestratorProvider } from './types';
 import { ClaudeCodeProvider } from './claude-code-provider';
 import { CopilotCliProvider } from './copilot-cli-provider';
+import { OpenCodeProvider } from './opencode-provider';
 
 const providers = new Map<OrchestratorId, OrchestratorProvider>();
 
@@ -20,4 +21,5 @@ export function getAllProviders(): OrchestratorProvider[] {
 export function registerBuiltinProviders(): void {
   registerProvider(new ClaudeCodeProvider());
   registerProvider(new CopilotCliProvider());
+  registerProvider(new OpenCodeProvider());
 }
