@@ -59,14 +59,14 @@ describe('plugin system integration', () => {
     expect(getPlugin('files')?.fullWidth).toBeFalsy();
   });
 
-  it('pluginStore defaults all registered plugins to enabled', async () => {
+  it('pluginStore defaults to core plugins when no config exists', async () => {
     registerPlugin(makePlugin('files'));
     registerPlugin(makePlugin('git'));
     registerPlugin(makePlugin('notes'));
 
     await usePluginStore.getState().loadPluginConfig('proj1', '/path');
     const enabled = usePluginStore.getState().getEnabledPluginIds('proj1');
-    expect(enabled).toEqual(['files', 'git', 'notes']);
+    expect(enabled).toEqual(['files', 'git', 'terminal']);
   });
 
   it('disabling a plugin removes it from enabled list', async () => {

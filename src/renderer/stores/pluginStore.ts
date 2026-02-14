@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { getPluginIds } from '../plugins/registry';
 
+const DEFAULT_PLUGINS = ['files', 'git', 'terminal'];
+
 interface PluginStoreState {
   /** projectId → array of enabled plugin IDs */
   enabledPlugins: Record<string, string[]>;
 
-  /** Load plugin config for a project from disk, defaulting all plugins to enabled. */
+  /** Load plugin config for a project from disk, defaulting to core plugins only. */
   loadPluginConfig: (projectId: string, projectPath: string) => Promise<void>;
 
   /** Enable or disable a specific plugin for a project, persisting to disk. */
@@ -26,7 +28,6 @@ export const usePluginStore = create<PluginStoreState>((set, get) => ({
   enabledPlugins: {},
 
   loadPluginConfig: async (projectId, projectPath) => {
-    const allIds = getPluginIds();
     try {
       const content = await window.clubhouse.file.read(configPath(projectPath));
       const data = JSON.parse(content) as { enabled?: string[] };
@@ -37,15 +38,15 @@ export const usePluginStore = create<PluginStoreState>((set, get) => ({
         return;
       }
     } catch {
-      // File doesn't exist or is invalid — default all plugins to enabled
+      // File doesn't exist or is invalid — default to core plugins
     }
     set((s) => ({
-      enabledPlugins: { ...s.enabledPlugins, [projectId]: [...allIds] },
+      enabledPlugins: { ...s.enabledPlugins, [projectId]: [...DEFAULT_PLUGINS] },
     }));
   },
 
   setPluginEnabled: async (projectId, projectPath, pluginId, enabled) => {
-    const current = get().enabledPlugins[projectId] ?? getPluginIds();
+    const current = get().enabledPlugins[projectId] ?? [...DEFAULT_PLUGINS];
     const updated = enabled
       ? current.includes(pluginId) ? current : [...current, pluginId]
       : current.filter((id) => id !== pluginId);
@@ -66,11 +67,11 @@ export const usePluginStore = create<PluginStoreState>((set, get) => ({
 
   isPluginEnabled: (projectId, pluginId) => {
     const list = get().enabledPlugins[projectId];
-    if (!list) return true; // No config loaded yet — default enabled
+    if (!list) return DEFAULT_PLUGINS.includes(pluginId);
     return list.includes(pluginId);
   },
 
   getEnabledPluginIds: (projectId) => {
-    return get().enabledPlugins[projectId] ?? getPluginIds();
+    return get().enabledPlugins[projectId] ?? [...DEFAULT_PLUGINS];
   },
 }));

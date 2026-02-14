@@ -42,16 +42,16 @@ describe('pluginStore', () => {
       expect(usePluginStore.getState().enabledPlugins['proj1']).toEqual(['files', 'git']);
     });
 
-    it('defaults all plugins to enabled when file does not exist', async () => {
+    it('defaults to core plugins when file does not exist', async () => {
       mockRead.mockRejectedValue(new Error('ENOENT'));
       await usePluginStore.getState().loadPluginConfig('proj1', '/path/to/project');
-      expect(usePluginStore.getState().enabledPlugins['proj1']).toEqual(['files', 'notes', 'git']);
+      expect(usePluginStore.getState().enabledPlugins['proj1']).toEqual(['files', 'git', 'terminal']);
     });
 
-    it('defaults all plugins to enabled when file has invalid JSON', async () => {
+    it('defaults to core plugins when file has invalid JSON', async () => {
       mockRead.mockResolvedValue('not json');
       await usePluginStore.getState().loadPluginConfig('proj1', '/path/to/project');
-      expect(usePluginStore.getState().enabledPlugins['proj1']).toEqual(['files', 'notes', 'git']);
+      expect(usePluginStore.getState().enabledPlugins['proj1']).toEqual(['files', 'git', 'terminal']);
     });
   });
 
@@ -105,8 +105,8 @@ describe('pluginStore', () => {
       expect(usePluginStore.getState().getEnabledPluginIds('proj1')).toEqual(['git']);
     });
 
-    it('returns all plugin ids when no config loaded', () => {
-      expect(usePluginStore.getState().getEnabledPluginIds('unknown')).toEqual(['files', 'notes', 'git']);
+    it('returns default plugin ids when no config loaded', () => {
+      expect(usePluginStore.getState().getEnabledPluginIds('unknown')).toEqual(['files', 'git', 'terminal']);
     });
   });
 });

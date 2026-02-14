@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { IPC } from '../../shared/ipc-channels';
 import * as projectStore from '../services/project-store';
-import * as agentConfig from '../services/agent-config';
+import { ensureGitignore } from '../services/agent-config';
 
 export function registerProjectHandlers(): void {
   ipcMain.handle(IPC.PROJECT.LIST, () => {
@@ -14,9 +14,9 @@ export function registerProjectHandlers(): void {
   ipcMain.handle(IPC.PROJECT.ADD, (_event, dirPath: string) => {
     const project = projectStore.add(dirPath);
     try {
-      agentConfig.ensureHostAgent(dirPath);
+      ensureGitignore(dirPath);
     } catch {
-      // Non-fatal — host creation may fail if no git, etc.
+      // Non-fatal
     }
     return project;
   });
