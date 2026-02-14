@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { getPluginIds } from '../plugins/registry';
 
-const DEFAULT_PLUGINS = ['terminal'];
+const DEFAULT_PLUGINS: string[] = [];
 
 interface PluginConfig {
   enabled: string[];

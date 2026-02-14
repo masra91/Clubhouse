@@ -84,7 +84,7 @@ export interface FileNode {
 
 export type ExplorerTab = string;
 
-export const CORE_TAB_IDS = ['agents', 'hub', 'settings'] as const;
+export const CORE_TAB_IDS = ['agents', 'hub', 'terminal', 'settings'] as const;
 
 export interface NotificationSettings {
   enabled: boolean;

@@ -28,7 +28,7 @@ export function App() {
   const loadDurableAgents = useAgentStore((s) => s.loadDurableAgents);
   const explorerTab = useUIStore((s) => s.explorerTab);
   const setExplorerTab = useUIStore((s) => s.setExplorerTab);
-  const isFullWidth = explorerTab === 'hub' || (getPlugin(explorerTab)?.fullWidth === true);
+  const isFullWidth = explorerTab === 'hub' || explorerTab === 'terminal' || (getPlugin(explorerTab)?.fullWidth === true);
   const loadNotificationSettings = useNotificationStore((s) => s.loadSettings);
   const loadTheme = useThemeStore((s) => s.loadTheme);
   const checkAndNotify = useNotificationStore((s) => s.checkAndNotify);
@@ -97,7 +97,7 @@ export function App() {
 
     if (shouldSwitch) {
       // Find the first visible tab: prefer 'agents', then 'hub', then first enabled plugin
-      const coreFallbacks = ['agents', 'hub'] as const;
+      const coreFallbacks = ['agents', 'hub', 'terminal'] as const;
       for (const tab of coreFallbacks) {
         if (!hidden.includes(tab)) {
           setExplorerTab(tab);
@@ -210,6 +210,7 @@ export function App() {
   const CORE_LABELS: Record<string, string> = {
     agents: 'Agents',
     hub: 'Hub',
+    terminal: 'Terminal',
     settings: 'Settings',
   };
   const tabLabel = CORE_LABELS[explorerTab] || pluginLabel || explorerTab;

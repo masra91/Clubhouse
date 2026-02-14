@@ -1,18 +1,7 @@
-import { registerPlugin } from './registry';
-import { filesPlugin } from './files-plugin';
-import { notesPlugin } from './notes-plugin';
-import { gitPlugin } from './git-plugin';
-import { schedulerPlugin } from './scheduler-plugin';
-import { terminalPlugin } from './terminal-plugin';
-
 /**
  * Imports and registers all built-in plugins.
  * Call once at app startup before rendering.
  */
 export function registerAllPlugins(): void {
-  registerPlugin(filesPlugin);
-  registerPlugin(gitPlugin);
-  registerPlugin(terminalPlugin);
-  registerPlugin(notesPlugin);
-  registerPlugin(schedulerPlugin);
+  // No plugins currently registered — terminal is now a core view
 }

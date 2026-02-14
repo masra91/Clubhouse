@@ -11,6 +11,7 @@ import { NotificationSettingsView } from '../features/settings/NotificationSetti
 import { DisplaySettingsView } from '../features/settings/DisplaySettingsView';
 import { PluginSettingsView } from '../features/settings/PluginSettingsView';
 import { CommandCenter } from '../features/hub/CommandCenter';
+import { StandaloneTerminal } from '../features/terminal/StandaloneTerminal';
 import { getPlugin } from '../plugins';
 
 export function MainContentView() {
@@ -70,6 +71,10 @@ export function MainContentView() {
 
   if (explorerTab === 'hub') {
     return <CommandCenter />;
+  }
+
+  if (explorerTab === 'terminal') {
+    return <StandaloneTerminal />;
   }
 
   if (explorerTab === 'settings') {
