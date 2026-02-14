@@ -70,9 +70,12 @@ export function ProjectRail() {
   const explorerTab = useUIStore((s) => s.explorerTab);
   const setExplorerTab = useUIStore((s) => s.setExplorerTab);
   const previousExplorerTab = useUIStore((s) => s.previousExplorerTab);
+  const showHome = useUIStore((s) => s.showHome);
+  const showCrossHub = useUIStore((s) => s.showCrossHub);
 
   const inSettings = explorerTab === 'settings';
-  const isHome = activeProjectId === null && !inSettings;
+  const isCrossHub = explorerTab === 'cross-hub';
+  const isHome = activeProjectId === null && !inSettings && !isCrossHub;
 
   const [expanded, setExpanded] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -99,9 +102,11 @@ export function ProjectRail() {
     if (inSettings) {
       setExplorerTab(previousExplorerTab || 'agents');
       useUIStore.setState({ previousExplorerTab: null });
+    } else if (isCrossHub) {
+      setExplorerTab('agents');
     }
     action();
-  }, [inSettings, previousExplorerTab, setExplorerTab]);
+  }, [inSettings, isCrossHub, previousExplorerTab, setExplorerTab]);
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -162,34 +167,75 @@ export function ProjectRail() {
         style={{ width: expanded ? 200 : 60 }}
       >
         {/* Home button */}
-        <button
-          onClick={() => exitSettingsAndNavigate(() => setActiveProject(null))}
-          title="Home"
-          className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 pr-[10px] ${
-            expanded ? 'hover:bg-surface-0' : ''
-          }`}
-        >
-          <div
-            className={`
-              w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
-              transition-colors duration-100
-              ${isHome
-                ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30'
-                : expanded
-                  ? 'bg-surface-1 text-ctp-subtext0'
-                  : 'bg-surface-1 text-ctp-subtext0 hover:bg-surface-2 hover:text-ctp-text'
-              }
-            `}
+        {showHome && (
+          <button
+            onClick={() => exitSettingsAndNavigate(() => setActiveProject(null))}
+            title="Home"
+            className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 pr-[10px] ${
+              expanded ? 'hover:bg-surface-0' : ''
+            }`}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
-          </div>
-          <span className="text-xs font-medium truncate pr-3 whitespace-nowrap text-ctp-text">Home</span>
-        </button>
+            <div
+              className={`
+                w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
+                transition-colors duration-100
+                ${isHome
+                  ? 'bg-ctp-accent text-white shadow-lg shadow-ctp-accent/30'
+                  : expanded
+                    ? 'bg-surface-1 text-ctp-subtext0'
+                    : 'bg-surface-1 text-ctp-subtext0 hover:bg-surface-2 hover:text-ctp-text'
+                }
+              `}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
+              </svg>
+            </div>
+            <span className="text-xs font-medium truncate pr-3 whitespace-nowrap text-ctp-text">Home</span>
+          </button>
+        )}
 
-        <div className="mr-[10px] border-t border-surface-2 my-1 flex-shrink-0" />
+        {/* Cross-Project Hub button */}
+        {showCrossHub && (
+          <button
+            onClick={() => exitSettingsAndNavigate(() => setExplorerTab('cross-hub'))}
+            title="Cross-Project Hub"
+            className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 pr-[10px] ${
+              expanded ? 'hover:bg-surface-0' : ''
+            }`}
+          >
+            <div
+              className={`
+                w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
+                transition-colors duration-100
+                ${isCrossHub
+                  ? 'bg-ctp-accent text-white shadow-lg shadow-ctp-accent/30'
+                  : expanded
+                    ? 'bg-surface-1 text-ctp-subtext0'
+                    : 'bg-surface-1 text-ctp-subtext0 hover:bg-surface-2 hover:text-ctp-text'
+                }
+              `}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <circle cx="5" cy="6" r="2" />
+                <circle cx="19" cy="6" r="2" />
+                <circle cx="5" cy="18" r="2" />
+                <circle cx="19" cy="18" r="2" />
+                <line x1="9.5" y1="10" x2="6.5" y2="7.5" />
+                <line x1="14.5" y1="10" x2="17.5" y2="7.5" />
+                <line x1="9.5" y1="14" x2="6.5" y2="16.5" />
+                <line x1="14.5" y1="14" x2="17.5" y2="16.5" />
+              </svg>
+            </div>
+            <span className="text-xs font-medium truncate pr-3 whitespace-nowrap text-ctp-text">Cross-Project Hub</span>
+          </button>
+        )}
+
+        {(showHome || showCrossHub) && (
+          <div className="mr-[10px] border-t border-surface-2 my-1 flex-shrink-0" />
+        )}
 
         {projects.map((p, i) => (
           <div
@@ -207,7 +253,7 @@ export function ProjectRail() {
             )}
             <ProjectIcon
               project={p}
-              isActive={!inSettings && p.id === activeProjectId}
+              isActive={!inSettings && !isCrossHub && p.id === activeProjectId}
               onClick={() => exitSettingsAndNavigate(() => setActiveProject(p.id))}
               expanded={expanded}
             />
@@ -238,7 +284,7 @@ export function ProjectRail() {
               w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0
               transition-colors duration-100
               ${inSettings
-                ? 'bg-surface-2 text-ctp-text'
+                ? 'bg-ctp-accent text-white shadow-lg shadow-ctp-accent/30'
                 : expanded
                   ? 'text-ctp-subtext0'
                   : 'text-ctp-subtext0 hover:bg-surface-1 hover:text-ctp-text'
