@@ -63,9 +63,25 @@ export function App() {
       if (state.explorerTab !== 'settings') {
         state.toggleSettings();
       }
-      state.setSettingsSubPage('notifications');
     });
     return () => remove();
+  }, []);
+
+  // Cmd+1-9: switch to Nth project
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
+      const digit = e.key >= '1' && e.key <= '9' ? parseInt(e.key, 10) : 0;
+      if (!digit) return;
+      const { projects: ps, setActiveProject } = useProjectStore.getState();
+      const target = ps[digit - 1];
+      if (target) {
+        e.preventDefault();
+        setActiveProject(target.id);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   // Load durable agents for all projects so the dashboard shows them
