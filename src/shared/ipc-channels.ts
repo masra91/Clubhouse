@@ -89,6 +89,7 @@ export const IPC = {
     SAVE_THEME: 'app:save-theme',
     GET_ORCHESTRATOR_SETTINGS: 'app:get-orchestrator-settings',
     SAVE_ORCHESTRATOR_SETTINGS: 'app:save-orchestrator-settings',
+    GET_VERSION: 'app:get-version',
   },
   PLUGIN: {
     DISCOVER_COMMUNITY: 'plugin:discover-community',

@@ -132,7 +132,7 @@ describe('manifest-validator', () => {
     it('rejects unsupported API version', () => {
       const result = validateManifest({ ...validManifest, engine: { api: 99 } });
       expect(result.valid).toBe(false);
-      expect(result.errors[0]).toContain('Unsupported API version');
+      expect(result.errors[0]).toContain('not supported by this version of Clubhouse');
     });
 
     // --- Scope checks ---

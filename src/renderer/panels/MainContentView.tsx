@@ -13,6 +13,7 @@ import { OrchestratorSettingsView } from '../features/settings/OrchestratorSetti
 import { PluginContentView } from './PluginContentView';
 import { PluginDetailSettings } from '../features/settings/PluginDetailSettings';
 import { PluginListSettings } from '../features/settings/PluginListSettings';
+import { AboutSettingsView } from '../features/settings/AboutSettingsView';
 
 export function MainContentView() {
   const { explorerTab, settingsSubPage, settingsContext } = useUIStore();
@@ -76,6 +77,7 @@ export function MainContentView() {
     if (settingsSubPage === 'display') return <DisplaySettingsView />;
     if (settingsSubPage === 'plugin-detail') return <PluginDetailSettings />;
     if (settingsSubPage === 'plugins') return <PluginListSettings />;
+    if (settingsSubPage === 'about') return <AboutSettingsView />;
     return <ProjectSettings projectId={projectId} />;
   }
 

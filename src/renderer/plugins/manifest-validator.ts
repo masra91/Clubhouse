@@ -42,7 +42,7 @@ export function validateManifest(raw: unknown): ValidationResult {
     if (typeof engine.api !== 'number') {
       errors.push('engine.api must be a number');
     } else if (!SUPPORTED_API_VERSIONS.includes(engine.api)) {
-      errors.push(`Unsupported API version: ${engine.api}. Supported: ${SUPPORTED_API_VERSIONS.join(', ')}`);
+      errors.push(`Plugin requires API version ${engine.api}, which is not supported by this version of Clubhouse. Supported API versions: ${SUPPORTED_API_VERSIONS.join(', ')}`);
     }
   }
 

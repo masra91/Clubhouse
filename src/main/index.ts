@@ -9,6 +9,12 @@ import * as safeMode from './services/safe-mode';
 // instead of "Electron" during development.
 app.name = 'Clubhouse';
 
+app.setAboutPanelOptions({
+  applicationName: 'Clubhouse',
+  applicationVersion: app.getVersion(),
+  copyright: 'Supported Plugin API Versions: 0.1, 0.2',
+});
+
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 

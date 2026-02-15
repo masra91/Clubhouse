@@ -237,6 +237,8 @@ const api = {
       ipcRenderer.invoke(IPC.APP.GET_ORCHESTRATOR_SETTINGS),
     saveOrchestratorSettings: (settings: { enabled: string[] }) =>
       ipcRenderer.invoke(IPC.APP.SAVE_ORCHESTRATOR_SETTINGS, settings),
+    getVersion: (): Promise<string> =>
+      ipcRenderer.invoke(IPC.APP.GET_VERSION),
   },
 };
 
