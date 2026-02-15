@@ -28,10 +28,12 @@ describe('log-service', () => {
     flush();
     vi.clearAllMocks();
 
-    // Default: logging enabled, no namespace filters
+    // Default: logging enabled, no namespace filters, medium retention, info level
     vi.mocked(logSettings.getSettings).mockReturnValue({
       enabled: true,
       namespaces: {},
+      retention: 'medium',
+      minLogLevel: 'info',
     });
 
     // statSync throws by default (file doesn't exist yet)
@@ -115,6 +117,8 @@ describe('log-service', () => {
       vi.mocked(logSettings.getSettings).mockReturnValue({
         enabled: false,
         namespaces: {},
+        retention: 'medium',
+        minLogLevel: 'info',
       });
 
       log({ ts: '2026-01-01T00:00:00Z', ns: 'app:test', level: 'info', msg: 'hello' });
@@ -127,6 +131,8 @@ describe('log-service', () => {
       vi.mocked(logSettings.getSettings).mockReturnValue({
         enabled: true,
         namespaces: { 'app:noisy': false },
+        retention: 'medium',
+        minLogLevel: 'info',
       });
 
       log({ ts: '2026-01-01T00:00:00Z', ns: 'app:noisy', level: 'info', msg: 'filtered' });
@@ -146,6 +152,8 @@ describe('log-service', () => {
       vi.mocked(logSettings.getSettings).mockReturnValue({
         enabled: true,
         namespaces: { 'app:test': true },
+        retention: 'medium',
+        minLogLevel: 'info',
       });
 
       log({ ts: '2026-01-01T00:00:00Z', ns: 'app:test', level: 'info', msg: 'hello' });
@@ -158,6 +166,8 @@ describe('log-service', () => {
       vi.mocked(logSettings.getSettings).mockReturnValue({
         enabled: true,
         namespaces: { 'app:hidden': false },
+        retention: 'medium',
+        minLogLevel: 'info',
       });
 
       log({ ts: '2026-01-01T00:00:00Z', ns: 'app:hidden', level: 'info', msg: 'filtered' });
@@ -165,10 +175,40 @@ describe('log-service', () => {
       expect(getNamespaces()).toContain('app:hidden');
     });
 
+    it('skips debug entries when minLogLevel is info', () => {
+      log({ ts: '2026-01-01T00:00:00Z', ns: 'app:test', level: 'debug', msg: 'verbose' });
+      flush();
+
+      expect(vi.mocked(fs.appendFileSync)).not.toHaveBeenCalled();
+    });
+
+    it('passes warn entries when minLogLevel is info', () => {
+      log({ ts: '2026-01-01T00:00:00Z', ns: 'app:test', level: 'warn', msg: 'warning' });
+      flush();
+
+      expect(vi.mocked(fs.appendFileSync)).toHaveBeenCalledTimes(1);
+    });
+
+    it('passes debug entries when minLogLevel is debug', () => {
+      vi.mocked(logSettings.getSettings).mockReturnValue({
+        enabled: true,
+        namespaces: {},
+        retention: 'medium',
+        minLogLevel: 'debug',
+      });
+
+      log({ ts: '2026-01-01T00:00:00Z', ns: 'app:test', level: 'debug', msg: 'verbose' });
+      flush();
+
+      expect(vi.mocked(fs.appendFileSync)).toHaveBeenCalledTimes(1);
+    });
+
     it('does not record namespace when logging globally disabled', () => {
       vi.mocked(logSettings.getSettings).mockReturnValue({
         enabled: false,
         namespaces: {},
+        retention: 'medium',
+        minLogLevel: 'info',
       });
 
       // We need a fresh namespace that wasn't logged before
@@ -282,7 +322,7 @@ describe('log-service', () => {
   });
 
   describe('cleanup', () => {
-    it('deletes log files older than 7 days on init', () => {
+    it('deletes log files older than 7 days on init (medium tier)', () => {
       const now = Date.now();
       const eightDaysAgo = now - 8 * 24 * 60 * 60 * 1000;
 
@@ -317,6 +357,116 @@ describe('log-service', () => {
       );
     });
 
+    it('deletes files older than 3 days with low retention', () => {
+      const now = Date.now();
+      const fourDaysAgo = now - 4 * 24 * 60 * 60 * 1000;
+
+      vi.mocked(logSettings.getSettings).mockReturnValue({
+        enabled: true,
+        namespaces: {},
+        retention: 'low',
+        minLogLevel: 'info',
+      });
+
+      vi.mocked(fs.readdirSync).mockReturnValue([
+        { name: 'session-old.jsonl', isFile: () => true } as unknown as fs.Dirent,
+        { name: 'session-new.jsonl', isFile: () => true } as unknown as fs.Dirent,
+      ]);
+
+      vi.mocked(fs.statSync).mockImplementation((filePath) => {
+        const fp = filePath as string;
+        if (fp.includes('session-old')) {
+          return { size: 100, mtimeMs: fourDaysAgo } as fs.Stats;
+        }
+        if (fp.includes('session-new')) {
+          return { size: 100, mtimeMs: now } as fs.Stats;
+        }
+        throw new Error('ENOENT');
+      });
+
+      init();
+
+      expect(vi.mocked(fs.unlinkSync)).toHaveBeenCalledWith(
+        expect.stringContaining('session-old.jsonl'),
+      );
+      expect(vi.mocked(fs.unlinkSync)).not.toHaveBeenCalledWith(
+        expect.stringContaining('session-new.jsonl'),
+      );
+    });
+
+    it('does not age-prune with unlimited retention', () => {
+      const now = Date.now();
+      const yearAgo = now - 365 * 24 * 60 * 60 * 1000;
+
+      vi.mocked(logSettings.getSettings).mockReturnValue({
+        enabled: true,
+        namespaces: {},
+        retention: 'unlimited',
+        minLogLevel: 'info',
+      });
+
+      vi.mocked(fs.readdirSync).mockReturnValue([
+        { name: 'session-ancient.jsonl', isFile: () => true } as unknown as fs.Dirent,
+      ]);
+
+      vi.mocked(fs.statSync).mockImplementation((filePath) => {
+        const fp = filePath as string;
+        if (fp.includes('session-ancient')) {
+          return { size: 100, mtimeMs: yearAgo } as fs.Stats;
+        }
+        throw new Error('ENOENT');
+      });
+
+      init();
+
+      expect(vi.mocked(fs.unlinkSync)).not.toHaveBeenCalled();
+    });
+
+    it('size-prunes oldest files when total exceeds cap', () => {
+      const now = Date.now();
+      const MB = 1024 * 1024;
+
+      vi.mocked(logSettings.getSettings).mockReturnValue({
+        enabled: true,
+        namespaces: {},
+        retention: 'low', // 50 MB cap
+      });
+
+      vi.mocked(fs.readdirSync).mockReturnValue([
+        { name: 'session-a.jsonl', isFile: () => true } as unknown as fs.Dirent,
+        { name: 'session-b.jsonl', isFile: () => true } as unknown as fs.Dirent,
+        { name: 'session-c.jsonl', isFile: () => true } as unknown as fs.Dirent,
+      ]);
+
+      vi.mocked(fs.statSync).mockImplementation((filePath) => {
+        const fp = filePath as string;
+        if (fp.includes('session-a')) {
+          return { size: 20 * MB, mtimeMs: now - 1000 } as fs.Stats; // oldest
+        }
+        if (fp.includes('session-b')) {
+          return { size: 20 * MB, mtimeMs: now - 500 } as fs.Stats;
+        }
+        if (fp.includes('session-c')) {
+          return { size: 20 * MB, mtimeMs: now } as fs.Stats; // newest
+        }
+        throw new Error('ENOENT');
+      });
+
+      init();
+
+      // Total = 60 MB, cap = 50 MB → oldest file (session-a) should be deleted
+      expect(vi.mocked(fs.unlinkSync)).toHaveBeenCalledWith(
+        expect.stringContaining('session-a.jsonl'),
+      );
+      // After removing session-a, total = 40 MB < 50 MB cap, so b and c stay
+      expect(vi.mocked(fs.unlinkSync)).not.toHaveBeenCalledWith(
+        expect.stringContaining('session-b.jsonl'),
+      );
+      expect(vi.mocked(fs.unlinkSync)).not.toHaveBeenCalledWith(
+        expect.stringContaining('session-c.jsonl'),
+      );
+    });
+
     it('ignores errors during cleanup', () => {
       vi.mocked(fs.readdirSync).mockImplementation(() => {
         throw new Error('permission denied');
@@ -347,6 +497,13 @@ describe('log-service', () => {
     });
 
     it('works without optional fields', () => {
+      vi.mocked(logSettings.getSettings).mockReturnValue({
+        enabled: true,
+        namespaces: {},
+        retention: 'medium',
+        minLogLevel: 'debug',
+      });
+
       appLog('app:test', 'debug', 'simple message');
       flush();
 
@@ -361,6 +518,13 @@ describe('log-service', () => {
     });
 
     it('supports all log levels', () => {
+      vi.mocked(logSettings.getSettings).mockReturnValue({
+        enabled: true,
+        namespaces: {},
+        retention: 'medium',
+        minLogLevel: 'debug',
+      });
+
       const levels = ['debug', 'info', 'warn', 'error', 'fatal'] as const;
       for (const level of levels) {
         vi.clearAllMocks();

@@ -103,6 +103,14 @@ export type SettingsSubPage = 'project' | 'notifications' | 'logging' | 'display
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
+export const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+  fatal: 4,
+};
+
 export interface LogEntry {
   ts: string;
   ns: string;
@@ -112,9 +120,25 @@ export interface LogEntry {
   meta?: Record<string, unknown>;
 }
 
+export type LogRetention = 'low' | 'medium' | 'high' | 'unlimited';
+
+export interface LogRetentionConfig {
+  retentionDays: number;
+  maxTotalBytes: number;
+}
+
+export const LOG_RETENTION_TIERS: Record<LogRetention, LogRetentionConfig> = {
+  low:       { retentionDays: 3,  maxTotalBytes: 50  * 1024 * 1024 },
+  medium:    { retentionDays: 7,  maxTotalBytes: 200 * 1024 * 1024 },
+  high:      { retentionDays: 30, maxTotalBytes: 500 * 1024 * 1024 },
+  unlimited: { retentionDays: 0,  maxTotalBytes: 0 },
+};
+
 export interface LoggingSettings {
   enabled: boolean;
   namespaces: Record<string, boolean>;
+  retention: LogRetention;
+  minLogLevel: LogLevel;
 }
 
 export type ThemeId =

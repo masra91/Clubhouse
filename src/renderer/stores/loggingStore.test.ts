@@ -23,6 +23,8 @@ Object.defineProperty(globalThis, 'window', {
 const DEFAULT_SETTINGS = {
   enabled: true,
   namespaces: {},
+  retention: 'medium',
+  minLogLevel: 'info',
 };
 
 describe('loggingStore', () => {
@@ -69,7 +71,7 @@ describe('loggingStore', () => {
       expect(settings?.enabled).toBe(false);
       expect(settings?.namespaces).toEqual({});
       expect(mockSaveSettings).toHaveBeenCalledWith(
-        expect.objectContaining({ enabled: false, namespaces: {} }),
+        expect.objectContaining({ enabled: false, namespaces: {}, retention: 'medium' }),
       );
     });
 
@@ -85,6 +87,34 @@ describe('loggingStore', () => {
 
       const { settings } = useLoggingStore.getState();
       expect(settings?.namespaces).toEqual({ 'app:ipc': true, 'app:plugins': false });
+    });
+
+    it('merges retention updates', async () => {
+      useLoggingStore.setState({ settings: DEFAULT_SETTINGS as any });
+      mockSaveSettings.mockResolvedValue(undefined);
+
+      await useLoggingStore.getState().saveSettings({ retention: 'high' } as any);
+
+      const { settings } = useLoggingStore.getState();
+      expect(settings?.retention).toBe('high');
+      expect(settings?.enabled).toBe(true);
+      expect(mockSaveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ retention: 'high' }),
+      );
+    });
+
+    it('merges minLogLevel updates', async () => {
+      useLoggingStore.setState({ settings: DEFAULT_SETTINGS as any });
+      mockSaveSettings.mockResolvedValue(undefined);
+
+      await useLoggingStore.getState().saveSettings({ minLogLevel: 'warn' } as any);
+
+      const { settings } = useLoggingStore.getState();
+      expect(settings?.minLogLevel).toBe('warn');
+      expect(settings?.enabled).toBe(true);
+      expect(mockSaveSettings).toHaveBeenCalledWith(
+        expect.objectContaining({ minLogLevel: 'warn' }),
+      );
     });
 
     it('does nothing when settings not loaded', async () => {
