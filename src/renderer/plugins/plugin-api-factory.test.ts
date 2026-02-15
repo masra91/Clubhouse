@@ -29,6 +29,7 @@ const mockGit = {
 const mockAgent = {
   listDurable: vi.fn(),
   killAgent: vi.fn(),
+  getModelOptions: vi.fn(),
 };
 
 Object.defineProperty(globalThis, 'window', {
@@ -227,6 +228,72 @@ describe('plugin-api-factory', () => {
       mockPlugin.storageList.mockResolvedValue(['a', 'b']);
       const keys = await api.storage.global.list();
       expect(keys).toEqual(['a', 'b']);
+    });
+  });
+
+  // ── Storage API — projectLocal ─────────────────────────────────────────
+
+  describe('storage API — projectLocal', () => {
+    it('read passes scope project-local with projectPath', async () => {
+      const api = createPluginAPI(makeCtx());
+      await api.storage.projectLocal.read('my-key');
+      expect(mockPlugin.storageRead).toHaveBeenCalledWith({
+        pluginId: 'test-plugin',
+        scope: 'project-local',
+        key: 'my-key',
+        projectPath: '/projects/my-project',
+      });
+    });
+
+    it('write passes scope project-local with projectPath', async () => {
+      const api = createPluginAPI(makeCtx());
+      await api.storage.projectLocal.write('key', { data: true });
+      expect(mockPlugin.storageWrite).toHaveBeenCalledWith({
+        pluginId: 'test-plugin',
+        scope: 'project-local',
+        key: 'key',
+        value: { data: true },
+        projectPath: '/projects/my-project',
+      });
+    });
+
+    it('delete passes scope project-local', async () => {
+      const api = createPluginAPI(makeCtx());
+      await api.storage.projectLocal.delete('old-key');
+      expect(mockPlugin.storageDelete).toHaveBeenCalledWith(
+        expect.objectContaining({ pluginId: 'test-plugin', key: 'old-key', scope: 'project-local' }),
+      );
+    });
+
+    it('list passes scope project-local', async () => {
+      mockPlugin.storageList.mockResolvedValue(['a', 'b']);
+      const api = createPluginAPI(makeCtx());
+      const keys = await api.storage.projectLocal.list();
+      expect(keys).toEqual(['a', 'b']);
+      expect(mockPlugin.storageList).toHaveBeenCalledWith(
+        expect.objectContaining({ scope: 'project-local' }),
+      );
+    });
+
+    it('projectLocal is distinct from project scope (separate IPC calls)', async () => {
+      const api = createPluginAPI(makeCtx());
+      await api.storage.project.read('k');
+      await api.storage.projectLocal.read('k');
+      expect(mockPlugin.storageRead).toHaveBeenCalledTimes(2);
+      expect(mockPlugin.storageRead).toHaveBeenCalledWith(
+        expect.objectContaining({ scope: 'project' }),
+      );
+      expect(mockPlugin.storageRead).toHaveBeenCalledWith(
+        expect.objectContaining({ scope: 'project-local' }),
+      );
+    });
+
+    it('app-scoped plugin passes undefined projectPath for projectLocal', async () => {
+      const api = createPluginAPI(makeCtx({ scope: 'app', projectId: undefined, projectPath: undefined }));
+      await api.storage.projectLocal.read('k');
+      expect(mockPlugin.storageRead).toHaveBeenCalledWith(
+        expect.objectContaining({ scope: 'project-local', projectPath: undefined }),
+      );
     });
   });
 
@@ -1109,6 +1176,246 @@ describe('plugin-api-factory', () => {
 
         expect(cb1).toHaveBeenCalledTimes(1); // Still 1, disposed
         expect(cb2).toHaveBeenCalledTimes(2); // Got the second change
+      });
+    });
+
+    // ── getModelOptions() ────────────────────────────────────────────────
+
+    describe('getModelOptions()', () => {
+      it('returns 4 default options when no project context', async () => {
+        const api = createPluginAPI(makeCtx({ scope: 'app', projectId: undefined, projectPath: undefined }));
+        const options = await api.agents.getModelOptions();
+        expect(options).toHaveLength(4);
+        expect(options.map((o) => o.id)).toEqual(['default', 'opus', 'sonnet', 'haiku']);
+      });
+
+      it('calls IPC with resolved project path', async () => {
+        const { useProjectStore } = await import('../stores/projectStore');
+        useProjectStore.setState({
+          projects: [{ id: 'proj-1', name: 'P1', path: '/projects/p1' }] as any,
+        });
+        mockAgent.getModelOptions.mockResolvedValue([
+          { id: 'custom', label: 'Custom' },
+        ]);
+        const api = createPluginAPI(makeCtx());
+        const options = await api.agents.getModelOptions();
+        expect(mockAgent.getModelOptions).toHaveBeenCalledWith('/projects/p1');
+        expect(options).toEqual([{ id: 'custom', label: 'Custom' }]);
+      });
+
+      it('uses explicit projectId over context', async () => {
+        const { useProjectStore } = await import('../stores/projectStore');
+        useProjectStore.setState({
+          projects: [
+            { id: 'proj-1', name: 'P1', path: '/projects/p1' },
+            { id: 'proj-2', name: 'P2', path: '/projects/p2' },
+          ] as any,
+        });
+        mockAgent.getModelOptions.mockResolvedValue([{ id: 'x', label: 'X' }]);
+        const api = createPluginAPI(makeCtx({ projectId: 'proj-1' }));
+        await api.agents.getModelOptions('proj-2');
+        expect(mockAgent.getModelOptions).toHaveBeenCalledWith('/projects/p2');
+      });
+
+      it('returns defaults on throw', async () => {
+        const { useProjectStore } = await import('../stores/projectStore');
+        useProjectStore.setState({
+          projects: [{ id: 'proj-1', name: 'P1', path: '/projects/p1' }] as any,
+        });
+        mockAgent.getModelOptions.mockRejectedValue(new Error('fail'));
+        const api = createPluginAPI(makeCtx());
+        const options = await api.agents.getModelOptions();
+        expect(options).toHaveLength(4);
+        expect(options[0].id).toBe('default');
+      });
+
+      it('returns defaults on empty array', async () => {
+        const { useProjectStore } = await import('../stores/projectStore');
+        useProjectStore.setState({
+          projects: [{ id: 'proj-1', name: 'P1', path: '/projects/p1' }] as any,
+        });
+        mockAgent.getModelOptions.mockResolvedValue([]);
+        const api = createPluginAPI(makeCtx());
+        const options = await api.agents.getModelOptions();
+        expect(options).toHaveLength(4);
+      });
+
+      it('returns defaults on non-array', async () => {
+        const { useProjectStore } = await import('../stores/projectStore');
+        useProjectStore.setState({
+          projects: [{ id: 'proj-1', name: 'P1', path: '/projects/p1' }] as any,
+        });
+        mockAgent.getModelOptions.mockResolvedValue('not an array');
+        const api = createPluginAPI(makeCtx());
+        const options = await api.agents.getModelOptions();
+        expect(options).toHaveLength(4);
+      });
+
+      it('returns defaults when project not found', async () => {
+        const { useProjectStore } = await import('../stores/projectStore');
+        useProjectStore.setState({ projects: [] });
+        const api = createPluginAPI(makeCtx());
+        const options = await api.agents.getModelOptions();
+        expect(options).toHaveLength(4);
+      });
+    });
+
+    // ── onAnyChange() ─────────────────────────────────────────────────────
+
+    describe('onAnyChange()', () => {
+      it('fires on any store change (not just status)', () => {
+        const api = createPluginAPI(makeCtx());
+        const callback = vi.fn();
+        api.agents.onAnyChange(callback);
+
+        useAgentStore.setState({
+          agents: {
+            ...useAgentStore.getState().agents,
+            'agent-1': { ...useAgentStore.getState().agents['agent-1'], name: 'Renamed' },
+          },
+        });
+
+        expect(callback).toHaveBeenCalled();
+      });
+
+      it('fires on agent added', () => {
+        const api = createPluginAPI(makeCtx());
+        const callback = vi.fn();
+        api.agents.onAnyChange(callback);
+
+        useAgentStore.setState({
+          agents: {
+            ...useAgentStore.getState().agents,
+            'new-agent': {
+              id: 'new-agent', name: 'New', kind: 'quick', status: 'running',
+              color: 'blue', projectId: 'proj-1',
+            } as any,
+          },
+        });
+
+        expect(callback).toHaveBeenCalled();
+      });
+
+      it('fires on agent removed', () => {
+        const api = createPluginAPI(makeCtx());
+        const callback = vi.fn();
+        api.agents.onAnyChange(callback);
+
+        const { 'agent-1': _, ...remaining } = useAgentStore.getState().agents;
+        useAgentStore.setState({ agents: remaining });
+
+        expect(callback).toHaveBeenCalled();
+      });
+
+      it('fires on detailedStatus change', () => {
+        const api = createPluginAPI(makeCtx());
+        const callback = vi.fn();
+        api.agents.onAnyChange(callback);
+
+        useAgentStore.setState({
+          agentDetailedStatus: {
+            'agent-1': { state: 'idle', message: 'Done', timestamp: Date.now() },
+          },
+        });
+
+        expect(callback).toHaveBeenCalled();
+      });
+
+      it('dispose stops callbacks', () => {
+        const api = createPluginAPI(makeCtx());
+        const callback = vi.fn();
+        const disposable = api.agents.onAnyChange(callback);
+        disposable.dispose();
+
+        useAgentStore.setState({
+          agents: {
+            ...useAgentStore.getState().agents,
+            'agent-1': { ...useAgentStore.getState().agents['agent-1'], name: 'Changed' },
+          },
+        });
+
+        expect(callback).not.toHaveBeenCalled();
+      });
+
+      it('double dispose is safe', () => {
+        const api = createPluginAPI(makeCtx());
+        const disposable = api.agents.onAnyChange(() => {});
+        disposable.dispose();
+        expect(() => disposable.dispose()).not.toThrow();
+      });
+
+      it('multiple independent subscriptions', () => {
+        const api = createPluginAPI(makeCtx());
+        const cb1 = vi.fn();
+        const cb2 = vi.fn();
+        const d1 = api.agents.onAnyChange(cb1);
+        api.agents.onAnyChange(cb2);
+
+        useAgentStore.setState({
+          agents: {
+            ...useAgentStore.getState().agents,
+            'agent-1': { ...useAgentStore.getState().agents['agent-1'], name: 'X' },
+          },
+        });
+
+        expect(cb1).toHaveBeenCalledTimes(1);
+        expect(cb2).toHaveBeenCalledTimes(1);
+
+        d1.dispose();
+
+        useAgentStore.setState({
+          agents: {
+            ...useAgentStore.getState().agents,
+            'agent-1': { ...useAgentStore.getState().agents['agent-1'], name: 'Y' },
+          },
+        });
+
+        expect(cb1).toHaveBeenCalledTimes(1);
+        expect(cb2).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    // ── runQuick() — projectId override ─────────────────────────────────
+
+    describe('runQuick()', () => {
+      it('uses context project when no override', async () => {
+        const spawnSpy = vi.spyOn(useAgentStore.getState(), 'spawnQuickAgent').mockResolvedValue('qa-1');
+        const api = createPluginAPI(makeCtx());
+        await api.agents.runQuick('do stuff');
+        expect(spawnSpy).toHaveBeenCalledWith('proj-1', '/projects/my-project', 'do stuff', undefined);
+      });
+
+      it('uses override projectId to resolve different project path', async () => {
+        const { useProjectStore } = await import('../stores/projectStore');
+        useProjectStore.setState({
+          projects: [
+            { id: 'proj-1', name: 'P1', path: '/projects/p1' },
+            { id: 'proj-2', name: 'P2', path: '/projects/p2' },
+          ] as any,
+        });
+        const spawnSpy = vi.spyOn(useAgentStore.getState(), 'spawnQuickAgent').mockResolvedValue('qa-2');
+        const api = createPluginAPI(makeCtx({ projectId: 'proj-1', projectPath: '/projects/p1' }));
+        await api.agents.runQuick('task', { projectId: 'proj-2' });
+        expect(spawnSpy).toHaveBeenCalledWith('proj-2', '/projects/p2', 'task', undefined);
+      });
+
+      it('throws on unknown projectId', async () => {
+        const { useProjectStore } = await import('../stores/projectStore');
+        useProjectStore.setState({ projects: [] });
+        const api = createPluginAPI(makeCtx());
+        await expect(api.agents.runQuick('task', { projectId: 'nope' })).rejects.toThrow('Project not found');
+      });
+
+      it('throws without project context', async () => {
+        const api = createPluginAPI(makeCtx({ scope: 'app', projectId: undefined, projectPath: undefined }));
+        await expect(api.agents.runQuick('task')).rejects.toThrow('runQuick requires a project context');
+      });
+
+      it('passes model option through', async () => {
+        const spawnSpy = vi.spyOn(useAgentStore.getState(), 'spawnQuickAgent').mockResolvedValue('qa-3');
+        const api = createPluginAPI(makeCtx());
+        await api.agents.runQuick('task', { model: 'opus' });
+        expect(spawnSpy).toHaveBeenCalledWith('proj-1', '/projects/my-project', 'task', 'opus');
       });
     });
   });

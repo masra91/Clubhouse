@@ -179,5 +179,32 @@ describe('testing utilities', () => {
       const d = api.agents.onStatusChange(() => {});
       expect(typeof d.dispose).toBe('function');
     });
+
+    it('storage.projectLocal methods return safe defaults', async () => {
+      const api = createMockAPI();
+      expect(await api.storage.projectLocal.read('k')).toBeUndefined();
+      expect(await api.storage.projectLocal.list()).toEqual([]);
+      await expect(api.storage.projectLocal.write('k', 'v')).resolves.toBeUndefined();
+      await expect(api.storage.projectLocal.delete('k')).resolves.toBeUndefined();
+    });
+
+    it('agents.getModelOptions returns default ModelOption', async () => {
+      const api = createMockAPI();
+      const options = await api.agents.getModelOptions();
+      expect(options).toEqual([{ id: 'default', label: 'Default' }]);
+    });
+
+    it('agents.onAnyChange returns disposable', () => {
+      const api = createMockAPI();
+      const d = api.agents.onAnyChange(() => {});
+      expect(typeof d.dispose).toBe('function');
+      expect(() => d.dispose()).not.toThrow();
+    });
+
+    it('agents.runQuick accepts projectId option', async () => {
+      const api = createMockAPI();
+      const result = await api.agents.runQuick('task', { projectId: 'proj-2' });
+      expect(result).toBe('');
+    });
   });
 });
