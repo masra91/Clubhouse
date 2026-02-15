@@ -99,3 +99,10 @@ out/
 
 # Materialized MCP config
 .mcp.json
+
+# Local scratch / research folders
+old-plugins/
+new-plugin/
+user-orchestrators/
+more-testing/
+recovery/
