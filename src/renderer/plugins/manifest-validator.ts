@@ -1,6 +1,6 @@
 import type { PluginManifest } from '../../shared/plugin-types';
 
-export const SUPPORTED_API_VERSIONS = [1];
+export const SUPPORTED_API_VERSIONS = [0.1, 0.2];
 
 const PLUGIN_ID_REGEX = /^[a-z0-9-]+$/;
 
@@ -47,8 +47,8 @@ export function validateManifest(raw: unknown): ValidationResult {
   }
 
   // Scope check
-  if (m.scope !== 'project' && m.scope !== 'app') {
-    errors.push(`Invalid scope: "${String(m.scope)}". Must be "project" or "app"`);
+  if (m.scope !== 'project' && m.scope !== 'app' && m.scope !== 'dual') {
+    errors.push(`Invalid scope: "${String(m.scope)}". Must be "project", "app", or "dual"`);
   }
 
   // Scope/contributes consistency
@@ -60,6 +60,7 @@ export function validateManifest(raw: unknown): ValidationResult {
     if (m.scope === 'app' && contrib.tab) {
       errors.push('App-scoped plugins cannot contribute tab (use railItem instead)');
     }
+    // Dual-scoped plugins can have both tab and railItem — no restriction
   }
 
   if (errors.length > 0) {

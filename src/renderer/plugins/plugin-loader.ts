@@ -3,6 +3,7 @@ import { usePluginStore } from './plugin-store';
 import { validateManifest } from './manifest-validator';
 import { createPluginAPI } from './plugin-api-factory';
 import { injectStyles, removeStyles } from './plugin-styles';
+import { getBuiltinPlugins } from './builtin';
 
 const activeContexts = new Map<string, PluginContext>();
 
@@ -15,6 +16,17 @@ export async function initializePluginSystem(): Promise<void> {
     store.setSafeModeActive(true);
     console.warn('[Plugins] Safe mode active — no plugins will be loaded');
     return;
+  }
+
+  // Register built-in plugins
+  const builtins = getBuiltinPlugins();
+  for (const { manifest, module: mod } of builtins) {
+    store.registerPlugin(manifest, 'builtin', '', 'registered');
+    store.setPluginModule(manifest.id, mod);
+    // Auto-enable built-in plugins
+    if (manifest.scope === 'app' || manifest.scope === 'dual') {
+      store.enableApp(manifest.id);
+    }
   }
 
   // Discover community plugins
@@ -95,21 +107,31 @@ export async function activatePlugin(
   }
 
   try {
-    // Load the module
     let mod: PluginModule;
-    const mainPath = entry.manifest.main || 'main.js';
-    const fullModulePath = `${entry.pluginPath}/${mainPath}`;
 
-    try {
-      // Dynamic import for community plugins — use indirect eval to
-      // prevent webpack from analyzing the expression and emitting a
-      // "Critical dependency" warning.
-      const dynamicImport = new Function('path', 'return import(path)') as (path: string) => Promise<PluginModule>;
-      mod = await dynamicImport(fullModulePath);
-    } catch (err) {
-      console.error(`[Plugins] Failed to load module for ${pluginId}:`, err);
-      store.setPluginStatus(pluginId, 'errored', `Failed to load: ${err}`);
-      return;
+    if (entry.source === 'builtin') {
+      // Built-in plugins already have their module set during registration
+      mod = store.modules[pluginId];
+      if (!mod) {
+        console.error(`[Plugins] Built-in plugin ${pluginId} has no module`);
+        return;
+      }
+    } else {
+      // Dynamic import for community plugins
+      const mainPath = entry.manifest.main || 'main.js';
+      const fullModulePath = `${entry.pluginPath}/${mainPath}`;
+
+      try {
+        // Use indirect eval to prevent webpack from analyzing the expression
+        const dynamicImport = new Function('path', 'return import(path)') as (path: string) => Promise<PluginModule>;
+        mod = await dynamicImport(fullModulePath);
+      } catch (err) {
+        console.error(`[Plugins] Failed to load module for ${pluginId}:`, err);
+        store.setPluginStatus(pluginId, 'errored', `Failed to load: ${err}`);
+        return;
+      }
+
+      store.setPluginModule(pluginId, mod);
     }
 
     // Create the API
@@ -120,8 +142,7 @@ export async function activatePlugin(
       await mod.activate(ctx, api);
     }
 
-    // Store the module and update status
-    store.setPluginModule(pluginId, mod);
+    // Update status
     store.setPluginStatus(pluginId, 'activated');
     activeContexts.set(contextKey, ctx);
   } catch (err) {
@@ -171,22 +192,22 @@ export async function handleProjectSwitch(
 ): Promise<void> {
   const store = usePluginStore.getState();
 
-  // Deactivate all project-scoped plugins for the old project
+  // Deactivate project-scoped and dual-scoped plugins for the old project
   if (oldProjectId) {
     const oldEnabled = store.projectEnabled[oldProjectId] || [];
     for (const pluginId of oldEnabled) {
       const entry = store.plugins[pluginId];
-      if (entry?.manifest.scope === 'project') {
+      if (entry && (entry.manifest.scope === 'project' || entry.manifest.scope === 'dual')) {
         await deactivatePlugin(pluginId, oldProjectId);
       }
     }
   }
 
-  // Activate project-scoped plugins for the new project
+  // Activate project-scoped and dual-scoped plugins for the new project
   const newEnabled = store.projectEnabled[newProjectId] || [];
   for (const pluginId of newEnabled) {
     const entry = store.plugins[pluginId];
-    if (entry?.manifest.scope === 'project') {
+    if (entry && (entry.manifest.scope === 'project' || entry.manifest.scope === 'dual')) {
       await activatePlugin(pluginId, newProjectId, newProjectPath);
     }
   }
@@ -195,4 +216,9 @@ export async function handleProjectSwitch(
 export function getActiveContext(pluginId: string, projectId?: string): PluginContext | undefined {
   const contextKey = projectId ? `${pluginId}:${projectId}` : pluginId;
   return activeContexts.get(contextKey);
+}
+
+/** @internal — only for tests */
+export function _resetActiveContexts(): void {
+  activeContexts.clear();
 }

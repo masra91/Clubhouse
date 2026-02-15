@@ -93,11 +93,11 @@ export function ExplorerRail() {
     return <SettingsContextPicker />;
   }
 
-  // Get enabled project-scoped plugins for the active project
+  // Get enabled project-scoped (and dual-scoped) plugins for the active project
   const enabledPluginIds = activeProjectId ? (projectEnabled[activeProjectId] || []) : [];
   const pluginTabs = enabledPluginIds
     .map((id) => plugins[id])
-    .filter((entry) => entry && entry.manifest.scope === 'project' && entry.status === 'activated' && entry.manifest.contributes?.tab);
+    .filter((entry) => entry && (entry.manifest.scope === 'project' || entry.manifest.scope === 'dual') && entry.status === 'activated' && entry.manifest.contributes?.tab);
 
   return (
     <div className="flex flex-col bg-ctp-mantle border-r border-surface-0 h-full">

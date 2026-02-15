@@ -4,6 +4,7 @@ import { PluginAPIProvider } from '../plugins/plugin-context';
 import { createPluginAPI } from '../plugins/plugin-api-factory';
 import { getActiveContext } from '../plugins/plugin-loader';
 import { useProjectStore } from '../stores/projectStore';
+import type { PluginRenderMode } from '../../shared/plugin-types';
 
 class PluginErrorBoundary extends React.Component<
   { pluginId: string; children: React.ReactNode },
@@ -42,7 +43,7 @@ class PluginErrorBoundary extends React.Component<
   }
 }
 
-export function PluginContentView({ pluginId }: { pluginId: string }) {
+export function PluginContentView({ pluginId, mode }: { pluginId: string; mode?: PluginRenderMode }) {
   const modules = usePluginStore((s) => s.modules);
   const plugins = usePluginStore((s) => s.plugins);
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
@@ -72,7 +73,7 @@ export function PluginContentView({ pluginId }: { pluginId: string }) {
     );
   }
 
-  const api = createPluginAPI(ctx);
+  const api = createPluginAPI(ctx, mode);
   const MainPanel = mod.MainPanel;
 
   return (

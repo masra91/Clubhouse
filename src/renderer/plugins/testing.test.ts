@@ -54,6 +54,9 @@ describe('testing utilities', () => {
       expect(api.settings).toBeDefined();
       expect(api.agents).toBeDefined();
       expect(api.hub).toBeDefined();
+      expect(api.navigation).toBeDefined();
+      expect(api.widgets).toBeDefined();
+      expect(api.context).toBeDefined();
     });
 
     it('project API methods return safe defaults', async () => {
@@ -143,6 +146,38 @@ describe('testing utilities', () => {
     it('hub refresh is callable', () => {
       const api = createMockAPI();
       expect(() => api.hub.refresh()).not.toThrow();
+    });
+
+    it('navigation API methods are callable', () => {
+      const api = createMockAPI();
+      expect(() => api.navigation.focusAgent('a1')).not.toThrow();
+      expect(() => api.navigation.setExplorerTab('agents')).not.toThrow();
+    });
+
+    it('widgets API provides component types', () => {
+      const api = createMockAPI();
+      expect(api.widgets.AgentTerminal).toBeDefined();
+      expect(api.widgets.SleepingAgent).toBeDefined();
+      expect(api.widgets.AgentAvatar).toBeDefined();
+      expect(api.widgets.QuickAgentGhost).toBeDefined();
+    });
+
+    it('context has expected defaults', () => {
+      const api = createMockAPI();
+      expect(api.context.mode).toBe('project');
+      expect(api.context.projectId).toBe('test-project');
+      expect(api.context.projectPath).toBe('/tmp/test-project');
+    });
+
+    it('enriched agents API methods return safe defaults', async () => {
+      const api = createMockAPI();
+      expect(api.agents.listCompleted()).toEqual([]);
+      expect(api.agents.getDetailedStatus('x')).toBeNull();
+      await expect(api.agents.kill('x')).resolves.toBeUndefined();
+      await expect(api.agents.resume('x')).resolves.toBeUndefined();
+      expect(() => api.agents.dismissCompleted('p', 'a')).not.toThrow();
+      const d = api.agents.onStatusChange(() => {});
+      expect(typeof d.dispose).toBe('function');
     });
   });
 });

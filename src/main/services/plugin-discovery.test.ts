@@ -37,7 +37,7 @@ describe('plugin-discovery', () => {
         id: 'my-plugin',
         name: 'My Plugin',
         version: '1.0.0',
-        engine: { api: 1 },
+        engine: { api: 0.1 },
         scope: 'project',
       }));
 
@@ -92,9 +92,9 @@ describe('plugin-discovery', () => {
       vi.mocked(fs.readFileSync).mockImplementation((p: any) => {
         const s = String(p);
         if (s.includes('plugin-a')) {
-          return JSON.stringify({ id: 'plugin-a', name: 'A', version: '1.0.0', engine: { api: 1 }, scope: 'project' });
+          return JSON.stringify({ id: 'plugin-a', name: 'A', version: '1.0.0', engine: { api: 0.1 }, scope: 'project' });
         }
-        return JSON.stringify({ id: 'plugin-b', name: 'B', version: '2.0.0', engine: { api: 1 }, scope: 'app' });
+        return JSON.stringify({ id: 'plugin-b', name: 'B', version: '2.0.0', engine: { api: 0.1 }, scope: 'app' });
       });
 
       const result = discoverCommunityPlugins();

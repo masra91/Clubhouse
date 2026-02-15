@@ -44,11 +44,14 @@ export interface PluginManifest {
   description?: string;
   author?: string;
   engine: { api: number };
-  scope: 'project' | 'app';
+  scope: 'project' | 'app' | 'dual';
   main?: string;                     // path to main module relative to plugin dir
   contributes?: PluginContributes;
   settingsPanel?: 'declarative' | 'custom';
 }
+
+// ── Render mode for dual-scope plugins ───────────────────────────────
+export type PluginRenderMode = 'project' | 'app';
 
 // ── Plugin status & registry ───────────────────────────────────────────
 export type PluginStatus =
@@ -74,7 +77,7 @@ export interface PluginRegistryEntry {
 export interface PluginContext {
   pluginId: string;
   pluginPath: string;
-  scope: 'project' | 'app';
+  scope: 'project' | 'app' | 'dual';
   projectId?: string;
   projectPath?: string;
   subscriptions: Disposable[];
@@ -133,6 +136,32 @@ export interface AgentInfo {
   name: string;
   kind: 'durable' | 'quick';
   status: 'running' | 'sleeping' | 'error';
+  color: string;
+  emoji?: string;
+  exitCode?: number;
+  mission?: string;
+  projectId: string;
+  branch?: string;
+  model?: string;
+  parentAgentId?: string;
+}
+
+export interface PluginAgentDetailedStatus {
+  state: 'idle' | 'working' | 'needs_permission' | 'tool_error';
+  message: string;
+  toolName?: string;
+}
+
+export interface CompletedQuickAgentInfo {
+  id: string;
+  projectId: string;
+  name: string;
+  mission: string;
+  summary: string | null;
+  filesModified: string[];
+  exitCode: number;
+  completedAt: number;
+  parentAgentId?: string;
 }
 
 export interface ScopedStorage {
@@ -194,11 +223,43 @@ export interface SettingsAPI {
 export interface AgentsAPI {
   list(): AgentInfo[];
   runQuick(mission: string, options?: { model?: string; systemPrompt?: string }): Promise<string>;
+  kill(agentId: string): Promise<void>;
+  resume(agentId: string): Promise<void>;
+  listCompleted(projectId?: string): CompletedQuickAgentInfo[];
+  dismissCompleted(projectId: string, agentId: string): void;
+  getDetailedStatus(agentId: string): PluginAgentDetailedStatus | null;
+  onStatusChange(callback: (agentId: string, status: string, prevStatus: string) => void): Disposable;
 }
 
 export interface HubAPI {
   // Placeholder for hub integration
   refresh(): void;
+}
+
+export interface NavigationAPI {
+  focusAgent(agentId: string): void;
+  setExplorerTab(tabId: string): void;
+}
+
+export interface WidgetsAPI {
+  AgentTerminal: React.ComponentType<{ agentId: string; focused?: boolean }>;
+  SleepingAgent: React.ComponentType<{ agentId: string }>;
+  AgentAvatar: React.ComponentType<{
+    agentId: string;
+    size?: 'sm' | 'md';
+    showStatusRing?: boolean;
+  }>;
+  QuickAgentGhost: React.ComponentType<{
+    completed: CompletedQuickAgentInfo;
+    onDismiss: () => void;
+    onDelete?: () => void;
+  }>;
+}
+
+export interface PluginContextInfo {
+  mode: PluginRenderMode;
+  projectId?: string;
+  projectPath?: string;
 }
 
 // ── Composite PluginAPI ────────────────────────────────────────────────
@@ -213,6 +274,9 @@ export interface PluginAPI {
   settings: SettingsAPI;
   agents: AgentsAPI;
   hub: HubAPI;
+  navigation: NavigationAPI;
+  widgets: WidgetsAPI;
+  context: PluginContextInfo;
 }
 
 // ── Startup marker (safe mode) ─────────────────────────────────────────

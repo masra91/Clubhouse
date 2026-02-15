@@ -6,13 +6,17 @@ describe('manifest-validator', () => {
     id: 'test-plugin',
     name: 'Test Plugin',
     version: '1.0.0',
-    engine: { api: 1 },
+    engine: { api: 0.1 },
     scope: 'project',
   };
 
   describe('SUPPORTED_API_VERSIONS', () => {
-    it('includes version 1', () => {
-      expect(SUPPORTED_API_VERSIONS).toContain(1);
+    it('includes version 0.1', () => {
+      expect(SUPPORTED_API_VERSIONS).toContain(0.1);
+    });
+
+    it('includes version 0.2', () => {
+      expect(SUPPORTED_API_VERSIONS).toContain(0.2);
     });
   });
 
@@ -120,6 +124,11 @@ describe('manifest-validator', () => {
       expect(result.errors[0]).toContain('engine.api must be a number');
     });
 
+    it('accepts API version 0.2', () => {
+      const result = validateManifest({ ...validManifest, engine: { api: 0.2 } });
+      expect(result.valid).toBe(true);
+    });
+
     it('rejects unsupported API version', () => {
       const result = validateManifest({ ...validManifest, engine: { api: 99 } });
       expect(result.valid).toBe(false);
@@ -170,6 +179,112 @@ describe('manifest-validator', () => {
         ...validManifest,
         futureField: 'value',
         experimental: { option: true },
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    // --- Dual scope ---
+
+    it('accepts a valid dual-scoped manifest', () => {
+      const result = validateManifest({ ...validManifest, scope: 'dual' });
+      expect(result.valid).toBe(true);
+    });
+
+    it('accepts dual-scoped plugin with both tab and railItem', () => {
+      const result = validateManifest({
+        ...validManifest,
+        scope: 'dual',
+        contributes: {
+          tab: { label: 'Tab' },
+          railItem: { label: 'Rail' },
+        },
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it('accepts dual-scoped plugin with only tab', () => {
+      const result = validateManifest({
+        ...validManifest,
+        scope: 'dual',
+        contributes: { tab: { label: 'Tab' } },
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it('accepts dual-scoped plugin with only railItem', () => {
+      const result = validateManifest({
+        ...validManifest,
+        scope: 'dual',
+        contributes: { railItem: { label: 'Rail' } },
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it('accepts dual-scoped plugin with no contributes', () => {
+      const result = validateManifest({
+        ...validManifest,
+        scope: 'dual',
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it('accepts dual-scoped plugin with tab, railItem, and commands', () => {
+      const result = validateManifest({
+        ...validManifest,
+        scope: 'dual',
+        contributes: {
+          tab: { label: 'Tab' },
+          railItem: { label: 'Rail' },
+          commands: [{ id: 'do-thing', title: 'Do Thing' }],
+        },
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it('still rejects project-scoped with railItem after dual support', () => {
+      const result = validateManifest({
+        ...validManifest,
+        scope: 'project',
+        contributes: { railItem: { label: 'Rail' } },
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('cannot contribute railItem');
+    });
+
+    it('still rejects app-scoped with tab after dual support', () => {
+      const result = validateManifest({
+        ...validManifest,
+        scope: 'app',
+        contributes: { tab: { label: 'Tab' } },
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('cannot contribute tab');
+    });
+
+    it('error message lists all three valid scopes', () => {
+      const result = validateManifest({ ...validManifest, scope: 'invalid' });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('"project"');
+      expect(result.errors[0]).toContain('"app"');
+      expect(result.errors[0]).toContain('"dual"');
+    });
+
+    it('rejects scope of boolean type', () => {
+      const result = validateManifest({ ...validManifest, scope: true });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('Invalid scope');
+    });
+
+    it('rejects scope of number type', () => {
+      const result = validateManifest({ ...validManifest, scope: 42 });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('Invalid scope');
+    });
+
+    it('accepts empty contributes object without error', () => {
+      const result = validateManifest({
+        ...validManifest,
+        contributes: {},
       });
       expect(result.valid).toBe(true);
     });

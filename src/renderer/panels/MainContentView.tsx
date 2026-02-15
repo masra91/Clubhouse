@@ -82,7 +82,7 @@ export function MainContentView() {
   // Plugin tabs (prefixed with "plugin:")
   if (explorerTab.startsWith('plugin:')) {
     const pluginId = explorerTab.slice('plugin:'.length);
-    return <PluginContentView pluginId={pluginId} />;
+    return <PluginContentView pluginId={pluginId} mode="project" />;
   }
 
   return (

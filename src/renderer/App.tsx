@@ -104,6 +104,28 @@ export function App() {
     }
   }, [activeProjectId, projects]);
 
+  // Emit agent:status-changed plugin events when agent statuses change
+  const prevAgentStatusesRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    const unsub = useAgentStore.subscribe((state) => {
+      const prev = prevAgentStatusesRef.current;
+      const next: Record<string, string> = {};
+      for (const [id, agent] of Object.entries(state.agents)) {
+        next[id] = agent.status;
+        if (prev[id] && prev[id] !== agent.status) {
+          pluginEventBus.emit('agent:status-changed', {
+            agentId: id,
+            status: agent.status,
+            prevStatus: prev[id],
+            name: agent.name,
+          });
+        }
+      }
+      prevAgentStatusesRef.current = next;
+    });
+    return unsub;
+  }, []);
+
   // Periodically clear stale detailed statuses (e.g. stuck "Thinking" or "Searching files")
   useEffect(() => {
     const id = setInterval(clearStaleStatuses, 10_000);
@@ -171,6 +193,14 @@ export function App() {
         } else {
           pluginEventBus.emit('agent:spawned', { agentId, name, kind: event.kind });
         }
+
+        // Emit agent:hook for all hook events
+        pluginEventBus.emit('agent:hook', {
+          agentId,
+          kind: event.kind,
+          toolName: event.toolName,
+          timestamp: event.timestamp,
+        });
 
         // Auto-exit quick agents when the agent finishes (stop event).
         // Delay gives the agent time to write the summary file before we send /exit.
@@ -243,7 +273,7 @@ export function App() {
         </div>
         <div className="flex-1 min-h-0 grid grid-cols-[60px_1fr]">
           <ProjectRail />
-          <PluginContentView pluginId={appPluginId} />
+          <PluginContentView pluginId={appPluginId} mode="app" />
         </div>
       </div>
     );

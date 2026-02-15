@@ -10,7 +10,7 @@ const testManifest: PluginManifest = {
   id: 'test-plugin',
   name: 'Test Plugin',
   version: '1.0.0',
-  engine: { api: 1 },
+  engine: { api: 0.1 },
   scope: 'project',
 };
 
@@ -18,7 +18,7 @@ const appManifest: PluginManifest = {
   id: 'app-plugin',
   name: 'App Plugin',
   version: '1.0.0',
-  engine: { api: 1 },
+  engine: { api: 0.1 },
   scope: 'app',
 };
 

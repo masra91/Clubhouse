@@ -1,3 +1,4 @@
+import React from 'react';
 import type { PluginContext, PluginAPI } from '../../shared/plugin-types';
 
 export function createMockContext(overrides?: Partial<PluginContext>): PluginContext {
@@ -73,9 +74,30 @@ export function createMockAPI(overrides?: Partial<PluginAPI>): PluginAPI {
     agents: {
       list: () => [],
       runQuick: async () => '',
+      kill: asyncNoop,
+      resume: asyncNoop,
+      listCompleted: () => [],
+      dismissCompleted: noop,
+      getDetailedStatus: () => null,
+      onStatusChange: () => ({ dispose: noop }),
     },
     hub: {
       refresh: noop,
+    },
+    navigation: {
+      focusAgent: noop,
+      setExplorerTab: noop,
+    },
+    widgets: {
+      AgentTerminal: noop as unknown as PluginAPI['widgets']['AgentTerminal'],
+      SleepingAgent: noop as unknown as PluginAPI['widgets']['SleepingAgent'],
+      AgentAvatar: noop as unknown as PluginAPI['widgets']['AgentAvatar'],
+      QuickAgentGhost: noop as unknown as PluginAPI['widgets']['QuickAgentGhost'],
+    },
+    context: {
+      mode: 'project',
+      projectId: 'test-project',
+      projectPath: '/tmp/test-project',
     },
     ...overrides,
   };

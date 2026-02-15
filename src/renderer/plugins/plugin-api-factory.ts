@@ -1,3 +1,4 @@
+import React from 'react';
 import type {
   PluginContext,
   PluginAPI,
@@ -12,11 +13,17 @@ import type {
   SettingsAPI,
   AgentsAPI,
   HubAPI,
+  NavigationAPI,
+  WidgetsAPI,
+  PluginContextInfo,
+  PluginRenderMode,
   DirectoryEntry,
   GitStatus,
   GitCommit,
   ProjectInfo,
   AgentInfo,
+  PluginAgentDetailedStatus,
+  CompletedQuickAgentInfo,
   Disposable,
 } from '../../shared/plugin-types';
 import { pluginEventBus } from './plugin-events';
@@ -24,6 +31,8 @@ import { pluginCommandRegistry } from './plugin-commands';
 import { usePluginStore } from './plugin-store';
 import { useProjectStore } from '../stores/projectStore';
 import { useAgentStore } from '../stores/agentStore';
+import { useQuickAgentStore } from '../stores/quickAgentStore';
+import { useUIStore } from '../stores/uiStore';
 
 function unavailableProxy(apiName: string, scope: string): never {
   throw new Error(`api.${apiName} is not available for ${scope}-scoped plugins`);
@@ -193,7 +202,7 @@ function createEventsAPI(): EventsAPI {
 }
 
 function createSettingsAPI(ctx: PluginContext): SettingsAPI {
-  const settingsKey = ctx.scope === 'project' && ctx.projectId
+  const settingsKey = (ctx.scope === 'project' || ctx.scope === 'dual') && ctx.projectId
     ? `${ctx.projectId}:${ctx.pluginId}`
     : `app:${ctx.pluginId}`;
   const changeHandlers = new Set<(key: string, value: unknown) => void>();
@@ -226,8 +235,17 @@ function createAgentsAPI(ctx: PluginContext): AgentsAPI {
           name: a.name,
           kind: a.kind,
           status: a.status,
+          color: a.color,
+          emoji: a.emoji,
+          exitCode: a.exitCode,
+          mission: a.mission,
+          projectId: a.projectId,
+          branch: a.branch,
+          model: a.model,
+          parentAgentId: a.parentAgentId,
         }));
     },
+
     async runQuick(mission: string, options?: { model?: string; systemPrompt?: string }): Promise<string> {
       if (!ctx.projectId || !ctx.projectPath) {
         throw new Error('runQuick requires a project context');
@@ -238,6 +256,84 @@ function createAgentsAPI(ctx: PluginContext): AgentsAPI {
         mission,
         options?.model,
       );
+    },
+
+    async kill(agentId: string): Promise<void> {
+      const agent = useAgentStore.getState().agents[agentId];
+      if (!agent) return;
+      const project = useProjectStore.getState().projects.find((p) => p.id === agent.projectId);
+      await useAgentStore.getState().killAgent(agentId, project?.path);
+    },
+
+    async resume(agentId: string): Promise<void> {
+      const agent = useAgentStore.getState().agents[agentId];
+      if (!agent || agent.kind !== 'durable') {
+        throw new Error('Can only resume durable agents');
+      }
+      const project = useProjectStore.getState().projects.find((p) => p.id === agent.projectId);
+      if (!project) throw new Error('Project not found for agent');
+      const configs = await window.clubhouse.agent.listDurable(project.path);
+      const config = configs.find((c: { id: string }) => c.id === agentId);
+      if (!config) throw new Error('Durable config not found for agent');
+      await useAgentStore.getState().spawnDurableAgent(project.id, project.path, config, true);
+    },
+
+    listCompleted(projectId?: string): CompletedQuickAgentInfo[] {
+      const pid = projectId || ctx.projectId;
+      if (!pid) return [];
+      const records = useQuickAgentStore.getState().completedAgents[pid] || [];
+      return records.map((r) => ({
+        id: r.id,
+        projectId: r.projectId,
+        name: r.name,
+        mission: r.mission,
+        summary: r.summary,
+        filesModified: r.filesModified,
+        exitCode: r.exitCode,
+        completedAt: r.completedAt,
+        parentAgentId: r.parentAgentId,
+      }));
+    },
+
+    dismissCompleted(projectId: string, agentId: string): void {
+      useQuickAgentStore.getState().dismissCompleted(projectId, agentId);
+    },
+
+    getDetailedStatus(agentId: string): PluginAgentDetailedStatus | null {
+      const status = useAgentStore.getState().agentDetailedStatus[agentId];
+      if (!status) return null;
+      return {
+        state: status.state,
+        message: status.message,
+        toolName: status.toolName,
+      };
+    },
+
+    onStatusChange(callback: (agentId: string, status: string, prevStatus: string) => void): Disposable {
+      let prevStatuses: Record<string, string> = {};
+      // Snapshot current state
+      const agents = useAgentStore.getState().agents;
+      for (const [id, agent] of Object.entries(agents)) {
+        prevStatuses[id] = agent.status;
+      }
+
+      const unsub = useAgentStore.subscribe((state) => {
+        const currentAgents = state.agents;
+        for (const [id, agent] of Object.entries(currentAgents)) {
+          const prev = prevStatuses[id];
+          if (prev && prev !== agent.status) {
+            callback(id, agent.status, prev);
+          }
+        }
+        // Update snapshot
+        const next: Record<string, string> = {};
+        for (const [id, agent] of Object.entries(currentAgents)) {
+          next[id] = agent.status;
+        }
+        prevStatuses = next;
+      });
+
+      return { dispose: unsub };
     },
   };
 }
@@ -250,24 +346,106 @@ function createHubAPI(): HubAPI {
   };
 }
 
-export function createPluginAPI(ctx: PluginContext): PluginAPI {
-  const isProjectScoped = ctx.scope === 'project';
+function createNavigationAPI(): NavigationAPI {
+  return {
+    focusAgent(agentId: string): void {
+      useUIStore.getState().setExplorerTab('agents');
+      useAgentStore.getState().setActiveAgent(agentId);
+    },
+    setExplorerTab(tabId: string): void {
+      useUIStore.getState().setExplorerTab(tabId);
+    },
+  };
+}
+
+let _widgetsCache: WidgetsAPI | null = null;
+
+function createWidgetsAPI(): WidgetsAPI {
+  if (_widgetsCache) return _widgetsCache;
+
+  // Lazy imports to avoid circular deps — these are only needed when a plugin renders widgets.
+  // Wrapped in try/catch for test environments where these modules may not be available.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let AgentTerminalComponent: React.ComponentType<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let SleepingAgentComponent: React.ComponentType<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let AgentAvatarComponent: React.ComponentType<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let QuickAgentGhostComponent: React.ComponentType<any>;
+
+  try {
+    AgentTerminalComponent = require('../features/agents/AgentTerminal').AgentTerminal;
+    SleepingAgentComponent = require('../features/agents/SleepingAgent').SleepingAgent;
+    AgentAvatarComponent = require('../features/agents/AgentAvatar').AgentAvatar;
+    QuickAgentGhostComponent = require('../features/agents/QuickAgentGhost').QuickAgentGhost;
+  } catch {
+    // In test environments, return stub components
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const stub = ((): null => null) as unknown as React.ComponentType<any>;
+    _widgetsCache = {
+      AgentTerminal: stub,
+      SleepingAgent: stub,
+      AgentAvatar: stub,
+      QuickAgentGhost: stub,
+    };
+    return _widgetsCache;
+  }
+
+  // SleepingAgent adapter: plugin passes agentId, we resolve to Agent
+  const SleepingAgentAdapter = ({ agentId }: { agentId: string }) => {
+    const agent = useAgentStore.getState().agents[agentId];
+    if (!agent) return null;
+    return React.createElement(SleepingAgentComponent, { agent });
+  };
+
+  // AgentAvatar adapter: plugin passes agentId, we resolve to Agent
+  const AgentAvatarAdapter = ({ agentId, size, showStatusRing }: { agentId: string; size?: 'sm' | 'md'; showStatusRing?: boolean }) => {
+    const agent = useAgentStore.getState().agents[agentId];
+    if (!agent) return null;
+    return React.createElement(AgentAvatarComponent, { agent, size, showRing: showStatusRing });
+  };
+
+  _widgetsCache = {
+    AgentTerminal: AgentTerminalComponent,
+    SleepingAgent: SleepingAgentAdapter,
+    AgentAvatar: AgentAvatarAdapter,
+    QuickAgentGhost: QuickAgentGhostComponent,
+  };
+  return _widgetsCache;
+}
+
+export function createPluginAPI(ctx: PluginContext, mode?: PluginRenderMode): PluginAPI {
+  const effectiveMode = mode || (ctx.scope === 'app' ? 'app' : 'project');
+  const hasProjectContext = effectiveMode === 'project' && !!ctx.projectId;
+  const isDual = ctx.scope === 'dual';
+
+  // For dual-scope plugins, project API is available only in project mode
+  const projectAvailable = ctx.scope === 'project' || (isDual && effectiveMode === 'project');
+  // For dual-scope plugins, projects API is always available; for single scope it depends
+  const projectsAvailable = ctx.scope === 'app' || isDual;
+
+  const contextInfo: PluginContextInfo = {
+    mode: effectiveMode,
+    projectId: ctx.projectId,
+    projectPath: ctx.projectPath,
+  };
 
   const api: PluginAPI = {
-    project: isProjectScoped
+    project: projectAvailable && ctx.projectPath && ctx.projectId
       ? createProjectAPI(ctx)
       : new Proxy({} as ProjectAPI, {
-          get(_t, prop) { unavailableProxy('project', 'app'); },
+          get(_t, _prop) { unavailableProxy('project', effectiveMode === 'app' ? 'app' : ctx.scope); },
         }),
-    projects: !isProjectScoped
+    projects: projectsAvailable
       ? createProjectsAPI()
       : new Proxy({} as ProjectsAPI, {
-          get(_t, prop) { unavailableProxy('projects', 'project'); },
+          get(_t, _prop) { unavailableProxy('projects', 'project'); },
         }),
-    git: isProjectScoped
+    git: projectAvailable && ctx.projectPath
       ? createGitAPI(ctx)
       : new Proxy({} as GitAPI, {
-          get(_t, prop) { unavailableProxy('git', 'app'); },
+          get(_t, _prop) { unavailableProxy('git', effectiveMode === 'app' ? 'app' : ctx.scope); },
         }),
     storage: createStorageAPI(ctx),
     ui: createUIAPI(),
@@ -276,6 +454,9 @@ export function createPluginAPI(ctx: PluginContext): PluginAPI {
     settings: createSettingsAPI(ctx),
     agents: createAgentsAPI(ctx),
     hub: createHubAPI(),
+    navigation: createNavigationAPI(),
+    widgets: createWidgetsAPI(),
+    context: contextInfo,
   };
 
   return api;

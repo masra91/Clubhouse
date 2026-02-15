@@ -80,10 +80,10 @@ export function ProjectRail() {
   const isAppPlugin = explorerTab.startsWith('plugin:app:');
   const isHome = activeProjectId === null && !inSettings && !isAppPlugin;
 
-  // Get enabled app-scoped plugins with railItem contributions
+  // Get enabled app-scoped (and dual-scoped) plugins with railItem contributions
   const appPluginItems = appEnabled
     .map((id) => plugins[id])
-    .filter((entry) => entry && entry.manifest.scope === 'app' && entry.status === 'activated' && entry.manifest.contributes?.railItem);
+    .filter((entry) => entry && (entry.manifest.scope === 'app' || entry.manifest.scope === 'dual') && entry.status === 'activated' && entry.manifest.contributes?.railItem);
 
   const [expanded, setExpanded] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
