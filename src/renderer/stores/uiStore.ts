@@ -29,12 +29,15 @@ interface UIState {
   settingsContext: 'app' | string;
   showHome: boolean;
   showCrossHub: boolean;
+  pluginSettingsId: string | null;
   setExplorerTab: (tab: ExplorerTab) => void;
   setSettingsSubPage: (page: SettingsSubPage) => void;
   setSettingsContext: (context: 'app' | string) => void;
   toggleSettings: () => void;
   setShowHome: (show: boolean) => void;
   setShowCrossHub: (show: boolean) => void;
+  openPluginSettings: (pluginId: string) => void;
+  closePluginSettings: () => void;
 }
 
 const initialPrefs = loadViewPrefs();
@@ -46,6 +49,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   settingsContext: 'app',
   showHome: initialPrefs.showHome,
   showCrossHub: initialPrefs.showCrossHub,
+  pluginSettingsId: null,
 
   setExplorerTab: (tab) => set({ explorerTab: tab }),
   setSettingsSubPage: (page) => set({ settingsSubPage: page }),
@@ -72,5 +76,11 @@ export const useUIStore = create<UIState>((set, get) => ({
     if (!show && get().explorerTab === 'cross-hub') {
       set({ explorerTab: 'agents' });
     }
+  },
+  openPluginSettings: (pluginId) => {
+    set({ pluginSettingsId: pluginId, settingsSubPage: 'plugin-detail' });
+  },
+  closePluginSettings: () => {
+    set({ pluginSettingsId: null, settingsSubPage: 'plugins' });
   },
 }));

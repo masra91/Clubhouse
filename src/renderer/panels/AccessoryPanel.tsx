@@ -1,4 +1,9 @@
 import { useUIStore } from '../stores/uiStore';
+import { usePluginStore } from '../plugins/plugin-store';
+import { useProjectStore } from '../stores/projectStore';
+import { PluginAPIProvider } from '../plugins/plugin-context';
+import { createPluginAPI } from '../plugins/plugin-api-factory';
+import { getActiveContext } from '../plugins/plugin-loader';
 import { AgentList } from '../features/agents/AgentList';
 import { SettingsSubPage } from '../../shared/types';
 
@@ -9,7 +14,9 @@ function SettingsCategoryNav() {
     <button
       onClick={() => setSettingsSubPage(page)}
       className={`w-full px-3 py-2 text-sm text-left cursor-pointer ${
-        settingsSubPage === page ? 'text-ctp-text bg-surface-1' : 'text-ctp-subtext0 hover:bg-surface-0 hover:text-ctp-subtext1'
+        settingsSubPage === page || (page === 'plugins' && settingsSubPage === 'plugin-detail')
+          ? 'text-ctp-text bg-surface-1'
+          : 'text-ctp-subtext0 hover:bg-surface-0 hover:text-ctp-subtext1'
       }`}
     >
       {label}
@@ -31,14 +38,36 @@ function SettingsCategoryNav() {
             {navButton('Orchestrators', 'orchestrators')}
             {navButton('Display & UI', 'display')}
             {navButton('Notifications', 'notifications')}
+            {navButton('Plugins', 'plugins')}
           </>
         ) : (
           <>
             {navButton('Project Settings', 'project')}
+            {navButton('Plugins', 'plugins')}
           </>
         )}
       </nav>
     </div>
+  );
+}
+
+function PluginSidebarPanel({ pluginId }: { pluginId: string }) {
+  const modules = usePluginStore((s) => s.modules);
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
+
+  const mod = modules[pluginId];
+  if (!mod?.SidebarPanel) return null;
+
+  const ctx = getActiveContext(pluginId, activeProjectId || undefined);
+  if (!ctx) return null;
+
+  const api = createPluginAPI(ctx);
+  const SidebarPanel = mod.SidebarPanel;
+
+  return (
+    <PluginAPIProvider api={api}>
+      <SidebarPanel api={api} />
+    </PluginAPIProvider>
   );
 }
 
@@ -55,6 +84,21 @@ export function AccessoryPanel() {
 
   if (explorerTab === 'settings') {
     return <SettingsCategoryNav />;
+  }
+
+  // Plugin tabs with sidebar layout
+  if (explorerTab.startsWith('plugin:')) {
+    const pluginId = explorerTab.slice('plugin:'.length);
+    const entry = usePluginStore.getState().plugins[pluginId];
+    const layout = entry?.manifest.contributes?.tab?.layout ?? 'sidebar-content';
+
+    if (layout === 'sidebar-content') {
+      return (
+        <div className="flex flex-col bg-ctp-base border-r border-surface-0 h-full overflow-hidden">
+          <PluginSidebarPanel pluginId={pluginId} />
+        </div>
+      );
+    }
   }
 
   return <div className="flex flex-col bg-ctp-base border-r border-surface-0 h-full overflow-hidden" />;

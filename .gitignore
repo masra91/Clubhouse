@@ -100,7 +100,7 @@ out/
 # Materialized MCP config
 .mcp.json
 
-# Local scratch / research folders
+# Local scratch / research folders // TODO REMOVE 
 old-plugins/
 new-plugin/
 user-orchestrators/

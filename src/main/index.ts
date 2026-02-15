@@ -1,8 +1,9 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 import { registerAllHandlers } from './ipc';
 import { killAll } from './services/pty-manager';
 import { buildMenu } from './menu';
 import { getSettings as getThemeSettings } from './services/theme-service';
+import * as safeMode from './services/safe-mode';
 
 // Set the app name early so the dock, menu bar, and notifications all say "Clubhouse"
 // instead of "Electron" during development.
@@ -68,6 +69,34 @@ const createWindow = (): void => {
 app.on('ready', () => {
   registerAllHandlers();
   buildMenu();
+
+  // Safe mode: check --safe-mode flag or startup marker crash counter
+  const forceSafeMode = process.argv.includes('--safe-mode');
+  if (!forceSafeMode && safeMode.shouldShowSafeModeDialog()) {
+    const marker = safeMode.readMarker();
+    const pluginList = marker?.lastEnabledPlugins?.join(', ') || 'unknown';
+    const response = dialog.showMessageBoxSync({
+      type: 'warning',
+      title: 'Clubhouse — Safe Mode',
+      message: 'Clubhouse failed to start properly on the last attempt.',
+      detail: `This may be caused by a plugin. Last enabled plugins: ${pluginList}\n\nWould you like to start in safe mode (all plugins disabled)?`,
+      buttons: ['Start in Safe Mode', 'Try Again Normally'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response === 0) {
+      // Safe mode — clear marker so we don't loop, renderer will see safeModeActive
+      safeMode.clearMarker();
+      // Set env var so renderer knows to activate safe mode
+      process.env.CLUBHOUSE_SAFE_MODE = '1';
+    }
+  }
+
+  if (forceSafeMode) {
+    safeMode.clearMarker();
+    process.env.CLUBHOUSE_SAFE_MODE = '1';
+  }
+
   createWindow();
 
   // macOS notification permission is triggered on-demand when the user
