@@ -123,6 +123,7 @@ export function PluginListSettings() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-ctp-text">{entry.manifest.name}</span>
                       <span className="text-xs text-ctp-subtext0">v{entry.manifest.version}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-1 text-ctp-overlay1">API {entry.manifest.engine.api}</span>
                       {entry.source === 'builtin' && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-ctp-accent/20 text-ctp-accent">Built-in</span>
                       )}

@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { useUIStore } from '../../stores/uiStore';
-import { useProjectStore } from '../../stores/projectStore';
 import { usePluginStore } from '../../plugins/plugin-store';
 import { HELP_SECTIONS, HelpSection } from './help-content';
 import { getPluginHelpTopics } from './plugin-help';
@@ -14,13 +13,14 @@ export function HelpView() {
   const setHelpSection = useUIStore((s) => s.setHelpSection);
   const setHelpTopic = useUIStore((s) => s.setHelpTopic);
 
-  const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const projectEnabled = usePluginStore((s) => s.projectEnabled);
+  const appEnabled = usePluginStore((s) => s.appEnabled);
   const plugins = usePluginStore((s) => s.plugins);
 
   const pluginSections = useMemo<HelpSection[]>(() => {
-    if (!activeProjectId) return [];
-    const enabledIds = projectEnabled[activeProjectId] || [];
+    // Collect all plugin IDs enabled at app level or in any project
+    const allProjectIds = Object.values(projectEnabled).flat();
+    const enabledIds = [...new Set([...appEnabled, ...allProjectIds])];
     return enabledIds
       .map((id) => plugins[id])
       .filter((entry) => entry && entry.status !== 'incompatible')
@@ -29,7 +29,7 @@ export function HelpView() {
         title: entry.manifest.name,
         topics: getPluginHelpTopics(entry.manifest),
       }));
-  }, [activeProjectId, projectEnabled, plugins]);
+  }, [projectEnabled, appEnabled, plugins]);
 
   const allSections = useMemo(
     () => [...HELP_SECTIONS, ...pluginSections],
