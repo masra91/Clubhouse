@@ -32,7 +32,7 @@ const MODEL_OPTIONS = [
 ];
 
 const DEFAULT_DURABLE_PERMISSIONS = ['Bash(git:*)', 'Bash(npm:*)', 'Bash(npx:*)'];
-const DEFAULT_QUICK_PERMISSIONS = ['Bash(git:*)', 'Bash(npm:*)', 'Bash(npx:*)', 'Write'];
+const DEFAULT_QUICK_PERMISSIONS = ['Bash(git:*)', 'Bash(npm:*)', 'Bash(npx:*)', 'Read', 'Write', 'Edit', 'Glob', 'Grep'];
 
 const EVENT_NAME_MAP: Record<string, NormalizedHookEvent['kind']> = {
   preToolUse: 'pre_tool',
@@ -90,6 +90,8 @@ function findCopilotBinary(): string {
 export class CopilotCliProvider implements OrchestratorProvider {
   readonly id = 'copilot-cli' as const;
   readonly displayName = 'GitHub Copilot CLI';
+  readonly badge = 'Beta';
+
 
   readonly conventions: OrchestratorConventions = {
     configDir: '.github',
@@ -113,7 +115,7 @@ export class CopilotCliProvider implements OrchestratorProvider {
     }
   }
 
-  async buildSpawnCommand(opts: SpawnOpts): Promise<{ binary: string; args: string[] }> {
+  async buildSpawnCommand(opts: SpawnOpts): Promise<{ binary: string; args: string[]; env?: Record<string, string> }> {
     const binary = findCopilotBinary();
     const args: string[] = [];
 
@@ -121,12 +123,13 @@ export class CopilotCliProvider implements OrchestratorProvider {
       args.push('--model', opts.model);
     }
 
-    if (opts.mission) {
-      args.push('-p', opts.mission);
-    }
-
-    if (opts.systemPrompt) {
-      args.push('--append-system-prompt', opts.systemPrompt);
+    // Copilot CLI doesn't have --append-system-prompt, so we prepend
+    // system prompt content directly into the mission prompt via -p.
+    if (opts.mission || opts.systemPrompt) {
+      const parts: string[] = [];
+      if (opts.systemPrompt) parts.push(opts.systemPrompt);
+      if (opts.mission) parts.push(opts.mission);
+      args.push('-p', parts.join('\n\n'));
     }
 
     return { binary, args };
@@ -136,11 +139,7 @@ export class CopilotCliProvider implements OrchestratorProvider {
     return '/exit\r';
   }
 
-  async writeHooksConfig(
-    cwd: string,
-    hookUrl: string,
-    opts?: { allowedTools?: string[] }
-  ): Promise<void> {
+  async writeHooksConfig(cwd: string, hookUrl: string): Promise<void> {
     const curlBase = `cat | curl -s -X POST ${hookUrl} -H 'Content-Type: application/json' --data-binary @- || true`;
 
     const hooks: Record<string, unknown[]> = {
@@ -166,9 +165,6 @@ export class CopilotCliProvider implements OrchestratorProvider {
     }
 
     const merged: Record<string, unknown> = { ...existing, hooks };
-    if (opts?.allowedTools && opts.allowedTools.length > 0) {
-      merged.allowedTools = opts.allowedTools;
-    }
     fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2), 'utf-8');
   }
 

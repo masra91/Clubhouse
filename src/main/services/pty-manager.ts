@@ -44,7 +44,7 @@ function getMainWindow(): BrowserWindow | null {
   return windows[0] || null;
 }
 
-export function spawn(agentId: string, cwd: string, binary: string, args: string[] = []): void {
+export function spawn(agentId: string, cwd: string, binary: string, args: string[] = [], extraEnv?: Record<string, string>): void {
   if (ptys.has(agentId)) {
     const existing = ptys.get(agentId)!;
     try { existing.process.kill(); } catch {}
@@ -61,10 +61,14 @@ export function spawn(agentId: string, cwd: string, binary: string, args: string
 
   // Spawn a bare interactive shell first. The agent command is written to stdin
   // after the terminal mounts and sends the real resize (see pendingCommands).
+  const spawnEnv = extraEnv
+    ? { ...getShellEnvironment(), ...extraEnv }
+    : getShellEnvironment();
+
   const proc = pty.spawn(shell, ['-il'], {
     name: 'xterm-256color',
     cwd,
-    env: getShellEnvironment(),
+    env: spawnEnv,
     cols: 120,
     rows: 30,
   });
@@ -77,6 +81,10 @@ export function spawn(agentId: string, cwd: string, binary: string, args: string
     // Ignore data from a stale process that was replaced
     const current = ptys.get(agentId);
     if (!current || current.process !== proc) return;
+
+    // Suppress shell startup output (MOTD, prompt) before the agent command launches.
+    // Once the pending command fires (on resize), we start forwarding.
+    if (pendingCommands.has(agentId)) return;
 
     managed.lastActivity = Date.now();
     appendToBuffer(agentId, data);
@@ -177,14 +185,26 @@ export function gracefulKill(agentId: string, exitCommand: string = '/exit\r'): 
 
   managed.killing = true;
 
-  // Send exit command to the agent CLI
+  // Try the exit command, then escalate: EOF → SIGTERM → SIGKILL
   try {
     managed.process.write(exitCommand);
   } catch {
     // already dead
   }
 
-  // Force kill after 5 seconds if still alive
+  // After 3s, try EOF (Ctrl+D) in case /exit wasn't accepted
+  const eofTimer = setTimeout(() => {
+    if (!ptys.has(agentId)) return;
+    try { managed.process.write('\x04'); } catch { /* dead */ }
+  }, 3000);
+
+  // After 6s, send SIGTERM for graceful shutdown
+  const termTimer = setTimeout(() => {
+    if (!ptys.has(agentId)) return;
+    try { managed.process.kill('SIGTERM'); } catch { /* dead */ }
+  }, 6000);
+
+  // After 9s, force SIGKILL as last resort
   const timeout = setTimeout(() => {
     killTimers.delete(agentId);
     if (ptys.has(agentId)) {
@@ -194,7 +214,9 @@ export function gracefulKill(agentId: string, exitCommand: string = '/exit\r'): 
         // already dead
       }
     }
-  }, 5000);
+    clearTimeout(eofTimer);
+    clearTimeout(termTimer);
+  }, 9000);
 
   killTimers.set(agentId, timeout);
 }

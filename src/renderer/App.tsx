@@ -167,6 +167,10 @@ export function App() {
             // Summary not available
           }
 
+          // If the summary was found, treat as success regardless of exit code
+          // (we often force-kill quick agents after they finish, giving >128 codes)
+          const effectiveExitCode = summary ? 0 : exitCode;
+
           addCompleted({
             id: agentId,
             projectId: agent.projectId,
@@ -174,7 +178,7 @@ export function App() {
             mission: agent.mission,
             summary,
             filesModified,
-            exitCode,
+            exitCode: effectiveExitCode,
             completedAt: Date.now(),
             parentAgentId: agent.parentAgentId,
           });
@@ -195,17 +199,18 @@ export function App() {
         checkAndNotify(name, event.kind, event.toolName);
 
         // Auto-exit quick agents when the agent finishes (stop event).
-        // Short delay lets the agent finish rendering before we send exit.
-        // killAgent triggers gracefulKill: sends exit command then force-kills after 5s.
+        // Delay gives the agent time to write the summary file before we send /exit.
         if (event.kind === 'stop' && agent?.kind === 'quick') {
           const project = useProjectStore.getState().projects.find((p) => p.id === agent.projectId);
           setTimeout(() => {
+            const currentAgent = useAgentStore.getState().agents[agentId];
+            if (currentAgent?.status !== 'running') return; // already exited
             if (project) {
               window.clubhouse.agent.killAgent(agentId, project.path);
             } else {
               window.clubhouse.pty.kill(agentId);
             }
-          }, 500);
+          }, 2000);
         }
       }
     );

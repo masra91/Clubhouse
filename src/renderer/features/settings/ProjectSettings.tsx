@@ -205,7 +205,9 @@ function ViewsSection({ projectId, projectPath }: { projectId: string; projectPa
 function OrchestratorSection({ projectId, projectPath }: { projectId: string; projectPath: string }) {
   const { projects, updateProject } = useProjectStore();
   const project = projects.find((p) => p.id === projectId);
-  const enabledOrchestrators = useOrchestratorStore((s) => s.getEnabledOrchestrators());
+  const enabled = useOrchestratorStore((s) => s.enabled);
+  const allOrchestrators = useOrchestratorStore((s) => s.allOrchestrators);
+  const enabledOrchestrators = allOrchestrators.filter((o) => enabled.includes(o.id));
 
   if (!project || enabledOrchestrators.length <= 1) return null;
 

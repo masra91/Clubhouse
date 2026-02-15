@@ -84,7 +84,8 @@ function findOpenCodeBinary(): string {
 
 export class OpenCodeProvider implements OrchestratorProvider {
   readonly id = 'opencode' as const;
-  readonly displayName = 'OpenCode [Beta]';
+  readonly displayName = 'OpenCode';
+  readonly badge = 'Beta';
 
   readonly conventions: OrchestratorConventions = {
     configDir: '.opencode',
@@ -123,11 +124,7 @@ export class OpenCodeProvider implements OrchestratorProvider {
     return '/exit\r';
   }
 
-  async writeHooksConfig(
-    _cwd: string,
-    _hookUrl: string,
-    _opts?: { allowedTools?: string[] }
-  ): Promise<void> {
+  async writeHooksConfig(_cwd: string, _hookUrl: string): Promise<void> {
     // OpenCode hook integration is TBD — no-op for now
   }
 

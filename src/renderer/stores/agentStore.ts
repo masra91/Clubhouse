@@ -22,7 +22,7 @@ interface AgentState {
   openDeleteDialog: (agentId: string) => void;
   closeDeleteDialog: () => void;
   executeDelete: (mode: DeleteMode, projectPath: string) => Promise<DeleteResult>;
-  spawnQuickAgent: (projectId: string, projectPath: string, mission: string, model?: string, parentAgentId?: string) => Promise<string>;
+  spawnQuickAgent: (projectId: string, projectPath: string, mission: string, model?: string, parentAgentId?: string, orchestrator?: string) => Promise<string>;
   spawnDurableAgent: (projectId: string, projectPath: string, config: DurableAgentConfig, resume: boolean) => Promise<string>;
   loadDurableAgents: (projectId: string, projectPath: string) => Promise<void>;
   killAgent: (id: string, projectPath?: string) => Promise<void>;
@@ -113,7 +113,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     return result;
   },
 
-  spawnQuickAgent: async (projectId, projectPath, mission, model, parentAgentId) => {
+  spawnQuickAgent: async (projectId, projectPath, mission, model, parentAgentId, orchestrator) => {
     quickCounter++;
     const agentId = `quick_${Date.now()}_${quickCounter}`;
     const name = generateQuickName();
@@ -144,8 +144,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       resolvedModel = quickDefaults.defaultModel;
     }
 
-    // Inherit orchestrator from parent agent if available
-    const parentOrchestrator = parentAgentId ? get().agents[parentAgentId]?.orchestrator : undefined;
+    // Explicit orchestrator > inherit from parent
+    const resolvedOrchestrator = orchestrator || (parentAgentId ? get().agents[parentAgentId]?.orchestrator : undefined);
 
     const agent: Agent = {
       id: agentId,
@@ -157,7 +157,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       mission,
       model: resolvedModel,
       parentAgentId,
-      orchestrator: parentOrchestrator,
+      orchestrator: resolvedOrchestrator,
     };
 
     set((s) => ({
@@ -195,7 +195,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         mission,
         systemPrompt,
         allowedTools: quickDefaults?.allowedTools,
-        orchestrator: parentOrchestrator,
+        orchestrator: resolvedOrchestrator,
       });
     } catch (err) {
       set((s) => ({

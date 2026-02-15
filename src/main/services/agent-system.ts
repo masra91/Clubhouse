@@ -77,23 +77,27 @@ export async function spawnAgent(params: SpawnAgentParams): Promise<void> {
     agentOrchestratorMap.set(params.agentId, params.orchestrator);
   }
 
-  // Set up hooks
+  // Set up hooks (no allowedTools here — those go via CLI args to scope per-session)
   const port = await waitHookServerReady();
   const hookUrl = `http://127.0.0.1:${port}/hook/${params.agentId}`;
-  await provider.writeHooksConfig(params.cwd, hookUrl, {
-    allowedTools: params.allowedTools,
-  });
+  await provider.writeHooksConfig(params.cwd, hookUrl);
+
+  // Resolve allowed tools: explicit > provider defaults for quick agents
+  const allowedTools = params.allowedTools
+    || (params.kind === 'quick' ? provider.getDefaultPermissions('quick') : undefined);
 
   // Build the spawn command via the provider
-  const { binary, args } = await provider.buildSpawnCommand({
+  const { binary, args, env } = await provider.buildSpawnCommand({
     cwd: params.cwd,
     model: params.model,
     mission: params.mission,
     systemPrompt: params.systemPrompt,
+    allowedTools,
+    agentId: params.agentId,
   });
 
   // Spawn via PTY manager with pre-built shell command
-  ptyManager.spawn(params.agentId, params.cwd, binary, args);
+  ptyManager.spawn(params.agentId, params.cwd, binary, args, env);
 }
 
 export async function killAgent(agentId: string, projectPath: string, orchestrator?: OrchestratorId): Promise<void> {
@@ -157,6 +161,6 @@ export async function checkAvailability(
   return provider.checkAvailability();
 }
 
-export function getAvailableOrchestrators(): Array<{ id: string; displayName: string }> {
-  return getAllProviders().map((p) => ({ id: p.id, displayName: p.displayName }));
+export function getAvailableOrchestrators(): Array<{ id: string; displayName: string; badge?: string }> {
+  return getAllProviders().map((p) => ({ id: p.id, displayName: p.displayName, badge: p.badge }));
 }

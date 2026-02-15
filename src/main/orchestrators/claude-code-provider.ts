@@ -35,7 +35,7 @@ const MODEL_OPTIONS = [
 ];
 
 const DEFAULT_DURABLE_PERMISSIONS = ['Bash(git:*)', 'Bash(npm:*)', 'Bash(npx:*)'];
-const DEFAULT_QUICK_PERMISSIONS = ['Bash(git:*)', 'Bash(npm:*)', 'Bash(npx:*)', 'Write'];
+const DEFAULT_QUICK_PERMISSIONS = ['Bash(git:*)', 'Bash(npm:*)', 'Bash(npx:*)', 'Read', 'Write', 'Edit', 'Glob', 'Grep'];
 
 /** Map Claude hook_event_name values to normalized kinds */
 const EVENT_NAME_MAP: Record<string, NormalizedHookEvent['kind']> = {
@@ -129,12 +129,18 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
       args.push('--model', opts.model);
     }
 
-    if (opts.mission) {
-      args.push(opts.mission);
+    if (opts.allowedTools && opts.allowedTools.length > 0) {
+      for (const tool of opts.allowedTools) {
+        args.push('--allowedTools', tool);
+      }
     }
 
     if (opts.systemPrompt) {
       args.push('--append-system-prompt', opts.systemPrompt);
+    }
+
+    if (opts.mission) {
+      args.push(opts.mission);
     }
 
     return { binary, args };
@@ -144,11 +150,7 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
     return '/exit\r';
   }
 
-  async writeHooksConfig(
-    cwd: string,
-    hookUrl: string,
-    opts?: { allowedTools?: string[] }
-  ): Promise<void> {
+  async writeHooksConfig(cwd: string, hookUrl: string): Promise<void> {
     const curlBase = `cat | curl -s -X POST ${hookUrl} -H 'Content-Type: application/json' --data-binary @- || true`;
 
     const hooks: Record<string, unknown[]> = {
@@ -175,9 +177,6 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
     }
 
     const merged: Record<string, unknown> = { ...existing, hooks };
-    if (opts?.allowedTools && opts.allowedTools.length > 0) {
-      merged.allowedTools = opts.allowedTools;
-    }
     fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2), 'utf-8');
   }
 

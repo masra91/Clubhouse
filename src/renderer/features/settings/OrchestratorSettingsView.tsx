@@ -22,6 +22,8 @@ export function OrchestratorSettingsView() {
             const isEnabled = enabled.includes(o.id);
             const avail = availability[o.id];
             const isOnlyEnabled = isEnabled && enabled.length === 1;
+            const notInstalled = avail && !avail.available;
+            const toggleDisabled = isOnlyEnabled || !!notInstalled;
 
             return (
               <div key={o.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-ctp-mantle border border-surface-0">
@@ -38,7 +40,14 @@ export function OrchestratorSettingsView() {
                     }
                   />
                   <div>
-                    <div className="text-sm text-ctp-text">{o.displayName}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-ctp-text">{o.displayName}</span>
+                      {o.badge && (
+                        <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shadow-[0_0_6px_rgba(99,102,241,0.3)]">
+                          {o.badge}
+                        </span>
+                      )}
+                    </div>
                     {avail && !avail.available && avail.error && (
                       <div className="text-xs text-ctp-subtext0 mt-0.5">{avail.error}</div>
                     )}
@@ -46,10 +55,10 @@ export function OrchestratorSettingsView() {
                 </div>
                 <button
                   onClick={() => setEnabled(o.id, !isEnabled)}
-                  disabled={isOnlyEnabled}
+                  disabled={toggleDisabled}
                   className="toggle-track"
                   data-on={String(isEnabled)}
-                  title={isOnlyEnabled ? 'At least one orchestrator must be enabled' : undefined}
+                  title={notInstalled ? 'CLI not found — install to enable' : isOnlyEnabled ? 'At least one orchestrator must be enabled' : undefined}
                 >
                   <span className="toggle-knob" />
                 </button>

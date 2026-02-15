@@ -3,6 +3,7 @@ import { create } from 'zustand';
 interface OrchestratorInfo {
   id: string;
   displayName: string;
+  badge?: string;
 }
 
 interface OrchestratorState {

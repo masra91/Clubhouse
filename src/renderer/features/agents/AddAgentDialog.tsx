@@ -14,7 +14,9 @@ export function AddAgentDialog({ onClose, onCreate }: Props) {
   const [model, setModel] = useState('default');
   const [useWorktree, setUseWorktree] = useState(false);
   const MODEL_OPTIONS = useModelOptions();
-  const enabledOrchestrators = useOrchestratorStore((s) => s.getEnabledOrchestrators());
+  const enabled = useOrchestratorStore((s) => s.enabled);
+  const allOrchestrators = useOrchestratorStore((s) => s.allOrchestrators);
+  const enabledOrchestrators = allOrchestrators.filter((o) => enabled.includes(o.id));
   const [orchestrator, setOrchestrator] = useState(enabledOrchestrators[0]?.id || 'claude-code');
 
   const handleSubmit = (e: React.FormEvent) => {

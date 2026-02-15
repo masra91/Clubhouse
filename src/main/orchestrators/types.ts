@@ -5,7 +5,9 @@ export interface SpawnOpts {
   model?: string;
   mission?: string;
   systemPrompt?: string;
+  allowedTools?: string[];
   resume?: boolean;
+  agentId?: string;
 }
 
 export interface NormalizedHookEvent {
@@ -35,14 +37,15 @@ export interface OrchestratorConventions {
 export interface OrchestratorProvider {
   readonly id: OrchestratorId;
   readonly displayName: string;
+  readonly badge?: string;
 
   // Lifecycle
   checkAvailability(): Promise<{ available: boolean; error?: string }>;
-  buildSpawnCommand(opts: SpawnOpts): Promise<{ binary: string; args: string[] }>;
+  buildSpawnCommand(opts: SpawnOpts): Promise<{ binary: string; args: string[]; env?: Record<string, string> }>;
   getExitCommand(): string;
 
   // Hooks
-  writeHooksConfig(cwd: string, hookUrl: string, opts?: { allowedTools?: string[] }): Promise<void>;
+  writeHooksConfig(cwd: string, hookUrl: string): Promise<void>;
   parseHookEvent(raw: unknown): NormalizedHookEvent | null;
 
   // Instructions

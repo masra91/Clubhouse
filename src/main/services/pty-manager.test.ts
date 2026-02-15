@@ -33,11 +33,15 @@ vi.mock('../../shared/ipc-channels', () => ({
 // But the module has state (Maps), so we need to handle that.
 // We'll use dynamic imports or reset between tests.
 
-import { getBuffer, spawn, gracefulKill, kill } from './pty-manager';
+import { getBuffer, spawn, resize, gracefulKill, kill } from './pty-manager';
 
-// Access the internal appendToBuffer via the module
-// Since appendToBuffer is not exported, we test it via spawn + getBuffer and direct buffer manipulation
-// We can also import the module internals through a workaround
+// Helper: spawn and immediately fire resize to clear pendingCommands
+// so that onData callbacks start buffering data.
+function spawnAndActivate(agentId: string, cwd = '/test', binary = '/usr/local/bin/claude', args: string[] = []) {
+  spawn(agentId, cwd, binary, args);
+  // Resize triggers the pending command and starts data flow
+  resize(agentId, 120, 30);
+}
 
 describe('pty-manager', () => {
   beforeEach(() => {
@@ -57,7 +61,7 @@ describe('pty-manager', () => {
   describe('spawn + buffer', () => {
     it('clears previous buffer on spawn', () => {
       // Spawn first to set up buffer
-      spawn('agent_buf', '/test', '/usr/local/bin/claude', []);
+      spawnAndActivate('agent_buf');
       // Simulate data via the onData callback
       const onDataCb = mockProcess.onData.mock.calls[0][0];
       onDataCb('hello');
@@ -77,7 +81,7 @@ describe('pty-manager', () => {
 
   describe('appendToBuffer (via spawn + onData)', () => {
     it('stores and concatenates data', () => {
-      spawn('agent_concat', '/test', '/usr/local/bin/claude', []);
+      spawnAndActivate('agent_concat');
       const onDataCb = mockProcess.onData.mock.calls[0][0];
       onDataCb('hello ');
       onDataCb('world');
@@ -85,7 +89,7 @@ describe('pty-manager', () => {
     });
 
     it('evicts oldest chunks when >512KB', () => {
-      spawn('agent_evict', '/test', '/usr/local/bin/claude', []);
+      spawnAndActivate('agent_evict');
       const onDataCb = mockProcess.onData.mock.calls[0][0];
       // Write chunks that total > 512KB
       const chunkSize = 100 * 1024; // 100KB
@@ -99,7 +103,7 @@ describe('pty-manager', () => {
     });
 
     it('keeps last chunk even if it alone exceeds limit', () => {
-      spawn('agent_big', '/test', '/usr/local/bin/claude', []);
+      spawnAndActivate('agent_big');
       const onDataCb = mockProcess.onData.mock.calls[0][0];
       const bigChunk = 'x'.repeat(600 * 1024); // 600KB single chunk
       onDataCb(bigChunk);
@@ -107,16 +111,28 @@ describe('pty-manager', () => {
     });
 
     it('independent buffers per agent', () => {
-      spawn('agent_a', '/test', '/usr/local/bin/claude', []);
+      spawnAndActivate('agent_a');
       const cbA = mockProcess.onData.mock.calls[0][0];
       cbA('data_a');
 
-      spawn('agent_b', '/test', '/usr/local/bin/claude', []);
+      spawnAndActivate('agent_b');
       const cbB = mockProcess.onData.mock.calls[mockProcess.onData.mock.calls.length - 1][0];
       cbB('data_b');
 
       expect(getBuffer('agent_a')).toBe('data_a');
       expect(getBuffer('agent_b')).toBe('data_b');
+    });
+
+    it('suppresses data while command is pending', () => {
+      spawn('agent_suppress', '/test', '/usr/local/bin/claude', []);
+      const onDataCb = mockProcess.onData.mock.calls[0][0];
+      onDataCb('shell startup noise');
+      expect(getBuffer('agent_suppress')).toBe('');
+
+      // After resize, data flows
+      resize('agent_suppress', 120, 30);
+      onDataCb('real data');
+      expect(getBuffer('agent_suppress')).toBe('real data');
     });
   });
 
@@ -129,7 +145,6 @@ describe('pty-manager', () => {
 
     it('sets killing flag (no re-kill race)', () => {
       spawn('agent_gk2', '/test', '/usr/local/bin/claude', []);
-      // Just verify it doesn't throw
       gracefulKill('agent_gk2');
       expect(mockProcess.write).toHaveBeenCalledWith('/exit\r');
     });
@@ -137,7 +152,7 @@ describe('pty-manager', () => {
 
   describe('kill', () => {
     it('immediately kills and clears buffer', () => {
-      spawn('agent_kill', '/test', '/usr/local/bin/claude', []);
+      spawnAndActivate('agent_kill');
       const onDataCb = mockProcess.onData.mock.calls[0][0];
       onDataCb('some data');
       expect(getBuffer('agent_kill')).toBe('some data');
