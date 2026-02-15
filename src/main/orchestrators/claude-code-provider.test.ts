@@ -257,7 +257,7 @@ describe('ClaudeCodeProvider', () => {
         return false;
       });
 
-      await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook/agent-1');
+      await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
 
       expect(fs.mkdirSync).toHaveBeenCalledWith(
         path.join('/project', '.claude'),
@@ -270,11 +270,26 @@ describe('ClaudeCodeProvider', () => {
       expect(written.hooks.Stop).toBeDefined();
     });
 
+    it('curl command uses env var references for agent ID and nonce', async () => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        if (String(p).endsWith('/claude')) return true;
+        return false;
+      });
+
+      await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
+
+      const written = JSON.parse(vi.mocked(fs.writeFileSync).mock.calls[0][1] as string);
+      const command = written.hooks.PreToolUse[0].hooks[0].command as string;
+      expect(command).toContain('${CLUBHOUSE_AGENT_ID}');
+      expect(command).toContain('${CLUBHOUSE_HOOK_NONCE}');
+      expect(command).not.toContain('/hook/agent-');
+    });
+
     it('merges with existing settings', async () => {
       vi.mocked(fs.existsSync).mockReturnValue(true);
       vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify({ existingKey: 'value' }));
 
-      await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook/agent-1');
+      await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
 
       const written = JSON.parse(vi.mocked(fs.writeFileSync).mock.calls[0][1] as string);
       expect(written.existingKey).toBe('value');

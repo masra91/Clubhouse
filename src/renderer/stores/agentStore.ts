@@ -399,8 +399,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         break;
       case 'notification':
         detailed = {
-          state: 'needs_permission',
-          message: 'Needs permission',
+          state: 'idle',
+          message: event.message || 'Notification',
           timestamp: event.timestamp,
         };
         break;

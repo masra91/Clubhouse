@@ -95,7 +95,7 @@ export class CopilotCliProvider implements OrchestratorProvider {
   }
 
   async writeHooksConfig(cwd: string, hookUrl: string): Promise<void> {
-    const curlBase = `cat | curl -s -X POST ${hookUrl} -H 'Content-Type: application/json' --data-binary @- || true`;
+    const curlBase = `cat | curl -s -X POST ${hookUrl}/\${CLUBHOUSE_AGENT_ID} -H 'Content-Type: application/json' -H "X-Clubhouse-Nonce: \${CLUBHOUSE_HOOK_NONCE}" --data-binary @- || true`;
 
     const hooks: Record<string, unknown[]> = {
       preToolUse: [{ hooks: [{ type: 'command', command: curlBase, async: true, timeout: 5 }] }],

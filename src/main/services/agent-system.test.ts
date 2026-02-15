@@ -68,6 +68,7 @@ import {
   getAvailableOrchestrators,
   getAgentProjectPath,
   getAgentOrchestrator,
+  getAgentNonce,
   untrackAgent,
 } from './agent-system';
 import * as fs from 'fs';
@@ -148,7 +149,7 @@ describe('agent-system', () => {
       expect(getAgentOrchestrator('agent-1')).toBeUndefined();
     });
 
-    it('writes hooks config with correct URL', async () => {
+    it('writes hooks config with base URL (no agentId)', async () => {
       await spawnAgent({
         agentId: 'agent-1',
         projectPath: '/project',
@@ -157,23 +158,40 @@ describe('agent-system', () => {
       });
       expect(mockProvider.writeHooksConfig).toHaveBeenCalledWith(
         '/project',
-        'http://127.0.0.1:12345/hook/agent-1'
+        'http://127.0.0.1:12345/hook'
       );
     });
 
-    it('calls pty spawn with provider command', async () => {
+    it('generates and tracks a nonce per spawn', async () => {
+      await spawnAgent({
+        agentId: 'agent-1',
+        projectPath: '/project',
+        cwd: '/project',
+        kind: 'durable',
+      });
+      const nonce = getAgentNonce('agent-1');
+      expect(nonce).toBeDefined();
+      expect(typeof nonce).toBe('string');
+      expect(nonce!.length).toBeGreaterThan(0);
+    });
+
+    it('passes CLUBHOUSE_AGENT_ID and CLUBHOUSE_HOOK_NONCE env vars to pty', async () => {
       await spawnAgent({
         agentId: 'agent-1',
         projectPath: '/project',
         cwd: '/project/worktree',
         kind: 'durable',
       });
+      const nonce = getAgentNonce('agent-1');
       expect(mockPtySpawn).toHaveBeenCalledWith(
         'agent-1',
         '/project/worktree',
         '/usr/local/bin/claude',
         ['--model', 'opus'],
-        undefined
+        expect.objectContaining({
+          CLUBHOUSE_AGENT_ID: 'agent-1',
+          CLUBHOUSE_HOOK_NONCE: nonce,
+        })
       );
     });
 
@@ -214,7 +232,7 @@ describe('agent-system', () => {
   });
 
   describe('untrackAgent', () => {
-    it('removes agent from both maps', async () => {
+    it('removes agent from all maps including nonce', async () => {
       await spawnAgent({
         agentId: 'agent-1',
         projectPath: '/project',
@@ -224,10 +242,12 @@ describe('agent-system', () => {
       });
       expect(getAgentProjectPath('agent-1')).toBe('/project');
       expect(getAgentOrchestrator('agent-1')).toBe('opencode');
+      expect(getAgentNonce('agent-1')).toBeDefined();
 
       untrackAgent('agent-1');
       expect(getAgentProjectPath('agent-1')).toBeUndefined();
       expect(getAgentOrchestrator('agent-1')).toBeUndefined();
+      expect(getAgentNonce('agent-1')).toBeUndefined();
     });
   });
 

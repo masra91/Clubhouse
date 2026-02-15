@@ -181,12 +181,12 @@ describe('agentStore', () => {
       expect(status.message).toBe('Idle');
     });
 
-    it('notification sets state:needs_permission', () => {
+    it('notification sets state:idle with event message', () => {
       seedAgent({ id: 'a_notif', status: 'running' });
-      getState().handleHookEvent('a_notif', { kind: 'notification', timestamp: 100 });
+      getState().handleHookEvent('a_notif', { kind: 'notification', message: 'Awaiting a response', timestamp: 100 });
       const status = getState().agentDetailedStatus['a_notif'];
-      expect(status.state).toBe('needs_permission');
-      expect(status.message).toBe('Needs permission');
+      expect(status.state).toBe('idle');
+      expect(status.message).toBe('Awaiting a response');
     });
 
     it('permission_request sets state:needs_permission with toolName', () => {

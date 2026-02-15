@@ -20,11 +20,13 @@ vi.mock('electron', () => ({
 // Mock agent-system functions
 const mockGetAgentProjectPath = vi.fn<(id: string) => string | undefined>();
 const mockGetAgentOrchestrator = vi.fn<(id: string) => string | undefined>();
+const mockGetAgentNonce = vi.fn<(id: string) => string | undefined>();
 const mockResolveOrchestrator = vi.fn();
 
 vi.mock('./agent-system', () => ({
   getAgentProjectPath: (id: string) => mockGetAgentProjectPath(id),
   getAgentOrchestrator: (id: string) => mockGetAgentOrchestrator(id),
+  getAgentNonce: (id: string) => mockGetAgentNonce(id),
   resolveOrchestrator: (...args: unknown[]) => mockResolveOrchestrator(...args),
 }));
 
@@ -38,7 +40,7 @@ vi.mock('../../shared/ipc-channels', () => ({
 
 import { start, stop, getPort, waitReady } from './hook-server';
 
-function postToServer(port: number, path: string, body: unknown): Promise<number> {
+function postToServer(port: number, path: string, body: unknown, extraHeaders?: Record<string, string>): Promise<number> {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
     const req = http.request({
@@ -46,7 +48,7 @@ function postToServer(port: number, path: string, body: unknown): Promise<number
       port,
       path,
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data), ...extraHeaders },
     }, (res) => {
       res.resume();
       resolve(res.statusCode || 0);
@@ -132,10 +134,12 @@ describe('hook-server', () => {
       toolInput: { command: 'ls' },
       message: undefined,
     };
+    const VALID_NONCE = 'test-nonce-abc';
 
     beforeEach(() => {
       mockGetAgentProjectPath.mockReturnValue('/my/project');
       mockGetAgentOrchestrator.mockReturnValue('claude-code');
+      mockGetAgentNonce.mockReturnValue(VALID_NONCE);
       mockResolveOrchestrator.mockReturnValue({
         parseHookEvent: vi.fn(() => mockNormalized),
         toolVerb: vi.fn((name: string) => name === 'Bash' ? 'Running command' : undefined),
@@ -147,7 +151,7 @@ describe('hook-server', () => {
         hook_event_name: 'PreToolUse',
         tool_name: 'Bash',
         tool_input: { command: 'ls' },
-      });
+      }, { 'X-Clubhouse-Nonce': VALID_NONCE });
 
       // Give the event handler a tick to process
       await new Promise(r => setTimeout(r, 50));
@@ -165,7 +169,7 @@ describe('hook-server', () => {
     });
 
     it('resolves orchestrator with correct project path', async () => {
-      await postToServer(port, '/hook/agent-1', { hook_event_name: 'Stop' });
+      await postToServer(port, '/hook/agent-1', { hook_event_name: 'Stop' }, { 'X-Clubhouse-Nonce': VALID_NONCE });
       await new Promise(r => setTimeout(r, 50));
 
       expect(mockResolveOrchestrator).toHaveBeenCalledWith('/my/project', 'claude-code');
@@ -180,7 +184,7 @@ describe('hook-server', () => {
         toolVerb: vi.fn(() => undefined),
       });
 
-      await postToServer(port, '/hook/agent-1', { hook_event_name: 'PreToolUse', tool_name: 'CustomTool' });
+      await postToServer(port, '/hook/agent-1', { hook_event_name: 'PreToolUse', tool_name: 'CustomTool' }, { 'X-Clubhouse-Nonce': VALID_NONCE });
       await new Promise(r => setTimeout(r, 50));
 
       expect(mockSend).toHaveBeenCalledWith(
@@ -191,61 +195,55 @@ describe('hook-server', () => {
         })
       );
     });
+
+    it('rejects events with wrong nonce', async () => {
+      const status = await postToServer(port, '/hook/agent-1', {
+        hook_event_name: 'PreToolUse',
+        tool_name: 'Bash',
+      }, { 'X-Clubhouse-Nonce': 'wrong-nonce' });
+      await new Promise(r => setTimeout(r, 50));
+
+      expect(status).toBe(200);
+      expect(mockSend).not.toHaveBeenCalled();
+    });
+
+    it('rejects events with missing nonce', async () => {
+      const status = await postToServer(port, '/hook/agent-1', {
+        hook_event_name: 'PreToolUse',
+        tool_name: 'Bash',
+      });
+      await new Promise(r => setTimeout(r, 50));
+
+      expect(status).toBe(200);
+      expect(mockSend).not.toHaveBeenCalled();
+    });
   });
 
-  describe('fallback for unknown agent', () => {
+  describe('unknown agent events are discarded', () => {
     beforeEach(() => {
       mockGetAgentProjectPath.mockReturnValue(undefined);
     });
 
-    it('sends raw normalized event when agent not tracked', async () => {
-      await postToServer(port, '/hook/unknown-agent', {
+    it('returns 200 but does not forward event to renderer', async () => {
+      const status = await postToServer(port, '/hook/unknown-agent', {
         hook_event_name: 'Stop',
         message: 'finished',
       });
       await new Promise(r => setTimeout(r, 50));
 
-      expect(mockSend).toHaveBeenCalledWith(
-        'agent:hook-event',
-        'unknown-agent',
-        expect.objectContaining({
-          kind: 'stop',
-          message: 'finished',
-        })
-      );
+      expect(status).toBe(200);
+      expect(mockSend).not.toHaveBeenCalled();
     });
 
-    it('maps PreToolUse to pre_tool in fallback', async () => {
-      await postToServer(port, '/hook/x', { hook_event_name: 'PreToolUse', tool_name: 'Read' });
+    it('silently discards pre_tool events from untracked agents', async () => {
+      const status = await postToServer(port, '/hook/x', {
+        hook_event_name: 'PreToolUse',
+        tool_name: 'Read',
+      });
       await new Promise(r => setTimeout(r, 50));
 
-      expect(mockSend).toHaveBeenCalledWith(
-        'agent:hook-event',
-        'x',
-        expect.objectContaining({ kind: 'pre_tool', toolName: 'Read' })
-      );
-    });
-
-    it('maps PostToolUseFailure to tool_error in fallback', async () => {
-      await postToServer(port, '/hook/x', { hook_event_name: 'PostToolUseFailure' });
-      await new Promise(r => setTimeout(r, 50));
-
-      expect(mockSend).toHaveBeenCalledWith(
-        'agent:hook-event',
-        'x',
-        expect.objectContaining({ kind: 'tool_error' })
-      );
-    });
-
-    it('defaults unknown event names to stop in fallback', async () => {
-      await postToServer(port, '/hook/x', { hook_event_name: 'Unknown' });
-      await new Promise(r => setTimeout(r, 50));
-
-      expect(mockSend).toHaveBeenCalledWith(
-        'agent:hook-event',
-        'x',
-        expect.objectContaining({ kind: 'stop' })
-      );
+      expect(status).toBe(200);
+      expect(mockSend).not.toHaveBeenCalled();
     });
   });
 
