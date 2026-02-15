@@ -13,7 +13,6 @@ describe('uiStore', () => {
       settingsSubPage: 'display',
       settingsContext: 'app',
       showHome: true,
-      showCrossHub: true,
     });
   });
 

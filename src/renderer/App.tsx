@@ -15,7 +15,6 @@ import { useOrchestratorStore } from './stores/orchestratorStore';
 import { usePluginStore } from './plugins/plugin-store';
 import { initializePluginSystem, handleProjectSwitch } from './plugins/plugin-loader';
 import { pluginEventBus } from './plugins/plugin-events';
-import { CrossHubCommandCenter } from './features/cross-hub/CrossHubCommandCenter';
 import { PluginContentView } from './panels/PluginContentView';
 
 export function App() {
@@ -193,15 +192,13 @@ export function App() {
   }, [handleHookEvent, checkAndNotify]);
 
 
-  const isCrossHub = explorerTab === 'cross-hub';
   const isAppPlugin = explorerTab.startsWith('plugin:app:');
-  const isHome = activeProjectId === null && explorerTab !== 'settings' && !isCrossHub && !isAppPlugin;
+  const isHome = activeProjectId === null && explorerTab !== 'settings' && !isAppPlugin;
   const activeProject = projects.find((p) => p.id === activeProjectId);
 
   const CORE_LABELS: Record<string, string> = {
     agents: 'Agents',
     hub: 'Project Hub',
-    'cross-hub': 'Cross-Project Hub',
     terminal: 'Terminal',
     settings: 'Settings',
   };
@@ -221,11 +218,9 @@ export function App() {
 
   const titleText = isHome
     ? 'Home'
-    : isCrossHub
-      ? 'Cross-Project Hub'
-      : activeProject
-        ? `${tabLabel} (${activeProject.displayName || activeProject.name})`
-        : tabLabel;
+    : activeProject
+      ? `${tabLabel} (${activeProject.displayName || activeProject.name})`
+      : tabLabel;
 
   if (isHome) {
     return (
@@ -236,20 +231,6 @@ export function App() {
         <div className="flex-1 min-h-0 grid grid-cols-[60px_1fr]">
           <ProjectRail />
           <Dashboard />
-        </div>
-      </div>
-    );
-  }
-
-  if (isCrossHub) {
-    return (
-      <div className="h-screen w-screen overflow-hidden bg-ctp-base text-ctp-text flex flex-col">
-        <div className="h-[38px] flex-shrink-0 drag-region bg-ctp-mantle border-b border-surface-0 flex items-center justify-center">
-          <span className="text-xs text-ctp-subtext0 select-none">{titleText}</span>
-        </div>
-        <div className="flex-1 min-h-0 grid grid-cols-[60px_1fr]">
-          <ProjectRail />
-          <CrossHubCommandCenter />
         </div>
       </div>
     );
