@@ -99,7 +99,23 @@ export interface NotificationSettings {
   playSound: boolean;
 }
 
-export type SettingsSubPage = 'project' | 'notifications' | 'display' | 'orchestrators' | 'plugins' | 'plugin-detail' | 'about';
+export type SettingsSubPage = 'project' | 'notifications' | 'logging' | 'display' | 'orchestrators' | 'plugins' | 'plugin-detail' | 'about';
+
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
+
+export interface LogEntry {
+  ts: string;
+  ns: string;
+  level: LogLevel;
+  msg: string;
+  projectId?: string;
+  meta?: Record<string, unknown>;
+}
+
+export interface LoggingSettings {
+  enabled: boolean;
+  namespaces: Record<string, boolean>;
+}
 
 export type ThemeId =
   | 'catppuccin-mocha'
