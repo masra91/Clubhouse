@@ -28,7 +28,7 @@ function ProjectIcon({ project, isActive, onClick, expanded }: {
     <button
       onClick={onClick}
       title={label}
-      className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 pr-[10px] ${
+      className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 ${
         expanded ? 'hover:bg-surface-0' : ''
       }`}
     >
@@ -78,7 +78,7 @@ function PluginRailButton({ entry, isActive, onClick, expanded }: {
     <button
       onClick={onClick}
       title={label}
-      className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 pr-[10px] ${
+      className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 ${
         expanded ? 'hover:bg-surface-0' : ''
       }`}
     >
@@ -235,7 +235,7 @@ export function ProjectRail() {
       <div
         className={`
           flex flex-col py-3 gap-2 bg-ctp-mantle border-r border-surface-0 h-full
-          transition-[width] duration-200 ease-in-out overflow-hidden pl-[10px]
+          transition-[width] duration-200 ease-in-out overflow-hidden pl-[10px] pr-[10px]
           ${expanded ? 'absolute inset-y-0 left-0 z-30 shadow-xl shadow-black/20' : ''}
         `}
         style={{ width: expanded ? 200 : 60 }}
@@ -245,7 +245,7 @@ export function ProjectRail() {
           <button
             onClick={() => exitSettingsAndNavigate(() => setActiveProject(null))}
             title="Home"
-            className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 pr-[10px] ${
+            className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 ${
               expanded ? 'hover:bg-surface-0' : ''
             }`}
           >
@@ -285,7 +285,7 @@ export function ProjectRail() {
         })}
 
         {(showHome || topPluginItems.length > 0) && (
-          <div className="mr-[10px] border-t border-surface-2 my-1 flex-shrink-0" />
+          <div className="border-t border-surface-2 my-1 flex-shrink-0" />
         )}
 
         {projects.map((p, i) => (
@@ -335,11 +335,11 @@ export function ProjectRail() {
             />
           );
         })}
-        <div className="mr-[10px] border-t border-surface-2 my-1 flex-shrink-0" />
+        <div className="border-t border-surface-2 my-1 flex-shrink-0" />
         <button
           onClick={toggleHelp}
           title="Help"
-          className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 pr-[10px] ${
+          className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 ${
             expanded ? 'hover:bg-surface-0' : ''
           }`}
         >
@@ -366,7 +366,7 @@ export function ProjectRail() {
         <button
           onClick={toggleSettings}
           title="Settings"
-          className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 pr-[10px] ${
+          className={`w-full h-10 flex items-center gap-3 cursor-pointer rounded-lg flex-shrink-0 ${
             expanded ? 'hover:bg-surface-0' : ''
           }`}
         >

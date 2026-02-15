@@ -42,5 +42,4 @@ The largest pane on the right shows:
 | Shortcut | Action |
 |----------|--------|
 | `Cmd+,` | Open settings |
-| `Cmd+N` | New agent |
 | `Cmd+1-9` | Switch between projects |
