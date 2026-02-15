@@ -1,10 +1,9 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron';
-import * as fs from 'fs';
-import * as path from 'path';
 import { IPC } from '../../shared/ipc-channels';
 import { SpawnAgentParams } from '../../shared/types';
 import * as agentConfig from '../services/agent-config';
 import * as agentSystem from '../services/agent-system';
+import { buildSummaryInstruction, readQuickSummary } from '../orchestrators/shared';
 
 export function registerAgentHandlers(): void {
   ipcMain.handle(IPC.AGENT.LIST_DURABLE, (_event, projectPath: string) => {
@@ -32,11 +31,6 @@ export function registerAgentHandlers(): void {
       agentConfig.updateDurable(projectPath, agentId, updates);
     }
   );
-
-  // Legacy: keep setup-hooks for backwards compat, but SPAWN_AGENT handles this internally now
-  ipcMain.handle(IPC.AGENT.SETUP_HOOKS, async (_event, worktreePath: string, agentId: string, options?: { allowedTools?: string[] }) => {
-    // No-op: hooks are now set up inside spawnAgent(). Kept for backwards compatibility during migration.
-  });
 
   ipcMain.handle(IPC.AGENT.GET_DURABLE_CONFIG, (_event, projectPath: string, agentId: string) => {
     return agentConfig.getDurableConfig(projectPath, agentId);
@@ -81,7 +75,7 @@ export function registerAgentHandlers(): void {
     return agentConfig.deleteUnregister(projectPath, agentId);
   });
 
-  // --- New orchestrator-based handlers ---
+  // --- Orchestrator-based handlers ---
 
   ipcMain.handle(IPC.AGENT.SPAWN_AGENT, async (_event, params: SpawnAgentParams) => {
     await agentSystem.spawnAgent(params);
@@ -91,33 +85,13 @@ export function registerAgentHandlers(): void {
     await agentSystem.killAgent(agentId, projectPath, orchestrator);
   });
 
-  ipcMain.handle(IPC.AGENT.READ_QUICK_SUMMARY, async (_event, agentId: string, projectPath?: string) => {
-    // If projectPath provided, use the new orchestrator-based path
-    if (projectPath) {
-      return agentSystem.readQuickSummary(agentId, projectPath);
-    }
-    // Fallback: try agent tracking, then raw file read
-    const trackedPath = agentSystem.getAgentProjectPath(agentId);
-    if (trackedPath) {
-      return agentSystem.readQuickSummary(agentId, trackedPath);
-    }
-    // Legacy fallback
-    const filePath = path.join('/tmp', `clubhouse-summary-${agentId}.json`);
-    try {
-      const raw = fs.readFileSync(filePath, 'utf-8');
-      const data = JSON.parse(raw);
-      fs.unlinkSync(filePath);
-      return {
-        summary: typeof data.summary === 'string' ? data.summary : null,
-        filesModified: Array.isArray(data.filesModified) ? data.filesModified : [],
-      };
-    } catch {
-      return null;
-    }
+  ipcMain.handle(IPC.AGENT.READ_QUICK_SUMMARY, async (_event, agentId: string) => {
+    return readQuickSummary(agentId);
   });
 
   ipcMain.handle(IPC.AGENT.GET_MODEL_OPTIONS, (_event, projectPath: string, orchestrator?: string) => {
-    return agentSystem.getModelOptions(projectPath, orchestrator);
+    const provider = agentSystem.resolveOrchestrator(projectPath, orchestrator);
+    return provider.getModelOptions();
   });
 
   ipcMain.handle(IPC.AGENT.CHECK_ORCHESTRATOR, async (_event, projectPath?: string, orchestrator?: string) => {
@@ -129,10 +103,11 @@ export function registerAgentHandlers(): void {
   });
 
   ipcMain.handle(IPC.AGENT.GET_TOOL_VERB, (_event, toolName: string, projectPath: string, orchestrator?: string) => {
-    return agentSystem.getToolVerb(toolName, projectPath, orchestrator);
+    const provider = agentSystem.resolveOrchestrator(projectPath, orchestrator);
+    return provider.toolVerb(toolName) || `Using ${toolName}`;
   });
 
-  ipcMain.handle(IPC.AGENT.GET_SUMMARY_INSTRUCTION, (_event, agentId: string, projectPath: string, orchestrator?: string) => {
-    return agentSystem.buildSummaryInstruction(agentId, projectPath, orchestrator);
+  ipcMain.handle(IPC.AGENT.GET_SUMMARY_INSTRUCTION, (_event, agentId: string) => {
+    return buildSummaryInstruction(agentId);
   });
 }

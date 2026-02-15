@@ -4,12 +4,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.stubGlobal('window', {
   clubhouse: {
     pty: {
-      spawn: vi.fn(),
       kill: vi.fn(),
     },
     agent: {
       listDurable: vi.fn().mockResolvedValue([]),
-      setupHooks: vi.fn().mockResolvedValue(undefined),
       renameDurable: vi.fn().mockResolvedValue(undefined),
       updateDurable: vi.fn().mockResolvedValue(undefined),
       deleteDurable: vi.fn().mockResolvedValue(undefined),

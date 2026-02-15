@@ -1,20 +1,21 @@
 import { ipcMain } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
 import * as agentSettings from '../services/agent-settings-service';
-import * as agentSystem from '../services/agent-system';
+import { resolveOrchestrator } from '../services/agent-system';
 
 export function registerAgentSettingsHandlers(): void {
   ipcMain.handle(IPC.AGENT.READ_INSTRUCTIONS, (_event, worktreePath: string, projectPath?: string) => {
     if (projectPath) {
-      return agentSystem.readInstructions(worktreePath, projectPath);
+      const provider = resolveOrchestrator(projectPath);
+      return provider.readInstructions(worktreePath);
     }
-    // Fallback to direct read if no project path (shouldn't happen normally)
     return agentSettings.readClaudeMd(worktreePath);
   });
 
   ipcMain.handle(IPC.AGENT.SAVE_INSTRUCTIONS, (_event, worktreePath: string, content: string, projectPath?: string) => {
     if (projectPath) {
-      agentSystem.writeInstructions(worktreePath, content, projectPath);
+      const provider = resolveOrchestrator(projectPath);
+      provider.writeInstructions(worktreePath, content);
     } else {
       agentSettings.writeClaudeMd(worktreePath, content);
     }

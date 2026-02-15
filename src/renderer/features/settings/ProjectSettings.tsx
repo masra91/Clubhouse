@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
-import { usePluginStore } from '../../stores/pluginStore';
 import { useUIStore } from '../../stores/uiStore';
 import { AGENT_COLORS } from '../../../shared/name-generator';
 import { ResetProjectDialog } from './ResetProjectDialog';
@@ -138,70 +137,6 @@ function AppearanceSection({ projectId }: { projectId: string }) {
   );
 }
 
-const TOGGLEABLE_TABS = [
-  {
-    id: 'agents',
-    label: 'Agents',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="11" width="18" height="10" rx="2" />
-        <circle cx="12" cy="5" r="4" />
-        <circle cx="9" cy="16" r="1.5" fill="currentColor" />
-        <circle cx="15" cy="16" r="1.5" fill="currentColor" />
-      </svg>
-    ),
-  },
-  {
-    id: 'hub',
-    label: 'Hub',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2L8 8H4l2 6H4l8 8 8-8h-2l2-6h-4L12 2z" />
-        <line x1="12" y1="22" x2="12" y2="16" />
-      </svg>
-    ),
-  },
-  {
-    id: 'terminal',
-    label: 'Terminal',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="4 17 10 11 4 5" />
-        <line x1="12" y1="19" x2="20" y2="19" />
-      </svg>
-    ),
-  },
-];
-
-function ViewsSection({ projectId, projectPath }: { projectId: string; projectPath: string }) {
-  const isCoreTabHidden = usePluginStore((s) => s.isCoreTabHidden);
-  const setCoreTabHidden = usePluginStore((s) => s.setCoreTabHidden);
-
-  return (
-    <div className="space-y-3 mb-6">
-      <h3 className="text-xs text-ctp-subtext0 uppercase tracking-wider">Views</h3>
-      {TOGGLEABLE_TABS.map((tab) => {
-        const hidden = isCoreTabHidden(projectId, tab.id);
-        return (
-          <div key={tab.id} className="flex items-center justify-between py-1.5">
-            <div className="flex items-center gap-2.5">
-              <span className="text-ctp-subtext1">{tab.icon}</span>
-              <span className="text-sm text-ctp-text">{tab.label}</span>
-            </div>
-            <button
-              onClick={() => setCoreTabHidden(projectId, projectPath, tab.id, !hidden)}
-              className="toggle-track"
-              data-on={String(!hidden)}
-            >
-              <span className="toggle-knob" />
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function OrchestratorSection({ projectId, projectPath }: { projectId: string; projectPath: string }) {
   const { projects, updateProject } = useProjectStore();
   const project = projects.find((p) => p.id === projectId);
@@ -301,7 +236,6 @@ export function ProjectSettings({ projectId }: { projectId?: string }) {
         <h2 className="text-lg font-semibold text-ctp-text mb-4">Project Settings</h2>
         <NameAndPathSection projectId={project.id} />
         <AppearanceSection projectId={project.id} />
-        <ViewsSection projectId={project.id} projectPath={project.path} />
         <OrchestratorSection projectId={project.id} projectPath={project.path} />
         <DangerZone projectId={project.id} projectPath={project.path} projectName={project.displayName || project.name} />
       </div>

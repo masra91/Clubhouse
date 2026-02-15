@@ -89,7 +89,6 @@ export interface FileNode {
 
 export type ExplorerTab = string;
 
-export const CORE_TAB_IDS = ['agents', 'hub', 'terminal', 'settings'] as const;
 
 export interface NotificationSettings {
   enabled: boolean;
@@ -100,7 +99,7 @@ export interface NotificationSettings {
   playSound: boolean;
 }
 
-export type SettingsSubPage = 'project' | 'notifications' | 'display' | 'plugins' | 'orchestrators';
+export type SettingsSubPage = 'project' | 'notifications' | 'display' | 'orchestrators';
 
 export type ThemeId =
   | 'catppuccin-mocha'
@@ -176,7 +175,6 @@ export interface ThemeDefinition {
   type: 'dark' | 'light';
   colors: ThemeColors;
   hljs: HljsColors;
-  monaco: Record<string, unknown>;
   terminal: TerminalColors;
   fontOverride?: string;
 }
@@ -280,13 +278,4 @@ export interface DeleteResult {
   message: string;
 }
 
-export interface PtyDataPayload {
-  agentId: string;
-  data: string;
-}
-
-export interface PtyExitPayload {
-  agentId: string;
-  exitCode: number;
-}
 

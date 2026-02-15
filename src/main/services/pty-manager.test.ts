@@ -33,7 +33,7 @@ vi.mock('../../shared/ipc-channels', () => ({
 // But the module has state (Maps), so we need to handle that.
 // We'll use dynamic imports or reset between tests.
 
-import { getBuffer, spawn, resize, gracefulKill, kill } from './pty-manager';
+import { getBuffer, spawn, spawnShell, resize, write, gracefulKill, kill, killAll } from './pty-manager';
 
 // Helper: spawn and immediately fire resize to clear pendingCommands
 // so that onData callbacks start buffering data.
@@ -136,6 +136,77 @@ describe('pty-manager', () => {
     });
   });
 
+  describe('spawnShell', () => {
+    it('spawns a shell without pendingCommand', () => {
+      spawnShell('shell-1', '/project');
+      // onData should work immediately (no pendingCommand suppression)
+      const onDataCb = mockProcess.onData.mock.calls[0][0];
+      onDataCb('prompt$ ');
+      // spawnShell doesn't buffer to getBuffer — data goes to IPC only
+      // but we can verify onData was registered
+      expect(mockProcess.onData).toHaveBeenCalled();
+    });
+
+    it('kills existing session with same id', () => {
+      spawnShell('shell-dup', '/project');
+      spawnShell('shell-dup', '/project');
+      expect(mockProcess.kill).toHaveBeenCalled();
+    });
+
+    it('registers onExit handler', () => {
+      spawnShell('shell-exit', '/project');
+      expect(mockProcess.onExit).toHaveBeenCalled();
+    });
+  });
+
+  describe('write', () => {
+    it('writes data to the PTY process', () => {
+      spawn('agent_w', '/test', '/usr/local/bin/claude', []);
+      write('agent_w', 'hello\n');
+      expect(mockProcess.write).toHaveBeenCalledWith('hello\n');
+    });
+
+    it('does nothing for unknown agent', () => {
+      mockProcess.write.mockClear();
+      write('nonexistent', 'hello');
+      expect(mockProcess.write).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resize', () => {
+    it('resizes the PTY process', () => {
+      spawn('agent_r', '/test', '/usr/local/bin/claude', []);
+      resize('agent_r', 200, 50);
+      expect(mockProcess.resize).toHaveBeenCalledWith(200, 50);
+    });
+
+    it('fires pending command on first resize', () => {
+      spawn('agent_pc', '/test', '/usr/local/bin/claude', ['--model', 'opus']);
+      resize('agent_pc', 120, 30);
+      // Should write exec command
+      expect(mockProcess.write).toHaveBeenCalledWith(
+        expect.stringContaining('exec ')
+      );
+    });
+
+    it('does not fire pending command on subsequent resize', () => {
+      spawn('agent_pc2', '/test', '/usr/local/bin/claude', []);
+      resize('agent_pc2', 120, 30); // clears pending
+      mockProcess.write.mockClear();
+      resize('agent_pc2', 200, 50); // no pending command
+      // write should only have been called for resize, not exec
+      expect(mockProcess.write).not.toHaveBeenCalledWith(
+        expect.stringContaining('exec ')
+      );
+    });
+
+    it('does nothing for unknown agent', () => {
+      mockProcess.resize.mockClear();
+      resize('nonexistent', 120, 30);
+      expect(mockProcess.resize).not.toHaveBeenCalled();
+    });
+  });
+
   describe('gracefulKill', () => {
     it('writes /exit to process', () => {
       spawn('agent_gk', '/test', '/usr/local/bin/claude', []);
@@ -143,10 +214,60 @@ describe('pty-manager', () => {
       expect(mockProcess.write).toHaveBeenCalledWith('/exit\r');
     });
 
-    it('sets killing flag (no re-kill race)', () => {
-      spawn('agent_gk2', '/test', '/usr/local/bin/claude', []);
-      gracefulKill('agent_gk2');
+    it('uses custom exit command', () => {
+      spawn('agent_gk_custom', '/test', '/usr/local/bin/opencode', []);
+      gracefulKill('agent_gk_custom', '/quit\r');
+      expect(mockProcess.write).toHaveBeenCalledWith('/quit\r');
+    });
+
+    it('does nothing for unknown agent', () => {
+      mockProcess.write.mockClear();
+      gracefulKill('nonexistent');
+      expect(mockProcess.write).not.toHaveBeenCalled();
+    });
+
+    it('sends EOF after 3s, SIGTERM after 6s, hard kill after 9s', () => {
+      vi.useFakeTimers();
+      spawn('agent_gk_staged', '/test', '/usr/local/bin/claude', []);
+      mockProcess.write.mockClear();
+      mockProcess.kill.mockClear();
+
+      gracefulKill('agent_gk_staged');
+
+      // First: exit command
       expect(mockProcess.write).toHaveBeenCalledWith('/exit\r');
+
+      // At 3s: EOF
+      vi.advanceTimersByTime(3000);
+      expect(mockProcess.write).toHaveBeenCalledWith('\x04');
+
+      // At 6s: SIGTERM
+      vi.advanceTimersByTime(3000);
+      expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM');
+
+      // At 9s: hard kill
+      vi.advanceTimersByTime(3000);
+      expect(mockProcess.kill).toHaveBeenCalledWith();
+
+      vi.useRealTimers();
+    });
+
+    it('skips escalation if agent exits before timeout', () => {
+      vi.useFakeTimers();
+      spawn('agent_gk_fast', '/test', '/usr/local/bin/claude', []);
+
+      gracefulKill('agent_gk_fast');
+
+      // Simulate the process exiting (onExit fires, session cleaned up)
+      kill('agent_gk_fast');
+      mockProcess.kill.mockClear();
+
+      // Advance past all timers — nothing should blow up
+      vi.advanceTimersByTime(10000);
+      // kill was already called by kill() above, but no additional SIGTERM/kill
+      expect(mockProcess.kill).not.toHaveBeenCalledWith('SIGTERM');
+
+      vi.useRealTimers();
     });
   });
 
@@ -160,6 +281,60 @@ describe('pty-manager', () => {
       kill('agent_kill');
       expect(mockProcess.kill).toHaveBeenCalled();
       expect(getBuffer('agent_kill')).toBe('');
+    });
+
+    it('does nothing for unknown agent', () => {
+      mockProcess.kill.mockClear();
+      kill('nonexistent');
+      expect(mockProcess.kill).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('killAll', () => {
+    it('writes exit command to all sessions', () => {
+      spawn('agent_ka_1', '/test', '/usr/local/bin/claude', []);
+      spawn('agent_ka_2', '/test', '/usr/local/bin/claude', []);
+      mockProcess.write.mockClear();
+
+      killAll('/exit\r');
+
+      // Each session gets the exit command
+      expect(mockProcess.write).toHaveBeenCalledWith('/exit\r');
+    });
+
+    it('clears all sessions', () => {
+      spawnAndActivate('agent_ka_3');
+      const cb = mockProcess.onData.mock.calls[0][0];
+      cb('data');
+      expect(getBuffer('agent_ka_3')).toBe('data');
+
+      killAll();
+      expect(getBuffer('agent_ka_3')).toBe('');
+    });
+
+    it('uses custom exit command', () => {
+      spawn('agent_ka_4', '/test', '/usr/local/bin/opencode', []);
+      mockProcess.write.mockClear();
+
+      killAll('/quit\r');
+
+      expect(mockProcess.write).toHaveBeenCalledWith('/quit\r');
+    });
+  });
+
+  describe('spawn with extraEnv', () => {
+    it('passes extraEnv to pty spawn', async () => {
+      const pty = await import('node-pty');
+      vi.mocked(pty.spawn).mockClear();
+      spawn('agent_env', '/test', '/usr/local/bin/claude', [], { CUSTOM_VAR: 'value' });
+
+      expect(pty.spawn).toHaveBeenCalledWith(
+        expect.any(String),
+        ['-il'],
+        expect.objectContaining({
+          env: expect.objectContaining({ CUSTOM_VAR: 'value' }),
+        })
+      );
     });
   });
 });

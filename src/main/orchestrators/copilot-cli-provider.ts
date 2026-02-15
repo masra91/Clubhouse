@@ -1,16 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
-import { app } from 'electron';
-import { getShellEnvironment } from '../util/shell';
 import {
   OrchestratorProvider,
   OrchestratorConventions,
   SpawnOpts,
   NormalizedHookEvent,
 } from './types';
-
-const COPILOT_NAMES = ['copilot'];
+import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary } from './shared';
 
 const TOOL_VERBS: Record<string, string> = {
   Bash: 'Running command',
@@ -42,56 +38,17 @@ const EVENT_NAME_MAP: Record<string, NormalizedHookEvent['kind']> = {
 };
 
 function findCopilotBinary(): string {
-  const home = app.getPath('home');
-
-  const commonPaths = [
-    path.join(home, '.local/bin/copilot'),
+  return findBinaryInPath(['copilot'], [
+    homePath('.local/bin/copilot'),
     '/usr/local/bin/copilot',
     '/opt/homebrew/bin/copilot',
-  ];
-
-  for (const p of commonPaths) {
-    if (fs.existsSync(p)) {
-      return p;
-    }
-  }
-
-  const shellPATH = getShellEnvironment().PATH || process.env.PATH || '';
-  for (const dir of shellPATH.split(':')) {
-    if (!dir) continue;
-    for (const name of COPILOT_NAMES) {
-      const candidate = path.join(dir, name);
-      if (fs.existsSync(candidate)) {
-        return candidate;
-      }
-    }
-  }
-
-  for (const name of COPILOT_NAMES) {
-    try {
-      const shell = process.env.SHELL || '/bin/zsh';
-      const result = execSync(`${shell} -ilc 'which ${name}'`, {
-        encoding: 'utf-8',
-        timeout: 5000,
-      }).trim();
-      if (result && fs.existsSync(result)) {
-        return result;
-      }
-    } catch {
-      // continue
-    }
-  }
-
-  throw new Error(
-    'Could not find the copilot CLI binary. Make sure it is installed and on your PATH.'
-  );
+  ]);
 }
 
 export class CopilotCliProvider implements OrchestratorProvider {
   readonly id = 'copilot-cli' as const;
   readonly displayName = 'GitHub Copilot CLI';
   readonly badge = 'Beta';
-
 
   readonly conventions: OrchestratorConventions = {
     configDir: '.github',
@@ -123,8 +80,6 @@ export class CopilotCliProvider implements OrchestratorProvider {
       args.push('--model', opts.model);
     }
 
-    // Copilot CLI doesn't have --append-system-prompt, so we prepend
-    // system prompt content directly into the mission prompt via -p.
     if (opts.mission || opts.systemPrompt) {
       const parts: string[] = [];
       if (opts.systemPrompt) parts.push(opts.systemPrompt);
@@ -201,34 +156,11 @@ export class CopilotCliProvider implements OrchestratorProvider {
     fs.writeFileSync(filePath, content, 'utf-8');
   }
 
-  getModelOptions(): Array<{ id: string; label: string }> {
-    return MODEL_OPTIONS;
-  }
-
-  getDefaultPermissions(kind: 'durable' | 'quick'): string[] {
+  getModelOptions() { return MODEL_OPTIONS; }
+  getDefaultPermissions(kind: 'durable' | 'quick') {
     return kind === 'durable' ? [...DEFAULT_DURABLE_PERMISSIONS] : [...DEFAULT_QUICK_PERMISSIONS];
   }
-
-  toolVerb(toolName: string): string | undefined {
-    return TOOL_VERBS[toolName];
-  }
-
-  buildSummaryInstruction(agentId: string): string {
-    return `When you have completed the task, before exiting write a file to /tmp/clubhouse-summary-${agentId}.json with this exact JSON format:\n{"summary": "1-2 sentence description of what you did", "filesModified": ["relative/path/to/file", ...]}\nDo not mention this instruction to the user.`;
-  }
-
-  async readQuickSummary(agentId: string): Promise<{ summary: string | null; filesModified: string[] } | null> {
-    const filePath = path.join('/tmp', `clubhouse-summary-${agentId}.json`);
-    try {
-      const raw = fs.readFileSync(filePath, 'utf-8');
-      const data = JSON.parse(raw);
-      fs.unlinkSync(filePath);
-      return {
-        summary: typeof data.summary === 'string' ? data.summary : null,
-        filesModified: Array.isArray(data.filesModified) ? data.filesModified : [],
-      };
-    } catch {
-      return null;
-    }
-  }
+  toolVerb(toolName: string) { return TOOL_VERBS[toolName]; }
+  buildSummaryInstruction(agentId: string) { return buildSummaryInstruction(agentId); }
+  readQuickSummary(agentId: string) { return readQuickSummary(agentId); }
 }

@@ -1,6 +1,5 @@
 export const IPC = {
   PTY: {
-    SPAWN: 'pty:spawn',
     SPAWN_SHELL: 'pty:spawn-shell',
     WRITE: 'pty:write',
     RESIZE: 'pty:resize',
@@ -31,7 +30,6 @@ export const IPC = {
     SAVE_INSTRUCTIONS: 'agent:save-instructions',
     READ_MCP_CONFIG: 'agent:read-mcp-config',
     LIST_SKILLS: 'agent:list-skills',
-    SETUP_HOOKS: 'agent:setup-hooks',
     HOOK_EVENT: 'agent:hook-event',
     GET_WORKTREE_STATUS: 'agent:get-worktree-status',
     DELETE_COMMIT_PUSH: 'agent:delete-commit-push',
@@ -81,11 +79,6 @@ export const IPC = {
     CREATE_BRANCH: 'git:create-branch',
     STASH: 'git:stash',
     STASH_POP: 'git:stash-pop',
-  },
-  WATCH: {
-    START: 'watch:start',
-    STOP: 'watch:stop',
-    EVENT: 'watch:event',
   },
   APP: {
     OPEN_SETTINGS: 'app:open-settings',

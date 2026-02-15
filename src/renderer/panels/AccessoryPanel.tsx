@@ -1,6 +1,5 @@
 import { useUIStore } from '../stores/uiStore';
 import { AgentList } from '../features/agents/AgentList';
-import { getPlugin } from '../plugins';
 import { SettingsSubPage } from '../../shared/types';
 
 function SettingsCategoryNav() {
@@ -36,7 +35,6 @@ function SettingsCategoryNav() {
         ) : (
           <>
             {navButton('Project Settings', 'project')}
-            {navButton('Plugins', 'plugins')}
           </>
         )}
       </nav>
@@ -47,7 +45,6 @@ function SettingsCategoryNav() {
 export function AccessoryPanel() {
   const { explorerTab } = useUIStore();
 
-  // Core tabs with explicit handling
   if (explorerTab === 'agents') {
     return (
       <div className="flex flex-col bg-ctp-base border-r border-surface-0 h-full overflow-hidden">
@@ -58,17 +55,6 @@ export function AccessoryPanel() {
 
   if (explorerTab === 'settings') {
     return <SettingsCategoryNav />;
-  }
-
-  // Generic plugin lookup fallback
-  const plugin = getPlugin(explorerTab);
-  if (plugin?.SidebarPanel) {
-    const SidebarPanel = plugin.SidebarPanel;
-    return (
-      <div className="flex flex-col bg-ctp-base border-r border-surface-0 h-full overflow-hidden">
-        <SidebarPanel />
-      </div>
-    );
   }
 
   return <div className="flex flex-col bg-ctp-base border-r border-surface-0 h-full overflow-hidden" />;

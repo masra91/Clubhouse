@@ -1,8 +1,7 @@
-// @ts-nocheck
 import * as http from 'http';
 import { BrowserWindow } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
-import { getAgentProjectPath, getAgentOrchestrator, resolveOrchestrator, getToolVerb } from './agent-system';
+import { getAgentProjectPath, getAgentOrchestrator, resolveOrchestrator } from './agent-system';
 
 let server: any = null;
 let serverPort = 0;
@@ -26,7 +25,7 @@ export function waitReady(): Promise<number> {
 
 export function start(): Promise<number> {
   readyPromise = new Promise((resolve, reject) => {
-    server = http.createServer((req, res) => {
+    server = http.createServer((req: http.IncomingMessage, res: http.ServerResponse) => {
       if (req.method !== 'POST' || !req.url?.startsWith('/hook/')) {
         res.writeHead(404);
         res.end();
@@ -56,7 +55,6 @@ export function start(): Promise<number> {
             const normalized = provider.parseHookEvent(raw);
 
             if (normalized) {
-              // Resolve tool verb on the main process side
               const toolVerb = normalized.toolName
                 ? (provider.toolVerb(normalized.toolName) || `Using ${normalized.toolName}`)
                 : undefined;

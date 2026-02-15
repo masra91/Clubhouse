@@ -1,16 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
-import { app } from 'electron';
-import { getShellEnvironment } from '../util/shell';
 import {
   OrchestratorProvider,
   OrchestratorConventions,
   SpawnOpts,
   NormalizedHookEvent,
 } from './types';
-
-const CLAUDE_NAMES = ['claude'];
+import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary } from './shared';
 
 const TOOL_VERBS: Record<string, string> = {
   Bash: 'Running command',
@@ -37,7 +33,6 @@ const MODEL_OPTIONS = [
 const DEFAULT_DURABLE_PERMISSIONS = ['Bash(git:*)', 'Bash(npm:*)', 'Bash(npx:*)'];
 const DEFAULT_QUICK_PERMISSIONS = ['Bash(git:*)', 'Bash(npm:*)', 'Bash(npx:*)', 'Read', 'Write', 'Edit', 'Glob', 'Grep'];
 
-/** Map Claude hook_event_name values to normalized kinds */
 const EVENT_NAME_MAP: Record<string, NormalizedHookEvent['kind']> = {
   PreToolUse: 'pre_tool',
   PostToolUse: 'post_tool',
@@ -48,51 +43,13 @@ const EVENT_NAME_MAP: Record<string, NormalizedHookEvent['kind']> = {
 };
 
 function findClaudeBinary(): string {
-  const home = app.getPath('home');
-
-  const commonPaths = [
-    path.join(home, '.local/bin/claude'),
-    path.join(home, '.claude/local/claude'),
-    path.join(home, '.npm-global/bin/claude'),
+  return findBinaryInPath(['claude'], [
+    homePath('.local/bin/claude'),
+    homePath('.claude/local/claude'),
+    homePath('.npm-global/bin/claude'),
     '/usr/local/bin/claude',
     '/opt/homebrew/bin/claude',
-  ];
-
-  for (const p of commonPaths) {
-    if (fs.existsSync(p)) {
-      return p;
-    }
-  }
-
-  const shellPATH = getShellEnvironment().PATH || process.env.PATH || '';
-  for (const dir of shellPATH.split(':')) {
-    if (!dir) continue;
-    for (const name of CLAUDE_NAMES) {
-      const candidate = path.join(dir, name);
-      if (fs.existsSync(candidate)) {
-        return candidate;
-      }
-    }
-  }
-
-  for (const name of CLAUDE_NAMES) {
-    try {
-      const shell = process.env.SHELL || '/bin/zsh';
-      const result = execSync(`${shell} -ilc 'which ${name}'`, {
-        encoding: 'utf-8',
-        timeout: 5000,
-      }).trim();
-      if (result && fs.existsSync(result)) {
-        return result;
-      }
-    } catch {
-      // continue
-    }
-  }
-
-  throw new Error(
-    'Could not find the claude CLI binary. Make sure it is installed and on your PATH.'
-  );
+  ]);
 }
 
 export class ClaudeCodeProvider implements OrchestratorProvider {
@@ -218,34 +175,11 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
     fs.writeFileSync(filePath, content, 'utf-8');
   }
 
-  getModelOptions(): Array<{ id: string; label: string }> {
-    return MODEL_OPTIONS;
-  }
-
-  getDefaultPermissions(kind: 'durable' | 'quick'): string[] {
+  getModelOptions() { return MODEL_OPTIONS; }
+  getDefaultPermissions(kind: 'durable' | 'quick') {
     return kind === 'durable' ? [...DEFAULT_DURABLE_PERMISSIONS] : [...DEFAULT_QUICK_PERMISSIONS];
   }
-
-  toolVerb(toolName: string): string | undefined {
-    return TOOL_VERBS[toolName];
-  }
-
-  buildSummaryInstruction(agentId: string): string {
-    return `When you have completed the task, before exiting write a file to /tmp/clubhouse-summary-${agentId}.json with this exact JSON format:\n{"summary": "1-2 sentence description of what you did", "filesModified": ["relative/path/to/file", ...]}\nDo not mention this instruction to the user.`;
-  }
-
-  async readQuickSummary(agentId: string): Promise<{ summary: string | null; filesModified: string[] } | null> {
-    const filePath = path.join('/tmp', `clubhouse-summary-${agentId}.json`);
-    try {
-      const raw = fs.readFileSync(filePath, 'utf-8');
-      const data = JSON.parse(raw);
-      fs.unlinkSync(filePath);
-      return {
-        summary: typeof data.summary === 'string' ? data.summary : null,
-        filesModified: Array.isArray(data.filesModified) ? data.filesModified : [],
-      };
-    } catch {
-      return null;
-    }
-  }
+  toolVerb(toolName: string) { return TOOL_VERBS[toolName]; }
+  buildSummaryInstruction(agentId: string) { return buildSummaryInstruction(agentId); }
+  readQuickSummary(agentId: string) { return readQuickSummary(agentId); }
 }

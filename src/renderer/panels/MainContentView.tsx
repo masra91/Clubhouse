@@ -10,10 +10,8 @@ import { ProjectSettings } from '../features/settings/ProjectSettings';
 import { NotificationSettingsView } from '../features/settings/NotificationSettingsView';
 import { DisplaySettingsView } from '../features/settings/DisplaySettingsView';
 import { OrchestratorSettingsView } from '../features/settings/OrchestratorSettingsView';
-import { PluginSettingsView } from '../features/settings/PluginSettingsView';
 import { CommandCenter } from '../features/hub/CommandCenter';
 import { StandaloneTerminal } from '../features/terminal/StandaloneTerminal';
-import { getPlugin } from '../plugins';
 
 export function MainContentView() {
   const { explorerTab, settingsSubPage, settingsContext } = useUIStore();
@@ -83,16 +81,7 @@ export function MainContentView() {
     if (settingsSubPage === 'orchestrators') return <OrchestratorSettingsView />;
     if (settingsSubPage === 'notifications') return <NotificationSettingsView />;
     if (settingsSubPage === 'display') return <DisplaySettingsView />;
-    if (settingsSubPage === 'plugins') return <PluginSettingsView projectId={projectId} />;
     return <ProjectSettings projectId={projectId} />;
-  }
-
-  // --- Generic plugin lookup fallback ---
-
-  const plugin = getPlugin(explorerTab);
-  if (plugin) {
-    const MainPanel = plugin.MainPanel;
-    return <MainPanel />;
   }
 
   return (

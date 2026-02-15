@@ -3,8 +3,6 @@ import { IPC } from '../shared/ipc-channels';
 
 const api = {
   pty: {
-    spawn: (agentId: string, projectPath: string, claudeArgs?: string[]) =>
-      ipcRenderer.invoke(IPC.PTY.SPAWN, { agentId, projectPath, claudeArgs }),
     spawnShell: (id: string, projectPath: string) =>
       ipcRenderer.invoke(IPC.PTY.SPAWN_SHELL, id, projectPath),
     write: (agentId: string, data: string) =>
@@ -73,8 +71,6 @@ const api = {
       ipcRenderer.invoke(IPC.AGENT.DELETE_UNREGISTER, projectPath, agentId),
     readQuickSummary: (agentId: string, projectPath?: string) =>
       ipcRenderer.invoke(IPC.AGENT.READ_QUICK_SUMMARY, agentId, projectPath),
-    setupHooks: (worktreePath: string, agentId: string, options?: { allowedTools?: string[] }) =>
-      ipcRenderer.invoke(IPC.AGENT.SETUP_HOOKS, worktreePath, agentId, options),
     getDurableConfig: (projectPath: string, agentId: string) =>
       ipcRenderer.invoke(IPC.AGENT.GET_DURABLE_CONFIG, projectPath, agentId),
     updateDurableConfig: (projectPath: string, agentId: string, updates: any) =>

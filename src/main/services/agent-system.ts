@@ -1,12 +1,12 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import { getProvider, getAllProviders, OrchestratorId, OrchestratorProvider, NormalizedHookEvent } from '../orchestrators';
+import { getProvider, getAllProviders, OrchestratorId, OrchestratorProvider } from '../orchestrators';
 import { waitReady as waitHookServerReady } from './hook-server';
 import * as ptyManager from './pty-manager';
 
 const DEFAULT_ORCHESTRATOR: OrchestratorId = 'claude-code';
 
-/** Track agentId → projectPath for hook event normalization */
+/** Track agentId → projectPath for hook event routing */
 const agentProjectMap = new Map<string, string>();
 /** Track agentId → orchestratorId override */
 const agentOrchestratorMap = new Map<string, OrchestratorId>();
@@ -71,22 +71,18 @@ export interface SpawnAgentParams {
 export async function spawnAgent(params: SpawnAgentParams): Promise<void> {
   const provider = resolveOrchestrator(params.projectPath, params.orchestrator);
 
-  // Track the agent so we can resolve the orchestrator for hook events
   agentProjectMap.set(params.agentId, params.projectPath);
   if (params.orchestrator) {
     agentOrchestratorMap.set(params.agentId, params.orchestrator);
   }
 
-  // Set up hooks (no allowedTools here — those go via CLI args to scope per-session)
   const port = await waitHookServerReady();
   const hookUrl = `http://127.0.0.1:${port}/hook/${params.agentId}`;
   await provider.writeHooksConfig(params.cwd, hookUrl);
 
-  // Resolve allowed tools: explicit > provider defaults for quick agents
   const allowedTools = params.allowedTools
     || (params.kind === 'quick' ? provider.getDefaultPermissions('quick') : undefined);
 
-  // Build the spawn command via the provider
   const { binary, args, env } = await provider.buildSpawnCommand({
     cwd: params.cwd,
     model: params.model,
@@ -96,7 +92,6 @@ export async function spawnAgent(params: SpawnAgentParams): Promise<void> {
     agentId: params.agentId,
   });
 
-  // Spawn via PTY manager with pre-built shell command
   ptyManager.spawn(params.agentId, params.cwd, binary, args, env);
 }
 
@@ -104,49 +99,6 @@ export async function killAgent(agentId: string, projectPath: string, orchestrat
   const provider = resolveOrchestrator(projectPath, orchestrator);
   const exitCmd = provider.getExitCommand();
   ptyManager.gracefulKill(agentId, exitCmd);
-}
-
-export function readInstructions(worktreePath: string, projectPath: string, orchestrator?: OrchestratorId): string {
-  const provider = resolveOrchestrator(projectPath, orchestrator);
-  return provider.readInstructions(worktreePath);
-}
-
-export function writeInstructions(worktreePath: string, content: string, projectPath: string, orchestrator?: OrchestratorId): void {
-  const provider = resolveOrchestrator(projectPath, orchestrator);
-  provider.writeInstructions(worktreePath, content);
-}
-
-export function getModelOptions(projectPath: string, orchestrator?: OrchestratorId): Array<{ id: string; label: string }> {
-  const provider = resolveOrchestrator(projectPath, orchestrator);
-  return provider.getModelOptions();
-}
-
-export function getToolVerb(toolName: string, projectPath: string, orchestrator?: OrchestratorId): string {
-  const provider = resolveOrchestrator(projectPath, orchestrator);
-  return provider.toolVerb(toolName) || `Using ${toolName}`;
-}
-
-export function parseHookEvent(
-  raw: unknown,
-  projectPath: string,
-  orchestrator?: OrchestratorId
-): NormalizedHookEvent | null {
-  const provider = resolveOrchestrator(projectPath, orchestrator);
-  return provider.parseHookEvent(raw);
-}
-
-export function buildSummaryInstruction(agentId: string, projectPath: string, orchestrator?: OrchestratorId): string {
-  const provider = resolveOrchestrator(projectPath, orchestrator);
-  return provider.buildSummaryInstruction(agentId);
-}
-
-export async function readQuickSummary(
-  agentId: string,
-  projectPath: string,
-  orchestrator?: OrchestratorId
-): Promise<{ summary: string | null; filesModified: string[] } | null> {
-  const provider = resolveOrchestrator(projectPath, orchestrator);
-  return provider.readQuickSummary(agentId);
 }
 
 export async function checkAvailability(
