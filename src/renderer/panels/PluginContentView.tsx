@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { usePluginStore } from '../plugins/plugin-store';
 import { PluginAPIProvider } from '../plugins/plugin-context';
 import { createPluginAPI } from '../plugins/plugin-api-factory';
@@ -57,6 +57,18 @@ export function PluginContentView({ pluginId, mode }: { pluginId: string; mode?:
   const contextProjectId = mode === 'app' ? undefined : (activeProjectId || undefined);
   const ctx = getActiveContext(pluginId, contextProjectId);
 
+  // Memoize the API so downstream plugins receive a stable reference.
+  // Without this, every parent re-render creates a new api object, which causes
+  // plugin effects that depend on api-derived values (like storage) to re-fire.
+  // This was the root cause of the Hub losing pane assignments on sleeping-agent resume:
+  // spawnDurableAgent updated the agent store → MainContentView re-rendered →
+  // PluginContentView created a new api → Hub's loadHub effect re-ran with the new
+  // storage ref → reloaded the old pane tree from disk before the debounced save.
+  const api = useMemo(
+    () => ctx ? createPluginAPI(ctx, mode) : null,
+    [ctx, mode],
+  );
+
   // Auto-activate app-mode plugins on demand if context doesn't exist yet.
   // This handles race conditions between plugin init and first render.
   useEffect(() => {
@@ -79,7 +91,7 @@ export function PluginContentView({ pluginId, mode }: { pluginId: string; mode?:
     );
   }
 
-  if (!ctx) {
+  if (!ctx || !api) {
     if (activating) {
       return (
         <div className="flex items-center justify-center h-full bg-ctp-base">
@@ -94,7 +106,6 @@ export function PluginContentView({ pluginId, mode }: { pluginId: string; mode?:
     );
   }
 
-  const api = createPluginAPI(ctx, mode);
   const MainPanel = mod.MainPanel;
 
   return (

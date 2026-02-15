@@ -17,8 +17,14 @@ describe('hub manifest', () => {
     expect(manifest.scope).toBe('dual');
   });
 
-  it('targets engine.api 0.2', () => {
-    expect(manifest.engine.api).toBe(0.2);
+  it('targets engine.api 0.4', () => {
+    expect(manifest.engine.api).toBe(0.4);
+  });
+
+  it('contributes help topics', () => {
+    expect(manifest.contributes?.help).toBeDefined();
+    expect(manifest.contributes!.help!.topics).toBeDefined();
+    expect(manifest.contributes!.help!.topics!.length).toBeGreaterThan(0);
   });
 
   it('contributes a tab with label and full layout', () => {

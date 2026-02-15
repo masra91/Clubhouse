@@ -8,10 +8,35 @@ export const manifest: PluginManifest = {
   version: '0.1.0',
   description: 'Interactive shell terminal scoped to each project.',
   author: 'Clubhouse',
-  engine: { api: 0.2 },
+  engine: { api: 0.4 },
   scope: 'project',
   contributes: {
     tab: { label: 'Terminal', icon: TERMINAL_ICON, layout: 'full' },
     commands: [{ id: 'restart', title: 'Restart Terminal' }],
+    help: {
+      topics: [
+        {
+          id: 'shell-terminal',
+          title: 'Shell Terminal',
+          content: [
+            '## Shell Terminal',
+            '',
+            'The Terminal tab provides an interactive shell scoped to each project.',
+            '',
+            '### Session management',
+            'Each project gets its own terminal session running in the project directory. Sessions persist while the project is open.',
+            '',
+            '### Auto-reconnect',
+            'If the shell process exits unexpectedly, the terminal will automatically reconnect and start a new session.',
+            '',
+            '### Restarting',
+            'Use the **Restart Terminal** command to kill the current session and start fresh.',
+            '',
+            '### Status indicators',
+            'The terminal tab shows connection status: **running** when connected, **disconnected** when the session has ended.',
+          ].join('\n'),
+        },
+      ],
+    },
   },
 };

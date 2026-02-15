@@ -17,8 +17,14 @@ describe('terminal plugin manifest', () => {
     expect(manifest.scope).toBe('project');
   });
 
-  it('targets API v0.2', () => {
-    expect(manifest.engine.api).toBe(0.2);
+  it('targets API v0.4', () => {
+    expect(manifest.engine.api).toBe(0.4);
+  });
+
+  it('contributes help topics', () => {
+    expect(manifest.contributes?.help).toBeDefined();
+    expect(manifest.contributes!.help!.topics).toBeDefined();
+    expect(manifest.contributes!.help!.topics!.length).toBeGreaterThan(0);
   });
 
   it('contributes a full-layout tab', () => {
