@@ -1,0 +1,18 @@
+[
+  {
+    "id": "durable_1771180197892_6nlbhh",
+    "name": "quick-cobra",
+    "color": "indigo",
+    "branch": "quick-cobra/standby",
+    "worktreePath": "/Users/masonallen/source/Clubhouse/.clubhouse/agents/quick-cobra",
+    "createdAt": "2026-02-15T18:29:57.981Z"
+  },
+  {
+    "id": "durable_1771180599194_ocoptm",
+    "name": "snazzy-fox",
+    "color": "indigo",
+    "branch": "snazzy-fox/standby",
+    "worktreePath": "/Users/masonallen/source/Clubhouse/.clubhouse/agents/snazzy-fox",
+    "createdAt": "2026-02-15T18:36:39.256Z"
+  }
+]
