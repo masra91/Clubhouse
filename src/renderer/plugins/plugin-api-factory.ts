@@ -770,6 +770,9 @@ function createVoiceAPI(): VoiceAPI {
     async downloadModels() {
       await window.clubhouse.voice.downloadModels();
     },
+    async deleteModels() {
+      await window.clubhouse.voice.deleteModels();
+    },
     onDownloadProgress(callback) {
       const remove = window.clubhouse.voice.onDownloadProgress(callback);
       return { dispose: remove };

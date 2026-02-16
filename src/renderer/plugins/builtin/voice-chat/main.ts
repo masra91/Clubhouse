@@ -2,6 +2,7 @@ import type { PluginContext, PluginAPI, PluginModule } from '../../../../shared/
 import { voiceState } from './state';
 import { AgentPicker } from './components/AgentPicker';
 import { VoiceSession } from './components/VoiceSession';
+import { VoiceSettings } from './components/VoiceSettings';
 
 let activeApi: PluginAPI | null = null;
 
@@ -19,7 +20,8 @@ export function deactivate(): void {
 
 export const SidebarPanel = AgentPicker;
 export const MainPanel = VoiceSession;
+export const SettingsPanel = VoiceSettings;
 
 // Compile-time type assertion
-const _: PluginModule = { activate, deactivate, MainPanel, SidebarPanel };
+const _: PluginModule = { activate, deactivate, MainPanel, SidebarPanel, SettingsPanel };
 void _;

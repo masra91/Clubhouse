@@ -284,6 +284,18 @@ describe('voice-chat plugin SidebarPanel', () => {
   });
 });
 
+// ── SettingsPanel (component contract) ────────────────────────────────
+
+describe('voice-chat plugin SettingsPanel', () => {
+  it('is exported as a function', () => {
+    expect(typeof (voiceChatModule as any).SettingsPanel).toBe('function');
+  });
+
+  it('conforms to PluginModule.SettingsPanel shape (accepts { api })', () => {
+    expect((voiceChatModule as any).SettingsPanel.length).toBeLessThanOrEqual(1);
+  });
+});
+
 // ── Module exports ───────────────────────────────────────────────────
 
 describe('voice-chat plugin module exports', () => {
@@ -307,8 +319,8 @@ describe('voice-chat plugin module exports', () => {
     expect((voiceChatModule as any).HubPanel).toBeUndefined();
   });
 
-  it('does not export SettingsPanel', () => {
-    expect((voiceChatModule as any).SettingsPanel).toBeUndefined();
+  it('exports SettingsPanel component', () => {
+    expect(typeof (voiceChatModule as any).SettingsPanel).toBe('function');
   });
 });
 
@@ -337,6 +349,13 @@ describe('voice-chat plugin API assumptions', () => {
     it('exists and returns a promise', () => {
       expect(typeof api.voice.downloadModels).toBe('function');
       expect(api.voice.downloadModels()).toBeInstanceOf(Promise);
+    });
+  });
+
+  describe('voice.deleteModels', () => {
+    it('exists and returns a promise', () => {
+      expect(typeof api.voice.deleteModels).toBe('function');
+      expect(api.voice.deleteModels()).toBeInstanceOf(Promise);
     });
   });
 

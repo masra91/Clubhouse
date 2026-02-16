@@ -250,6 +250,8 @@ const api = {
       ipcRenderer.invoke(IPC.VOICE.CHECK_MODELS),
     downloadModels: () =>
       ipcRenderer.invoke(IPC.VOICE.DOWNLOAD_MODELS),
+    deleteModels: () =>
+      ipcRenderer.invoke(IPC.VOICE.DELETE_MODELS),
     onDownloadProgress: (callback: (progress: { model: string; percent: number; bytesDownloaded: number; bytesTotal: number }) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, progress: any) =>
         callback(progress);

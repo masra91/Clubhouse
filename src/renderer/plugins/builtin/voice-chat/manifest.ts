@@ -10,6 +10,7 @@ export const manifest: PluginManifest = {
   author: 'Clubhouse',
   engine: { api: 0.5 },
   scope: 'project',
+  settingsPanel: 'custom',
   permissions: ['voice', 'agents', 'notifications'],
   contributes: {
     tab: { label: 'Voice', icon: MIC_ICON, layout: 'sidebar-content' },

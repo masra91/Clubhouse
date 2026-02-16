@@ -128,6 +128,7 @@ export const IPC = {
   VOICE: {
     CHECK_MODELS: 'voice:check-models',
     DOWNLOAD_MODELS: 'voice:download-models',
+    DELETE_MODELS: 'voice:delete-models',
     DOWNLOAD_PROGRESS: 'voice:download-progress',
     TRANSCRIBE: 'voice:transcribe',
     START_SESSION: 'voice:start-session',
