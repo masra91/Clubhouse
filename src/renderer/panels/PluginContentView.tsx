@@ -65,7 +65,8 @@ export function PluginContentView({ pluginId, mode }: { pluginId: string; mode?:
   // PluginContentView created a new api → Hub's loadHub effect re-ran with the new
   // storage ref → reloaded the old pane tree from disk before the debounced save.
   const api = useMemo(
-    () => ctx ? createPluginAPI(ctx, mode) : null,
+    () => ctx ? createPluginAPI(ctx, mode, entry?.manifest) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [ctx, mode],
   );
 

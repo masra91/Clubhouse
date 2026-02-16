@@ -1,6 +1,7 @@
 import type { PluginManifest } from '../../shared/plugin-types';
+import { ALL_PLUGIN_PERMISSIONS } from '../../shared/plugin-types';
 
-export const SUPPORTED_API_VERSIONS = [0.4];
+export const SUPPORTED_API_VERSIONS = [0.4, 0.5];
 
 const PLUGIN_ID_REGEX = /^[a-z0-9-]+$/;
 
@@ -90,6 +91,57 @@ export function validateManifest(raw: unknown): ValidationResult {
               if (typeof topic.content !== 'string' || !topic.content) {
                 errors.push(`contributes.help.topics[${i}].content must be a non-empty string`);
               }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // v0.5+ permission validation
+  if (apiVersion >= 0.5) {
+    if (!Array.isArray(m.permissions)) {
+      errors.push('Plugins targeting API >= 0.5 must include a permissions array');
+    } else {
+      const seen = new Set<string>();
+      for (let i = 0; i < m.permissions.length; i++) {
+        const perm = m.permissions[i];
+        if (typeof perm !== 'string') {
+          errors.push(`permissions[${i}] must be a string`);
+          continue;
+        }
+        if (!(ALL_PLUGIN_PERMISSIONS as readonly string[]).includes(perm)) {
+          errors.push(`permissions[${i}]: unknown permission "${perm}"`);
+          continue;
+        }
+        if (seen.has(perm)) {
+          errors.push(`permissions[${i}]: duplicate permission "${perm}"`);
+        }
+        seen.add(perm);
+      }
+
+      const permissions = m.permissions as string[];
+      const hasExternalPerm = permissions.includes('files.external');
+      const hasExternalRoots = Array.isArray(m.externalRoots) && m.externalRoots.length > 0;
+
+      if (hasExternalRoots && !hasExternalPerm) {
+        errors.push('externalRoots requires the "files.external" permission');
+      }
+      if (hasExternalPerm && !hasExternalRoots) {
+        errors.push('"files.external" permission requires at least one externalRoots entry');
+      }
+
+      if (Array.isArray(m.externalRoots)) {
+        for (let i = 0; i < m.externalRoots.length; i++) {
+          const root = m.externalRoots[i] as Record<string, unknown>;
+          if (!root || typeof root !== 'object') {
+            errors.push(`externalRoots[${i}] must be an object`);
+          } else {
+            if (typeof root.settingKey !== 'string' || !root.settingKey) {
+              errors.push(`externalRoots[${i}].settingKey must be a non-empty string`);
+            }
+            if (typeof root.root !== 'string' || !root.root) {
+              errors.push(`externalRoots[${i}].root must be a non-empty string`);
             }
           }
         }

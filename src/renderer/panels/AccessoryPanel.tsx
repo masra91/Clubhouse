@@ -61,10 +61,13 @@ function PluginSidebarPanel({ pluginId }: { pluginId: string }) {
   const mod = modules[pluginId];
   if (!mod?.SidebarPanel) return null;
 
+  const plugins = usePluginStore((s) => s.plugins);
+  const entry = plugins[pluginId];
+
   const ctx = getActiveContext(pluginId, activeProjectId || undefined);
   if (!ctx) return null;
 
-  const api = createPluginAPI(ctx);
+  const api = createPluginAPI(ctx, undefined, entry?.manifest);
   const SidebarPanel = mod.SidebarPanel;
 
   return (
