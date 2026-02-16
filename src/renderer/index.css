@@ -12,6 +12,7 @@
   --color-surface-0: rgb(var(--ctp-surface0));
   --color-surface-1: rgb(var(--ctp-surface1));
   --color-surface-2: rgb(var(--ctp-surface2));
+  --color-ctp-accent: rgb(var(--ctp-accent));
 }
 
 @import '@xterm/xterm/css/xterm.css';

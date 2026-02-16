@@ -13,6 +13,7 @@ import { useQuickAgentStore } from './stores/quickAgentStore';
 import { useThemeStore } from './stores/themeStore';
 import { usePluginStore } from './stores/pluginStore';
 import { registerAllPlugins, getPlugin, getAllPlugins } from './plugins';
+import { CrossHubCommandCenter } from './features/cross-hub/CrossHubCommandCenter';
 import { CORE_TAB_IDS } from '../shared/types';
 
 // Register all plugins once at module load
@@ -86,6 +87,7 @@ export function App() {
   useEffect(() => {
     if (!activeProjectId) return;
     if (explorerTab === 'settings') return;
+    if (explorerTab === 'cross-hub') return; // global view, not project-scoped
     const isCoreTab = (CORE_TAB_IDS as readonly string[]).includes(explorerTab);
 
     const hidden = hiddenCoreTabs[activeProjectId] ?? [];
@@ -203,13 +205,15 @@ export function App() {
   }, [handleHookEvent, checkAndNotify]);
 
 
-  const isHome = activeProjectId === null && explorerTab !== 'settings';
+  const isCrossHub = explorerTab === 'cross-hub';
+  const isHome = activeProjectId === null && explorerTab !== 'settings' && !isCrossHub;
   const activeProject = projects.find((p) => p.id === activeProjectId);
 
   const pluginLabel = getPlugin(explorerTab)?.label;
   const CORE_LABELS: Record<string, string> = {
     agents: 'Agents',
-    hub: 'Hub',
+    hub: 'Project Hub',
+    'cross-hub': 'Cross-Project Hub',
     terminal: 'Terminal',
     settings: 'Settings',
   };
@@ -217,9 +221,11 @@ export function App() {
 
   const titleText = isHome
     ? 'Home'
-    : activeProject
-      ? `${tabLabel} (${activeProject.displayName || activeProject.name})`
-      : tabLabel;
+    : isCrossHub
+      ? 'Cross-Project Hub'
+      : activeProject
+        ? `${tabLabel} (${activeProject.displayName || activeProject.name})`
+        : tabLabel;
 
   if (isHome) {
     return (
@@ -230,6 +236,20 @@ export function App() {
         <div className="flex-1 min-h-0 grid grid-cols-[60px_1fr]">
           <ProjectRail />
           <Dashboard />
+        </div>
+      </div>
+    );
+  }
+
+  if (isCrossHub) {
+    return (
+      <div className="h-screen w-screen overflow-hidden bg-ctp-base text-ctp-text flex flex-col">
+        <div className="h-[38px] flex-shrink-0 drag-region bg-ctp-mantle border-b border-surface-0 flex items-center justify-center">
+          <span className="text-xs text-ctp-subtext0 select-none">{titleText}</span>
+        </div>
+        <div className="flex-1 min-h-0 grid grid-cols-[60px_1fr]">
+          <ProjectRail />
+          <CrossHubCommandCenter />
         </div>
       </div>
     );
