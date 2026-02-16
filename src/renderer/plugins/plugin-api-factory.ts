@@ -68,6 +68,54 @@ function unavailableAPIProxy<T>(apiName: string, scope: string): T {
   }) as T;
 }
 
+/** One-shot guard: tracks `pluginId:permission` pairs already enforced this session. */
+const enforcedViolations = new Set<string>();
+
+/** Reset enforced violations — only for tests. */
+export function _resetEnforcedViolations(): void {
+  enforcedViolations.clear();
+}
+
+function handlePermissionViolation(pluginId: string, permission: PluginPermission, apiName: string): void {
+  const key = `${pluginId}:${permission}`;
+  if (enforcedViolations.has(key)) return;
+  enforcedViolations.add(key);
+
+  const store = usePluginStore.getState();
+  const entry = store.plugins[pluginId];
+  const pluginName = entry?.manifest.name ?? pluginId;
+
+  store.recordPermissionViolation({
+    pluginId,
+    pluginName,
+    permission,
+    apiName,
+    timestamp: Date.now(),
+  });
+
+  rendererLog('core:plugins', 'error', `Permission violation: plugin '${pluginId}' tried to use api.${apiName} without '${permission}' permission`);
+
+  setTimeout(async () => {
+    try {
+      const loader = await import('./plugin-loader');
+      await loader.deactivatePlugin(pluginId);
+      const s = usePluginStore.getState();
+      s.disableApp(pluginId);
+      s.setPluginStatus(pluginId, 'disabled', `Disabled: used api.${apiName} without '${permission}' permission`);
+      await window.clubhouse.plugin.storageWrite({
+        pluginId: '_system',
+        scope: 'global',
+        key: 'app-enabled',
+        value: usePluginStore.getState().appEnabled,
+      });
+    } catch (err) {
+      rendererLog('core:plugins', 'error', `Failed to disable plugin '${pluginId}' after permission violation`, {
+        meta: { error: err instanceof Error ? err.message : String(err) },
+      });
+    }
+  }, 0);
+}
+
 /**
  * Same pattern as `unavailableAPIProxy`, but for permission denial.
  * Defers errors to invocation time so React 19 dev-mode prop enumeration stays safe.
@@ -77,6 +125,7 @@ function permissionDeniedProxy<T>(pluginId: string, permission: PluginPermission
     get(_t, prop) {
       if (typeof prop === 'symbol') return undefined;
       return function permissionDenied() {
+        handlePermissionViolation(pluginId, permission, apiName);
         throw new Error(`Plugin '${pluginId}' requires '${permission}' permission to use api.${apiName}`);
       };
     },
@@ -242,7 +291,50 @@ function createUIAPI(): UIAPI {
       return window.confirm(message);
     },
     async showInput(prompt: string, defaultValue = ''): Promise<string | null> {
-      return window.prompt(prompt, defaultValue);
+      return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000';
+
+        const dialog = document.createElement('div');
+        dialog.style.cssText = 'background:var(--ctp-mantle,#1e1e2e);border:1px solid var(--ctp-surface0,#313244);border-radius:8px;padding:16px;min-width:320px;max-width:480px;color:var(--ctp-text,#cdd6f4)';
+
+        const label = document.createElement('div');
+        label.textContent = prompt;
+        label.style.cssText = 'font-size:13px;margin-bottom:8px';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = defaultValue;
+        input.style.cssText = 'width:100%;box-sizing:border-box;padding:6px 8px;background:var(--ctp-base,#11111b);border:1px solid var(--ctp-surface1,#45475a);border-radius:4px;color:var(--ctp-text,#cdd6f4);font-size:13px;outline:none';
+
+        const buttons = document.createElement('div');
+        buttons.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:12px';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = 'padding:4px 12px;border-radius:4px;border:1px solid var(--ctp-surface1,#45475a);background:transparent;color:var(--ctp-subtext0,#a6adc8);cursor:pointer;font-size:12px';
+
+        const okBtn = document.createElement('button');
+        okBtn.textContent = 'OK';
+        okBtn.style.cssText = 'padding:4px 12px;border-radius:4px;border:none;background:var(--ctp-accent,#89b4fa);color:var(--ctp-base,#1e1e2e);cursor:pointer;font-size:12px;font-weight:500';
+
+        buttons.append(cancelBtn, okBtn);
+        dialog.append(label, input, buttons);
+        overlay.append(dialog);
+        document.body.append(overlay);
+
+        input.focus();
+        input.select();
+
+        const cleanup = () => { overlay.remove(); };
+        cancelBtn.onclick = () => { cleanup(); resolve(null); };
+        okBtn.onclick = () => { cleanup(); resolve(input.value); };
+        overlay.onclick = (e) => { if (e.target === overlay) { cleanup(); resolve(null); } };
+        input.onkeydown = (e) => {
+          if (e.key === 'Enter') { cleanup(); resolve(input.value); }
+          if (e.key === 'Escape') { cleanup(); resolve(null); }
+        };
+      });
     },
     async openExternalUrl(url: string): Promise<void> {
       await window.clubhouse.app.openExternalUrl(url);
@@ -780,6 +872,9 @@ function createVoiceAPI(): VoiceAPI {
     },
     async downloadModels() {
       await window.clubhouse.voice.downloadModels();
+    },
+    async deleteModels() {
+      await window.clubhouse.voice.deleteModels();
     },
     onDownloadProgress(callback) {
       const remove = window.clubhouse.voice.onDownloadProgress(callback);

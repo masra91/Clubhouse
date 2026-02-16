@@ -56,7 +56,11 @@ describe('voice-chat plugin manifest', () => {
     expect(manifest.contributes?.commands).toBeUndefined();
   });
 
-  it('does not contribute settings', () => {
+  it('does not contribute declarative settings', () => {
     expect(manifest.contributes?.settings).toBeUndefined();
+  });
+
+  it('declares a custom settings panel', () => {
+    expect(manifest.settingsPanel).toBe('custom');
   });
 });

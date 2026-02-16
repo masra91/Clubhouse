@@ -116,6 +116,7 @@ export function createMockAPI(overrides?: Partial<PluginAPI>): PluginAPI {
     voice: {
       checkModels: async () => [],
       downloadModels: asyncNoop,
+      deleteModels: asyncNoop,
       onDownloadProgress: () => ({ dispose: noop }),
       transcribe: async () => '',
       startSession: async () => ({ sessionId: '' }),

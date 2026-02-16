@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createPluginAPI } from './plugin-api-factory';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { createPluginAPI, _resetEnforcedViolations } from './plugin-api-factory';
 import { pluginEventBus } from './plugin-events';
 import { pluginCommandRegistry } from './plugin-commands';
 import { usePluginStore } from './plugin-store';
@@ -489,11 +489,10 @@ describe('plugin-api-factory', () => {
       expect((window as any).confirm).toHaveBeenCalledWith('Are you sure?');
     });
 
-    it('showInput delegates to window.prompt', async () => {
-      (window as any).prompt = vi.fn(() => 'user input');
-      const result = await api.ui.showInput('Enter name:', 'default');
-      expect(result).toBe('user input');
-      expect((window as any).prompt).toHaveBeenCalledWith('Enter name:', 'default');
+    it('showInput returns a promise', async () => {
+      // showInput now renders a DOM-based modal; in test env verify it returns a promise
+      const promise = api.ui.showInput('Enter name:', 'default');
+      expect(promise).toBeInstanceOf(Promise);
     });
   });
 
@@ -2777,6 +2776,119 @@ describe('plugin-api-factory', () => {
 
     it('prevents path traversal in rename', async () => {
       await expect(api.files.rename('file.txt', '../../etc/shadow')).rejects.toThrow('traversal');
+    });
+  });
+
+  // ── Permission violation enforcement ──────────────────────────────────
+
+  describe('permission violation enforcement', () => {
+    beforeEach(() => {
+      _resetEnforcedViolations();
+      usePluginStore.setState({ permissionViolations: [] });
+      // Register a plugin so handlePermissionViolation can find its name
+      usePluginStore.getState().registerPlugin(
+        {
+          id: 'test-plugin',
+          name: 'Test Plugin',
+          version: '1.0.0',
+          engine: { api: 0.5 },
+          scope: 'project',
+          permissions: [],
+          contributes: { help: {} },
+        },
+        'community',
+        '/path',
+        'activated',
+      );
+    });
+
+    afterEach(() => {
+      _resetEnforcedViolations();
+    });
+
+    it('denied proxy calls recordPermissionViolation before throwing', () => {
+      const manifest: PluginManifest = {
+        id: 'test-plugin',
+        name: 'Test Plugin',
+        version: '1.0.0',
+        engine: { api: 0.5 },
+        scope: 'project',
+        permissions: [],
+        contributes: { help: {} },
+      };
+      const api = createPluginAPI(makeCtx(), undefined, manifest);
+
+      expect(() => api.git.status()).toThrow("requires 'git' permission");
+
+      const violations = usePluginStore.getState().permissionViolations;
+      expect(violations).toHaveLength(1);
+      expect(violations[0].pluginId).toBe('test-plugin');
+      expect(violations[0].pluginName).toBe('Test Plugin');
+      expect(violations[0].permission).toBe('git');
+      expect(violations[0].apiName).toBe('git');
+    });
+
+    it('one-shot guard: second call does not re-record', () => {
+      const manifest: PluginManifest = {
+        id: 'test-plugin',
+        name: 'Test Plugin',
+        version: '1.0.0',
+        engine: { api: 0.5 },
+        scope: 'project',
+        permissions: [],
+        contributes: { help: {} },
+      };
+      const api = createPluginAPI(makeCtx(), undefined, manifest);
+
+      expect(() => api.git.status()).toThrow();
+      expect(() => api.git.log()).toThrow();
+
+      // Only one violation recorded (same pluginId:permission pair)
+      expect(usePluginStore.getState().permissionViolations).toHaveLength(1);
+    });
+
+    it('deactivation is deferred via setTimeout', () => {
+      vi.useFakeTimers();
+      const manifest: PluginManifest = {
+        id: 'test-plugin',
+        name: 'Test Plugin',
+        version: '1.0.0',
+        engine: { api: 0.5 },
+        scope: 'project',
+        permissions: [],
+        contributes: { help: {} },
+      };
+      const api = createPluginAPI(makeCtx(), undefined, manifest);
+      usePluginStore.getState().enableApp('test-plugin');
+
+      expect(() => api.git.status()).toThrow();
+
+      // Before timer fires, plugin should still be activated
+      expect(usePluginStore.getState().plugins['test-plugin'].status).toBe('activated');
+
+      vi.runAllTimers();
+      vi.useRealTimers();
+    });
+
+    it('records correct metadata for different APIs', () => {
+      const manifest: PluginManifest = {
+        id: 'test-plugin',
+        name: 'Test Plugin',
+        version: '1.0.0',
+        engine: { api: 0.5 },
+        scope: 'project',
+        permissions: [],
+        contributes: { help: {} },
+      };
+      const api = createPluginAPI(makeCtx(), undefined, manifest);
+
+      expect(() => api.terminal.spawn('s1')).toThrow();
+
+      const violations = usePluginStore.getState().permissionViolations;
+      // git and terminal are different permissions, so both should be recorded
+      expect(violations).toHaveLength(1);
+      expect(violations[0].permission).toBe('terminal');
+      expect(violations[0].apiName).toBe('terminal');
     });
   });
 });
