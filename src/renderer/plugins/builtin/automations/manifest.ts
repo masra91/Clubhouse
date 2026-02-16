@@ -8,8 +8,9 @@ export const manifest: PluginManifest = {
   version: '0.1.0',
   description: 'Schedule recurring quick-agent tasks with cron expressions.',
   author: 'Clubhouse',
-  engine: { api: 0.4 },
+  engine: { api: 0.5 },
   scope: 'project',
+  permissions: ['storage', 'agents', 'commands', 'notifications', 'navigation', 'widgets'],
   contributes: {
     tab: { label: 'Automations', icon: CLOCK_ICON, layout: 'full' },
     commands: [{ id: 'create', title: 'Create Automation' }],
