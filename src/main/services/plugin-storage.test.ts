@@ -223,4 +223,206 @@ describe('plugin-storage', () => {
       expect(() => mkdirPlugin('p', 'global', '../../escape')).toThrow('Path traversal');
     });
   });
+
+  // ── project-local scope ──────────────────────────────────────────────
+
+  describe('project-local scope', () => {
+    it('readKey uses plugin-data-local path', () => {
+      vi.mocked(fs.readFileSync).mockReturnValue('"value"');
+      readKey({ pluginId: 'my-plugin', scope: 'project-local', key: 'data', projectPath: '/projects/foo' });
+      expect(fs.readFileSync).toHaveBeenCalledWith(
+        '/projects/foo/.clubhouse/plugin-data-local/my-plugin/kv/data.json',
+        'utf-8',
+      );
+    });
+
+    it('writeKey uses plugin-data-local path', () => {
+      writeKey({ pluginId: 'my-plugin', scope: 'project-local', key: 'config', value: 42, projectPath: '/projects/foo' });
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        '/projects/foo/.clubhouse/plugin-data-local/my-plugin/kv/config.json',
+        '42',
+        'utf-8',
+      );
+    });
+
+    it('deleteKey uses plugin-data-local path', () => {
+      deleteKey({ pluginId: 'my-plugin', scope: 'project-local', key: 'old', projectPath: '/projects/foo' });
+      expect(fs.unlinkSync).toHaveBeenCalledWith(
+        '/projects/foo/.clubhouse/plugin-data-local/my-plugin/kv/old.json',
+      );
+    });
+
+    it('listKeys uses plugin-data-local path', () => {
+      vi.mocked(fs.readdirSync).mockReturnValue(['a.json'] as any);
+      listKeys({ pluginId: 'my-plugin', scope: 'project-local', projectPath: '/projects/foo' });
+      expect(fs.readdirSync).toHaveBeenCalledWith(
+        '/projects/foo/.clubhouse/plugin-data-local/my-plugin/kv',
+      );
+    });
+
+    it('rejects path traversal for project-local', () => {
+      expect(() =>
+        readKey({ pluginId: 'p', scope: 'project-local', key: '../../etc/passwd', projectPath: '/projects/foo' }),
+      ).toThrow('Path traversal');
+    });
+  });
+
+  // ── ensurePluginDataLocalGitignored ──────────────────────────────────
+
+  describe('ensurePluginDataLocalGitignored', () => {
+    it('only project-local writeKey triggers gitignore logic (not project or global)', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+      writeKey({ pluginId: 'p', scope: 'global', key: 'k', value: 'v' });
+      // Global write should not touch .gitignore
+      expect(fs.readFileSync).not.toHaveBeenCalledWith(
+        expect.stringContaining('.gitignore'),
+        expect.any(String),
+      );
+
+      vi.clearAllMocks();
+      writeKey({ pluginId: 'p', scope: 'project', key: 'k', value: 'v', projectPath: '/projects/foo' });
+      // Project write should not touch .gitignore either
+      const gitignoreCalls = vi.mocked(fs.writeFileSync).mock.calls.filter(
+        (c) => typeof c[0] === 'string' && c[0].includes('.gitignore'),
+      );
+      expect(gitignoreCalls).toHaveLength(0);
+    });
+  });
+
+  // ── ensurePluginDataLocalGitignored (isolated) ──────────────────────
+
+  describe('ensurePluginDataLocalGitignored (fresh module)', () => {
+    it('appends pattern when .gitignore exists without it', async () => {
+      // Use resetModules to clear the gitignoreEnsured Set
+      vi.resetModules();
+      vi.mock('fs', () => ({
+        readFileSync: vi.fn(),
+        writeFileSync: vi.fn(),
+        mkdirSync: vi.fn(),
+        unlinkSync: vi.fn(),
+        existsSync: vi.fn(),
+        readdirSync: vi.fn(),
+        rmSync: vi.fn(),
+      }));
+      const freshFs = await import('fs');
+      const freshStorage = await import('./plugin-storage');
+
+      vi.mocked(freshFs.existsSync).mockReturnValue(true);
+      vi.mocked(freshFs.readFileSync).mockImplementation(((p: string) => {
+        if (p.endsWith('.gitignore')) return 'node_modules/\n';
+        return '""';
+      }) as typeof freshFs.readFileSync);
+
+      freshStorage.writeKey({ pluginId: 'p', scope: 'project-local', key: 'k', value: 'v', projectPath: '/projects/bar' });
+
+      const gitignoreWrites = vi.mocked(freshFs.writeFileSync).mock.calls.filter(
+        (c) => typeof c[0] === 'string' && c[0].endsWith('.gitignore'),
+      );
+      expect(gitignoreWrites).toHaveLength(1);
+      expect(gitignoreWrites[0][1]).toContain('.clubhouse/plugin-data-local/');
+    });
+
+    it('skips write if pattern already present', async () => {
+      vi.resetModules();
+      vi.mock('fs', () => ({
+        readFileSync: vi.fn(),
+        writeFileSync: vi.fn(),
+        mkdirSync: vi.fn(),
+        unlinkSync: vi.fn(),
+        existsSync: vi.fn(),
+        readdirSync: vi.fn(),
+        rmSync: vi.fn(),
+      }));
+      const freshFs = await import('fs');
+      const freshStorage = await import('./plugin-storage');
+
+      vi.mocked(freshFs.existsSync).mockReturnValue(true);
+      vi.mocked(freshFs.readFileSync).mockImplementation(((p: string) => {
+        if (p.endsWith('.gitignore')) return '.clubhouse/plugin-data-local/\n';
+        return '""';
+      }) as typeof freshFs.readFileSync);
+
+      freshStorage.writeKey({ pluginId: 'p', scope: 'project-local', key: 'k', value: 'v', projectPath: '/projects/bar' });
+
+      const gitignoreWrites = vi.mocked(freshFs.writeFileSync).mock.calls.filter(
+        (c) => typeof c[0] === 'string' && c[0].endsWith('.gitignore'),
+      );
+      expect(gitignoreWrites).toHaveLength(0);
+    });
+
+    it('creates .gitignore file if missing', async () => {
+      vi.resetModules();
+      vi.mock('fs', () => ({
+        readFileSync: vi.fn(),
+        writeFileSync: vi.fn(),
+        mkdirSync: vi.fn(),
+        unlinkSync: vi.fn(),
+        existsSync: vi.fn(),
+        readdirSync: vi.fn(),
+        rmSync: vi.fn(),
+      }));
+      const freshFs = await import('fs');
+      const freshStorage = await import('./plugin-storage');
+
+      vi.mocked(freshFs.existsSync).mockReturnValue(false);
+
+      freshStorage.writeKey({ pluginId: 'p', scope: 'project-local', key: 'k', value: 'v', projectPath: '/projects/baz' });
+
+      const gitignoreWrites = vi.mocked(freshFs.writeFileSync).mock.calls.filter(
+        (c) => typeof c[0] === 'string' && c[0].endsWith('.gitignore'),
+      );
+      expect(gitignoreWrites).toHaveLength(1);
+      expect(gitignoreWrites[0][1]).toBe('.clubhouse/plugin-data-local/\n');
+    });
+
+    it('adds newline separator when existing content lacks trailing newline', async () => {
+      vi.resetModules();
+      vi.mock('fs', () => ({
+        readFileSync: vi.fn(),
+        writeFileSync: vi.fn(),
+        mkdirSync: vi.fn(),
+        unlinkSync: vi.fn(),
+        existsSync: vi.fn(),
+        readdirSync: vi.fn(),
+        rmSync: vi.fn(),
+      }));
+      const freshFs = await import('fs');
+      const freshStorage = await import('./plugin-storage');
+
+      vi.mocked(freshFs.existsSync).mockReturnValue(true);
+      vi.mocked(freshFs.readFileSync).mockImplementation(((p: string) => {
+        if (p.endsWith('.gitignore')) return 'node_modules/';  // no trailing newline
+        return '""';
+      }) as typeof freshFs.readFileSync);
+
+      freshStorage.writeKey({ pluginId: 'p', scope: 'project-local', key: 'k', value: 'v', projectPath: '/projects/x' });
+
+      const gitignoreWrites = vi.mocked(freshFs.writeFileSync).mock.calls.filter(
+        (c) => typeof c[0] === 'string' && c[0].endsWith('.gitignore'),
+      );
+      expect(gitignoreWrites[0][1]).toBe('node_modules/\n.clubhouse/plugin-data-local/\n');
+    });
+
+    it('swallows errors gracefully', async () => {
+      vi.resetModules();
+      vi.mock('fs', () => ({
+        readFileSync: vi.fn(),
+        writeFileSync: vi.fn(),
+        mkdirSync: vi.fn(),
+        unlinkSync: vi.fn(),
+        existsSync: vi.fn(),
+        readdirSync: vi.fn(),
+        rmSync: vi.fn(),
+      }));
+      const freshFs = await import('fs');
+      const freshStorage = await import('./plugin-storage');
+
+      vi.mocked(freshFs.existsSync).mockImplementation(() => { throw new Error('permission denied'); });
+
+      // Should not throw
+      expect(() => {
+        freshStorage.writeKey({ pluginId: 'p', scope: 'project-local', key: 'k', value: 'v', projectPath: '/projects/y' });
+      }).not.toThrow();
+    });
+  });
 });

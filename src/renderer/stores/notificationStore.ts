@@ -32,7 +32,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     let title = '';
     let body = '';
 
-    if ((eventKind === 'notification' || eventKind === 'permission_request') && s.permissionNeeded) {
+    if (eventKind === 'permission_request' && s.permissionNeeded) {
       title = `${agentName} needs permission`;
       body = detail ? `Wants to use ${detail}` : 'Agent is waiting for approval';
     } else if (eventKind === 'stop' && s.agentStopped) {

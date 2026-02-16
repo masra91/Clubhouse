@@ -18,6 +18,7 @@ import type {
   CompletedQuickAgentInfo,
   PluginAgentDetailedStatus,
   PluginRenderMode,
+  ModelOption,
   PluginAPI,
 } from '../plugin-types';
 
@@ -71,6 +72,7 @@ export interface GitAPI_V0_2 {
 
 export interface StorageAPI_V0_2 {
   project: ScopedStorage_V0_2;
+  projectLocal: ScopedStorage_V0_2;
   global: ScopedStorage_V0_2;
 }
 
@@ -96,15 +98,22 @@ export interface SettingsAPI_V0_2 {
   onChange(callback: (key: string, value: unknown) => void): Disposable;
 }
 
+export interface ModelOption_V0_2 {
+  id: string;
+  label: string;
+}
+
 export interface AgentsAPI_V0_2 {
   list(): AgentInfo_V0_2[];
-  runQuick(mission: string, options?: { model?: string; systemPrompt?: string }): Promise<string>;
+  runQuick(mission: string, options?: { model?: string; systemPrompt?: string; projectId?: string }): Promise<string>;
   kill(agentId: string): Promise<void>;
   resume(agentId: string): Promise<void>;
   listCompleted(projectId?: string): CompletedQuickAgentInfo[];
   dismissCompleted(projectId: string, agentId: string): void;
   getDetailedStatus(agentId: string): PluginAgentDetailedStatus | null;
+  getModelOptions(projectId?: string): Promise<ModelOption_V0_2[]>;
   onStatusChange(callback: (agentId: string, status: string, prevStatus: string) => void): Disposable;
+  onAnyChange(callback: () => void): Disposable;
 }
 
 export interface HubAPI_V0_2 {

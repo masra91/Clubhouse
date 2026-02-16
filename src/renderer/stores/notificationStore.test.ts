@@ -100,15 +100,11 @@ describe('notificationStore', () => {
         );
       });
 
-      it('also triggers for notification events', () => {
+      it('does not trigger for notification events', () => {
         useNotificationStore.setState({ settings: ALL_ON_SETTINGS });
         useNotificationStore.getState().checkAndNotify('Claude', 'notification', 'Read');
 
-        expect(mockSendNotification).toHaveBeenCalledWith(
-          'Claude needs permission',
-          'Wants to use Read',
-          false
-        );
+        expect(mockSendNotification).not.toHaveBeenCalled();
       });
 
       it('skips when permissionNeeded is off', () => {

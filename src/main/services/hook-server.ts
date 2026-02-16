@@ -1,7 +1,7 @@
 import * as http from 'http';
 import { BrowserWindow } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
-import { getAgentProjectPath, getAgentOrchestrator, resolveOrchestrator } from './agent-system';
+import { getAgentProjectPath, getAgentOrchestrator, getAgentNonce, resolveOrchestrator } from './agent-system';
 
 let server: any = null;
 let serverPort = 0;
@@ -51,6 +51,11 @@ export function start(): Promise<number> {
           const orchestrator = getAgentOrchestrator(agentId);
 
           if (projectPath) {
+            // Validate nonce to reject events from external CLI instances
+            const expectedNonce = getAgentNonce(agentId);
+            const receivedNonce = req.headers['x-clubhouse-nonce'] as string | undefined;
+            if (expectedNonce && receivedNonce !== expectedNonce) return;
+
             const provider = resolveOrchestrator(projectPath, orchestrator);
             const normalized = provider.parseHookEvent(raw);
 
@@ -70,24 +75,6 @@ export function start(): Promise<number> {
                   timestamp: Date.now(),
                 });
               }
-            }
-          } else {
-            // Fallback: unknown agent, send raw event with basic normalization
-            const win = getMainWindow();
-            if (win && !win.isDestroyed()) {
-              win.webContents.send(IPC.AGENT.HOOK_EVENT, agentId, {
-                kind: raw.hook_event_name === 'Stop' ? 'stop'
-                  : raw.hook_event_name === 'PreToolUse' ? 'pre_tool'
-                  : raw.hook_event_name === 'PostToolUse' ? 'post_tool'
-                  : raw.hook_event_name === 'PostToolUseFailure' ? 'tool_error'
-                  : raw.hook_event_name === 'Notification' ? 'notification'
-                  : raw.hook_event_name === 'PermissionRequest' ? 'permission_request'
-                  : 'stop',
-                toolName: raw.tool_name,
-                toolInput: raw.tool_input,
-                message: raw.message,
-                timestamp: Date.now(),
-              });
             }
           }
         } catch {

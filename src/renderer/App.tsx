@@ -184,7 +184,8 @@ export function App() {
       (agentId, event) => {
         handleHookEvent(agentId, event as import('../shared/types').AgentHookEvent);
         const agent = useAgentStore.getState().agents[agentId];
-        const name = agent?.name ?? agentId;
+        if (!agent) return;
+        const name = agent.name;
         checkAndNotify(name, event.kind, event.toolName);
 
         // Emit plugin events for agent lifecycle
@@ -204,7 +205,7 @@ export function App() {
 
         // Auto-exit quick agents when the agent finishes (stop event).
         // Delay gives the agent time to write the summary file before we send /exit.
-        if (event.kind === 'stop' && agent?.kind === 'quick') {
+        if (event.kind === 'stop' && agent.kind === 'quick') {
           const project = useProjectStore.getState().projects.find((p) => p.id === agent.projectId);
           setTimeout(() => {
             const currentAgent = useAgentStore.getState().agents[agentId];

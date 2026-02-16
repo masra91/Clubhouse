@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { randomUUID } from 'crypto';
 import { getProvider, getAllProviders, OrchestratorId, OrchestratorProvider } from '../orchestrators';
 import { waitReady as waitHookServerReady } from './hook-server';
 import * as ptyManager from './pty-manager';
@@ -10,6 +11,8 @@ const DEFAULT_ORCHESTRATOR: OrchestratorId = 'claude-code';
 const agentProjectMap = new Map<string, string>();
 /** Track agentId → orchestratorId override */
 const agentOrchestratorMap = new Map<string, OrchestratorId>();
+/** Track agentId → hook nonce for authenticating hook events */
+const agentNonceMap = new Map<string, string>();
 
 export function getAgentProjectPath(agentId: string): string | undefined {
   return agentProjectMap.get(agentId);
@@ -19,9 +22,14 @@ export function getAgentOrchestrator(agentId: string): OrchestratorId | undefine
   return agentOrchestratorMap.get(agentId);
 }
 
+export function getAgentNonce(agentId: string): string | undefined {
+  return agentNonceMap.get(agentId);
+}
+
 export function untrackAgent(agentId: string): void {
   agentProjectMap.delete(agentId);
   agentOrchestratorMap.delete(agentId);
+  agentNonceMap.delete(agentId);
 }
 
 /** Read the project-level orchestrator setting from .clubhouse/settings.json */
@@ -76,8 +84,11 @@ export async function spawnAgent(params: SpawnAgentParams): Promise<void> {
     agentOrchestratorMap.set(params.agentId, params.orchestrator);
   }
 
+  const nonce = randomUUID();
+  agentNonceMap.set(params.agentId, nonce);
+
   const port = await waitHookServerReady();
-  const hookUrl = `http://127.0.0.1:${port}/hook/${params.agentId}`;
+  const hookUrl = `http://127.0.0.1:${port}/hook`;
   await provider.writeHooksConfig(params.cwd, hookUrl);
 
   const allowedTools = params.allowedTools
@@ -92,7 +103,8 @@ export async function spawnAgent(params: SpawnAgentParams): Promise<void> {
     agentId: params.agentId,
   });
 
-  ptyManager.spawn(params.agentId, params.cwd, binary, args, env);
+  const spawnEnv = { ...env, CLUBHOUSE_AGENT_ID: params.agentId, CLUBHOUSE_HOOK_NONCE: nonce };
+  ptyManager.spawn(params.agentId, params.cwd, binary, args, spawnEnv);
 }
 
 export async function killAgent(agentId: string, projectPath: string, orchestrator?: OrchestratorId): Promise<void> {
