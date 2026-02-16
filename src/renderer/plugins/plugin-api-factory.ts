@@ -18,6 +18,7 @@ import type {
   TerminalAPI,
   LoggingAPI,
   FilesAPI,
+  GitHubAPI,
   PluginContextInfo,
   PluginRenderMode,
   DirectoryEntry,
@@ -198,6 +199,9 @@ function createUIAPI(): UIAPI {
     },
     async showInput(prompt: string, defaultValue = ''): Promise<string | null> {
       return window.prompt(prompt, defaultValue);
+    },
+    async openExternalUrl(url: string): Promise<void> {
+      await window.clubhouse.app.openExternalUrl(url);
     },
   };
 }
@@ -638,6 +642,28 @@ function createFilesAPI(ctx: PluginContext): FilesAPI {
   };
 }
 
+function createGitHubAPI(ctx: PluginContext): GitHubAPI {
+  const { projectPath } = ctx;
+  if (!projectPath) {
+    throw new Error('GitHubAPI requires projectPath');
+  }
+
+  return {
+    async listIssues(opts?) {
+      return window.clubhouse.github.listIssues(projectPath, opts);
+    },
+    async viewIssue(issueNumber) {
+      return window.clubhouse.github.viewIssue(projectPath, issueNumber);
+    },
+    async createIssue(title, body) {
+      return window.clubhouse.github.createIssue(projectPath, title, body);
+    },
+    async getRepoUrl() {
+      return window.clubhouse.github.getRepoUrl(projectPath);
+    },
+  };
+}
+
 export function createPluginAPI(ctx: PluginContext, mode?: PluginRenderMode): PluginAPI {
   const effectiveMode = mode || (ctx.scope === 'app' ? 'app' : 'project');
   const hasProjectContext = effectiveMode === 'project' && !!ctx.projectId;
@@ -678,6 +704,9 @@ export function createPluginAPI(ctx: PluginContext, mode?: PluginRenderMode): Pl
     files: projectAvailable && ctx.projectPath
       ? createFilesAPI(ctx)
       : unavailableAPIProxy<FilesAPI>('files', effectiveMode === 'app' ? 'app' : ctx.scope),
+    github: projectAvailable && ctx.projectPath
+      ? createGitHubAPI(ctx)
+      : unavailableAPIProxy<GitHubAPI>('github', effectiveMode === 'app' ? 'app' : ctx.scope),
     context: contextInfo,
   };
 

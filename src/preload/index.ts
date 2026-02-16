@@ -235,7 +235,19 @@ const api = {
     getPath: (): Promise<string> =>
       ipcRenderer.invoke(IPC.LOG.GET_LOG_PATH),
   },
+  github: {
+    listIssues: (dirPath: string, opts?: { page?: number; perPage?: number; state?: string }) =>
+      ipcRenderer.invoke(IPC.GITHUB.LIST_ISSUES, dirPath, opts),
+    viewIssue: (dirPath: string, issueNumber: number) =>
+      ipcRenderer.invoke(IPC.GITHUB.VIEW_ISSUE, dirPath, issueNumber),
+    createIssue: (dirPath: string, title: string, body: string) =>
+      ipcRenderer.invoke(IPC.GITHUB.CREATE_ISSUE, dirPath, title, body),
+    getRepoUrl: (dirPath: string) =>
+      ipcRenderer.invoke(IPC.GITHUB.GET_REPO_URL, dirPath),
+  },
   app: {
+    openExternalUrl: (url: string) =>
+      ipcRenderer.invoke(IPC.APP.OPEN_EXTERNAL_URL, url),
     getNotificationSettings: () =>
       ipcRenderer.invoke(IPC.APP.GET_NOTIFICATION_SETTINGS),
     saveNotificationSettings: (settings: any) =>
