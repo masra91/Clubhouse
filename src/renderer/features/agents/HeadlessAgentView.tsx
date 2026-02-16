@@ -282,7 +282,7 @@ export function HeadlessAgentView({ agent }: Props) {
 
   return (
     <div className="flex items-center justify-center h-full bg-ctp-base">
-      <div className="flex flex-col items-center gap-4 w-[420px]">
+      <div className="flex flex-col items-center gap-4 w-[420px] max-w-full overflow-hidden px-4">
         {/* Animated treehouse */}
         <AnimatedTreehouse />
 
@@ -297,7 +297,7 @@ export function HeadlessAgentView({ agent }: Props) {
             </span>
           </div>
           {agent.mission && (
-            <p className="text-sm text-ctp-subtext1 line-clamp-4">{agent.mission}</p>
+            <p className="text-sm text-ctp-subtext1 line-clamp-3 break-words overflow-hidden">{agent.mission}</p>
           )}
         </div>
 

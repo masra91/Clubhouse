@@ -9,8 +9,9 @@ import { manifest as filesManifest } from './files/manifest';
 import * as filesModule from './files/main';
 import { manifest as issuesManifest } from './issues/manifest';
 import * as issuesModule from './issues/main';
-import { manifest as voiceChatManifest } from './voice-chat/manifest';
-import * as voiceChatModule from './voice-chat/main';
+// Voice chat plugin is WIP — parked on plugin/voice branch
+// import { manifest as voiceChatManifest } from './voice-chat/manifest';
+// import * as voiceChatModule from './voice-chat/main';
 import { manifest as wikiManifest } from './wiki/manifest';
 import * as wikiModule from './wiki/main';
 
@@ -33,7 +34,6 @@ export function getBuiltinPlugins(): BuiltinPlugin[] {
     { manifest: automationsManifest, module: automationsModule },
     { manifest: filesManifest, module: filesModule },
     { manifest: issuesManifest, module: issuesModule },
-    { manifest: voiceChatManifest, module: voiceChatModule },
     { manifest: wikiManifest, module: wikiModule },
   ];
 }
