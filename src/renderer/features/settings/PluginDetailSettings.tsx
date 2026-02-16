@@ -92,6 +92,17 @@ export function PluginDetailSettings() {
           </div>
         )}
 
+        {entry.manifest.allowedCommands && entry.manifest.allowedCommands.length > 0 && (
+          <div className="mb-6 p-4 rounded-lg bg-ctp-mantle border border-surface-0">
+            <h3 className="text-sm font-semibold text-ctp-text mb-3">Allowed Commands</h3>
+            <div className="flex flex-wrap gap-2">
+              {entry.manifest.allowedCommands.map((cmd) => (
+                <code key={cmd} className="text-xs font-mono bg-surface-0 px-2 py-1 rounded text-ctp-accent">{cmd}</code>
+              ))}
+            </div>
+          </div>
+        )}
+
         {isDeclarative && entry.manifest.contributes?.settings && (
           <PluginSettingsRenderer
             pluginId={pluginSettingsId}

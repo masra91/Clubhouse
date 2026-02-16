@@ -146,6 +146,28 @@ export function validateManifest(raw: unknown): ValidationResult {
           }
         }
       }
+
+      // allowedCommands / process permission validation
+      const hasProcessPerm = permissions.includes('process');
+      const hasAllowedCommands = Array.isArray(m.allowedCommands) && m.allowedCommands.length > 0;
+
+      if (hasProcessPerm && !hasAllowedCommands) {
+        errors.push('"process" permission requires at least one allowedCommands entry');
+      }
+      if (hasAllowedCommands && !hasProcessPerm) {
+        errors.push('allowedCommands requires the "process" permission');
+      }
+
+      if (Array.isArray(m.allowedCommands)) {
+        for (let i = 0; i < m.allowedCommands.length; i++) {
+          const cmd = m.allowedCommands[i];
+          if (typeof cmd !== 'string' || !cmd) {
+            errors.push(`allowedCommands[${i}] must be a non-empty string`);
+          } else if (cmd.includes('/') || cmd.includes('\\') || cmd.includes('..')) {
+            errors.push(`allowedCommands[${i}]: "${cmd}" must not contain path separators`);
+          }
+        }
+      }
     }
   }
 

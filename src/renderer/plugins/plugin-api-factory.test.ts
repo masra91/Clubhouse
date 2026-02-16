@@ -52,6 +52,10 @@ const mockPty = {
   onExit: vi.fn(),
 };
 
+const mockProcess = {
+  exec: vi.fn(),
+};
+
 Object.defineProperty(globalThis, 'window', {
   value: {
     clubhouse: {
@@ -61,6 +65,7 @@ Object.defineProperty(globalThis, 'window', {
       agent: mockAgent,
       pty: mockPty,
       log: mockLog,
+      process: mockProcess,
     },
     confirm: vi.fn(),
     prompt: vi.fn(),
@@ -114,6 +119,7 @@ describe('plugin-api-factory', () => {
       expect(api.terminal).toBeDefined();
       expect(api.logging).toBeDefined();
       expect(api.files).toBeDefined();
+      expect(api.process).toBeDefined();
       expect(api.context).toBeDefined();
     });
   });
@@ -2097,9 +2103,9 @@ describe('plugin-api-factory', () => {
           verifyGranted: (a) => { expect(typeof a.voice.checkModels).toBe('function'); expect(typeof a.voice.transcribe).toBe('function'); },
         },
         {
-          apiName: 'github', permission: 'github',
-          invokeSync: (a) => a.github.listIssues(),
-          verifyGranted: (a) => { expect(typeof a.github.listIssues).toBe('function'); expect(typeof a.github.viewIssue).toBe('function'); },
+          apiName: 'process', permission: 'process',
+          invokeSync: (a) => a.process.exec('gh', []),
+          verifyGranted: (a) => { expect(typeof a.process.exec).toBe('function'); },
         },
       ];
 
@@ -2138,12 +2144,12 @@ describe('plugin-api-factory', () => {
         expect(() => api.agents.list()).toThrow("requires 'agents' permission");
         // voice does not
         expect(() => api.voice.checkModels()).toThrow("requires 'voice' permission");
-        // github does not
-        expect(() => api.github.listIssues()).toThrow("requires 'github' permission");
+        // process does not
+        expect(() => api.process.exec('gh', [])).toThrow("requires 'process' permission");
       });
 
       it('granting all permissions makes everything work', () => {
-        const allPerms = ['files', 'git', 'storage', 'notifications', 'commands', 'events', 'agents', 'navigation', 'widgets', 'terminal', 'logging', 'voice', 'github'];
+        const allPerms = ['files', 'git', 'storage', 'notifications', 'commands', 'events', 'agents', 'navigation', 'widgets', 'terminal', 'logging', 'voice', 'process'];
         const manifest = v05Manifest(allPerms);
         const api = createPluginAPI(makeCtx(), undefined, manifest);
         for (const { verifyGranted } of gatedAPIs) {

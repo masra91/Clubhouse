@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import type { PluginContext, PluginAPI, PluginModule, AgentInfo, GitHubIssueDetail } from '../../../../shared/plugin-types';
-import { issueState, IssueListItem } from './state';
+import type { PluginContext, PluginAPI, PluginModule, AgentInfo } from '../../../../shared/plugin-types';
+import { issueState, IssueListItem, IssueDetail } from './state';
 import { MarkdownPreview } from '../files/MarkdownPreview';
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -20,7 +20,7 @@ function relativeTime(dateStr: string): string {
   return `${diffMo}mo ago`;
 }
 
-function buildAgentPrompt(issue: GitHubIssueDetail): string {
+function buildAgentPrompt(issue: IssueDetail): string {
   const labels = issue.labels.map((l) => l.name).join(', ');
   return [
     'Review and prepare a fix for the following GitHub issue:',
@@ -59,13 +59,13 @@ export function activate(ctx: PluginContext, api: PluginAPI): void {
     const title = await api.ui.showInput('Issue title');
     if (!title) return;
     const body = await api.ui.showInput('Issue body (optional)', '');
-    const result = await api.github.createIssue(title, body ?? '');
-    if (result.ok) {
-      api.ui.showNotice(`Issue created: ${result.url}`);
+    const r = await api.process.exec('gh', ['issue', 'create', '--title', title, '--body', body ?? ''], { timeout: 30000 });
+    if (r.exitCode === 0) {
+      api.ui.showNotice(`Issue created: ${r.stdout.trim()}`);
       issueState.page = 1;
       issueState.setIssues([]);
     } else {
-      api.ui.showError(result.message || 'Failed to create issue');
+      api.ui.showError(r.stderr.trim() || 'Failed to create issue');
     }
   });
   ctx.subscriptions.push(createCmd);
@@ -104,20 +104,29 @@ export function SidebarPanel({ api }: { api: PluginAPI }) {
     issueState.setLoading(true);
     setError(null);
     try {
-      const result = await api.github.listIssues({
-        page,
-        perPage: 30,
-        state: 'open',
-      });
+      const perPage = 30;
+      const fetchCount = page * perPage + 1;
+      const fields = 'number,title,labels,createdAt,updatedAt,author,url,state';
+      const r = await api.process.exec('gh', [
+        'issue', 'list', '--json', fields, '--limit', String(fetchCount), '--state', 'open',
+      ]);
       if (!mountedRef.current) return;
+      if (r.exitCode !== 0 || !r.stdout.trim()) {
+        setError('Failed to load issues. Is the gh CLI installed and authenticated?');
+        return;
+      }
+      const all: IssueListItem[] = JSON.parse(r.stdout);
+      const start = (page - 1) * perPage;
+      const sliced = all.slice(start, start + perPage);
+      const hasMoreResult = all.length > start + perPage;
       if (append) {
-        issueState.appendIssues(result.issues);
+        issueState.appendIssues(sliced);
       } else {
-        issueState.setIssues(result.issues);
+        issueState.setIssues(sliced);
       }
       issueState.page = page;
-      issueState.hasMore = result.hasMore;
-      setHasMore(result.hasMore);
+      issueState.hasMore = hasMoreResult;
+      setHasMore(hasMoreResult);
     } catch {
       if (!mountedRef.current) return;
       setError('Failed to load issues. Is the gh CLI installed and authenticated?');
@@ -145,12 +154,12 @@ export function SidebarPanel({ api }: { api: PluginAPI }) {
     const title = await api.ui.showInput('Issue title');
     if (!title) return;
     const body = await api.ui.showInput('Issue body (optional)', '');
-    const result = await api.github.createIssue(title, body ?? '');
-    if (result.ok) {
-      api.ui.showNotice(`Issue created: ${result.url}`);
+    const r = await api.process.exec('gh', ['issue', 'create', '--title', title, '--body', body ?? ''], { timeout: 30000 });
+    if (r.exitCode === 0) {
+      api.ui.showNotice(`Issue created: ${r.stdout.trim()}`);
       fetchIssues(1, false);
     } else {
-      api.ui.showError(result.message || 'Failed to create issue');
+      api.ui.showError(r.stderr.trim() || 'Failed to create issue');
     }
   }, [api, fetchIssues]);
 
@@ -255,7 +264,7 @@ export function SidebarPanel({ api }: { api: PluginAPI }) {
 
 export function MainPanel({ api }: { api: PluginAPI }) {
   const [selected, setSelected] = useState<number | null>(issueState.selectedIssueNumber);
-  const [detail, setDetail] = useState<GitHubIssueDetail | null>(null);
+  const [detail, setDetail] = useState<IssueDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [showAgentMenu, setShowAgentMenu] = useState(false);
   const [durableAgents, setDurableAgents] = useState<AgentInfo[]>([]);
@@ -277,10 +286,15 @@ export function MainPanel({ api }: { api: PluginAPI }) {
     }
     let cancelled = false;
     setLoading(true);
-    api.github.viewIssue(selected)
-      .then((result) => {
+    const fields = 'number,title,state,url,createdAt,updatedAt,author,labels,body,comments,assignees';
+    api.process.exec('gh', ['issue', 'view', String(selected), '--json', fields])
+      .then((r) => {
         if (!cancelled) {
-          setDetail(result);
+          if (r.exitCode === 0 && r.stdout.trim()) {
+            setDetail(JSON.parse(r.stdout) as IssueDetail);
+          } else {
+            setDetail(null);
+          }
           setLoading(false);
         }
       })

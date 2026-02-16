@@ -462,5 +462,84 @@ describe('manifest-validator', () => {
       const result = validateManifest({ ...validManifest, permissions: ['files'] });
       expect(result.valid).toBe(true);
     });
+
+    // --- allowedCommands / process permission validation ---
+
+    it('rejects process permission without allowedCommands', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files', 'process'],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('requires at least one allowedCommands entry');
+    });
+
+    it('rejects allowedCommands without process permission', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files'],
+        allowedCommands: ['gh'],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('requires the "process" permission');
+    });
+
+    it('accepts process permission with valid allowedCommands', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files', 'process'],
+        allowedCommands: ['gh'],
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it('rejects allowedCommands entries with forward slash', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files', 'process'],
+        allowedCommands: ['/usr/bin/gh'],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e: string) => e.includes('path separators'))).toBe(true);
+    });
+
+    it('rejects allowedCommands entries with backslash', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files', 'process'],
+        allowedCommands: ['bin\\gh'],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e: string) => e.includes('path separators'))).toBe(true);
+    });
+
+    it('rejects allowedCommands entries with dot-dot', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files', 'process'],
+        allowedCommands: ['..gh'],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e: string) => e.includes('path separators'))).toBe(true);
+    });
+
+    it('rejects empty string in allowedCommands', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files', 'process'],
+        allowedCommands: [''],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e: string) => e.includes('non-empty string'))).toBe(true);
+    });
+
+    it('accepts multiple valid allowedCommands', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files', 'process'],
+        allowedCommands: ['gh', 'node', 'npx'],
+      });
+      expect(result.valid).toBe(true);
+    });
   });
 });

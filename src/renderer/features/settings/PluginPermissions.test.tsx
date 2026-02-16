@@ -240,4 +240,30 @@ describe('PluginDetailSettings — permissions section', () => {
     render(<PluginDetailSettings />);
     expect(screen.queryByText('Permissions')).toBeNull();
   });
+
+  it('renders allowedCommands section when declared', () => {
+    const processManifest: PluginManifest = {
+      ...v05Manifest,
+      id: 'process-plugin',
+      permissions: ['files', 'process'],
+      allowedCommands: ['gh', 'node'],
+      externalRoots: undefined,
+    };
+    usePluginStore.setState({
+      plugins: {
+        'process-plugin': makeEntry(processManifest),
+      },
+      appEnabled: ['process-plugin'],
+    });
+    useUIStore.setState({ pluginSettingsId: 'process-plugin' });
+    render(<PluginDetailSettings />);
+    expect(screen.getByText('Allowed Commands')).toBeInTheDocument();
+    expect(screen.getByText('gh')).toBeInTheDocument();
+    expect(screen.getByText('node')).toBeInTheDocument();
+  });
+
+  it('does not render allowedCommands section when not declared', () => {
+    render(<PluginDetailSettings />);
+    expect(screen.queryByText('Allowed Commands')).toBeNull();
+  });
 });

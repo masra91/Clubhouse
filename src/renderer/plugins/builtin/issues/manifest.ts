@@ -8,8 +8,10 @@ export const manifest: PluginManifest = {
   version: '0.1.0',
   description: 'Browse, view, and file GitHub issues for the current project.',
   author: 'Clubhouse',
-  engine: { api: 0.4 },
+  engine: { api: 0.5 },
   scope: 'project',
+  permissions: ['process', 'notifications', 'commands', 'agents', 'events', 'widgets'],
+  allowedCommands: ['gh'],
   contributes: {
     tab: { label: 'Issues', icon: ISSUES_ICON, layout: 'sidebar-content' },
     commands: [

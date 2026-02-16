@@ -16,6 +16,12 @@ export interface IssueListItem {
   labels: Array<{ name: string; color: string }>;
 }
 
+export interface IssueDetail extends IssueListItem {
+  body: string;
+  comments: Array<{ author: { login: string }; body: string; createdAt: string }>;
+  assignees: Array<{ login: string }>;
+}
+
 export const issueState = {
   selectedIssueNumber: null as number | null,
   issues: [] as IssueListItem[],

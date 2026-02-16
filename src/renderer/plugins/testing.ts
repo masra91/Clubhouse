@@ -144,11 +144,8 @@ export function createMockAPI(overrides?: Partial<PluginAPI>): PluginAPI {
       showInFolder: asyncNoop,
       forRoot: () => { throw new Error('forRoot not available in test stub'); },
     },
-    github: {
-      listIssues: async () => ({ issues: [], hasMore: false }),
-      viewIssue: async () => null,
-      createIssue: async () => ({ ok: true, url: 'https://github.com/test/repo/issues/1' }),
-      getRepoUrl: async () => 'https://github.com/test/repo',
+    process: {
+      exec: async () => ({ stdout: '', stderr: '', exitCode: 0 }),
     },
     context: {
       mode: 'project',

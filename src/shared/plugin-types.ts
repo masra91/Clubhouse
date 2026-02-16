@@ -40,7 +40,7 @@ export type PluginPermission =
   | 'widgets'
   | 'logging'
   | 'voice'
-  | 'github';
+  | 'process';
 
 export const ALL_PLUGIN_PERMISSIONS: readonly PluginPermission[] = [
   'files',
@@ -57,7 +57,7 @@ export const ALL_PLUGIN_PERMISSIONS: readonly PluginPermission[] = [
   'widgets',
   'logging',
   'voice',
-  'github',
+  'process',
 ] as const;
 
 export interface PluginExternalRoot {
@@ -80,7 +80,7 @@ export const PERMISSION_DESCRIPTIONS: Record<PluginPermission, string> = {
   widgets: 'Use shared UI widget components',
   logging: 'Write to the application log',
   voice: 'Use voice chat and speech-to-text',
-  github: 'Access GitHub issues and repository info',
+  process: 'Execute allowed CLI commands',
 };
 
 export interface PluginHelpTopic {
@@ -123,6 +123,7 @@ export interface PluginManifest {
   settingsPanel?: 'declarative' | 'custom';
   permissions?: PluginPermission[];         // required for v0.5+
   externalRoots?: PluginExternalRoot[];     // requires 'files.external' permission
+  allowedCommands?: string[];              // requires 'process' permission
 }
 
 // ── Render mode for dual-scope plugins ───────────────────────────────
@@ -400,28 +401,19 @@ export interface FilesAPI {
   forRoot(rootName: string): FilesAPI;
 }
 
-export interface GitHubIssueListItem {
-  number: number;
-  title: string;
-  state: string;
-  url: string;
-  createdAt: string;
-  updatedAt: string;
-  author: { login: string };
-  labels: Array<{ name: string; color: string }>;
+// ── Process API ───────────────────────────────────────────────────────
+export interface ProcessExecOptions {
+  timeout?: number;
 }
 
-export interface GitHubIssueDetail extends GitHubIssueListItem {
-  body: string;
-  comments: Array<{ author: { login: string }; body: string; createdAt: string }>;
-  assignees: Array<{ login: string }>;
+export interface ProcessExecResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
 }
 
-export interface GitHubAPI {
-  listIssues(opts?: { page?: number; perPage?: number; state?: string }): Promise<{ issues: GitHubIssueListItem[]; hasMore: boolean }>;
-  viewIssue(issueNumber: number): Promise<GitHubIssueDetail | null>;
-  createIssue(title: string, body: string): Promise<{ ok: boolean; url?: string; message?: string }>;
-  getRepoUrl(): Promise<string>;
+export interface ProcessAPI {
+  exec(command: string, args: string[], options?: ProcessExecOptions): Promise<ProcessExecResult>;
 }
 
 export interface VoiceModelStatus {
@@ -483,7 +475,7 @@ export interface PluginAPI {
   voice: VoiceAPI;
   logging: LoggingAPI;
   files: FilesAPI;
-  github: GitHubAPI;
+  process: ProcessAPI;
   context: PluginContextInfo;
 }
 

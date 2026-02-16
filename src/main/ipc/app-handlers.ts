@@ -1,4 +1,4 @@
-import { app, ipcMain } from 'electron';
+import { app, ipcMain, shell } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
 import { LogEntry, LoggingSettings, NotificationSettings } from '../../shared/types';
 import * as notificationService from '../services/notification-service';
@@ -8,6 +8,10 @@ import * as logService from '../services/log-service';
 import * as logSettings from '../services/log-settings';
 
 export function registerAppHandlers(): void {
+  ipcMain.handle(IPC.APP.OPEN_EXTERNAL_URL, (_event, url: string) => {
+    return shell.openExternal(url);
+  });
+
   ipcMain.handle(IPC.APP.GET_VERSION, () => {
     return app.getVersion();
   });

@@ -5,7 +5,7 @@ import * as issuesModule from './main';
 import { validateBuiltinPlugin } from '../builtin-plugin-testing';
 import { createMockContext, createMockAPI } from '../../testing';
 import { issueState } from './state';
-import type { PluginAPI, PluginContext } from '../../../../shared/plugin-types';
+import type { PluginAPI, PluginContext, PluginPermission } from '../../../../shared/plugin-types';
 
 // ── Built-in plugin validation ──────────────────────────────────────────
 
@@ -70,12 +70,12 @@ describe('issues plugin activate()', () => {
       .mockResolvedValueOnce('Bug title')
       .mockResolvedValueOnce('Bug body');
     const showNoticeSpy = vi.fn();
-    const createIssueSpy = vi.fn().mockResolvedValue({ ok: true, url: 'https://github.com/repo/issues/1' });
+    const execSpy = vi.fn().mockResolvedValue({ stdout: 'https://github.com/repo/issues/1\n', stderr: '', exitCode: 0 });
 
     api = createMockAPI({
       commands: { register: registerSpy, execute: vi.fn() },
       ui: { ...createMockAPI().ui, showInput: showInputSpy, showNotice: showNoticeSpy },
-      github: { ...createMockAPI().github, createIssue: createIssueSpy },
+      process: { exec: execSpy },
     });
 
     activate(ctx, api);
@@ -86,7 +86,7 @@ describe('issues plugin activate()', () => {
     expect(showInputSpy).toHaveBeenCalledTimes(2);
     expect(showInputSpy).toHaveBeenCalledWith('Issue title');
     expect(showInputSpy).toHaveBeenCalledWith('Issue body (optional)', '');
-    expect(createIssueSpy).toHaveBeenCalledWith('Bug title', 'Bug body');
+    expect(execSpy).toHaveBeenCalledWith('gh', ['issue', 'create', '--title', 'Bug title', '--body', 'Bug body'], { timeout: 30000 });
     expect(showNoticeSpy).toHaveBeenCalledWith('Issue created: https://github.com/repo/issues/1');
   });
 
@@ -95,12 +95,12 @@ describe('issues plugin activate()', () => {
       .mockResolvedValueOnce('Title')
       .mockResolvedValueOnce('');
     const showErrorSpy = vi.fn();
-    const createIssueSpy = vi.fn().mockResolvedValue({ ok: false, message: 'Auth failed' });
+    const execSpy = vi.fn().mockResolvedValue({ stdout: '', stderr: 'Auth failed', exitCode: 1 });
 
     api = createMockAPI({
       commands: { register: registerSpy, execute: vi.fn() },
       ui: { ...createMockAPI().ui, showInput: showInputSpy, showError: showErrorSpy },
-      github: { ...createMockAPI().github, createIssue: createIssueSpy },
+      process: { exec: execSpy },
     });
 
     activate(ctx, api);
@@ -112,19 +112,19 @@ describe('issues plugin activate()', () => {
 
   it('create command does nothing when user cancels title prompt', async () => {
     const showInputSpy = vi.fn().mockResolvedValueOnce(null);
-    const createIssueSpy = vi.fn();
+    const execSpy = vi.fn();
 
     api = createMockAPI({
       commands: { register: registerSpy, execute: vi.fn() },
       ui: { ...createMockAPI().ui, showInput: showInputSpy },
-      github: { ...createMockAPI().github, createIssue: createIssueSpy },
+      process: { exec: execSpy },
     });
 
     activate(ctx, api);
     const createCall = registerSpy.mock.calls.find((c: any[]) => c[0] === 'create');
     await createCall![1]();
 
-    expect(createIssueSpy).not.toHaveBeenCalled();
+    expect(execSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -211,56 +211,17 @@ describe('issues plugin API assumptions', () => {
     api = createMockAPI();
   });
 
-  describe('github.listIssues', () => {
+  describe('process.exec', () => {
     it('exists and returns a promise', () => {
-      expect(typeof api.github.listIssues).toBe('function');
-      expect(api.github.listIssues()).toBeInstanceOf(Promise);
+      expect(typeof api.process.exec).toBe('function');
+      expect(api.process.exec('gh', ['issue', 'list'])).toBeInstanceOf(Promise);
     });
 
-    it('resolves to { issues: [], hasMore: false } by default', async () => {
-      const result = await api.github.listIssues();
-      expect(result.issues).toEqual([]);
-      expect(result.hasMore).toBe(false);
-    });
-
-    it('accepts optional page/perPage/state options', async () => {
-      await expect(api.github.listIssues({ page: 1, perPage: 30, state: 'open' })).resolves.toBeDefined();
-    });
-  });
-
-  describe('github.viewIssue', () => {
-    it('exists and returns a promise', () => {
-      expect(typeof api.github.viewIssue).toBe('function');
-      expect(api.github.viewIssue(1)).toBeInstanceOf(Promise);
-    });
-
-    it('resolves to null by default (no issue found)', async () => {
-      const result = await api.github.viewIssue(42);
-      expect(result).toBeNull();
-    });
-  });
-
-  describe('github.createIssue', () => {
-    it('exists and returns a promise', () => {
-      expect(typeof api.github.createIssue).toBe('function');
-      expect(api.github.createIssue('title', 'body')).toBeInstanceOf(Promise);
-    });
-
-    it('resolves to { ok: true } by default', async () => {
-      const result = await api.github.createIssue('title', 'body');
-      expect(result.ok).toBe(true);
-    });
-  });
-
-  describe('github.getRepoUrl', () => {
-    it('exists and returns a promise', () => {
-      expect(typeof api.github.getRepoUrl).toBe('function');
-      expect(api.github.getRepoUrl()).toBeInstanceOf(Promise);
-    });
-
-    it('resolves to a string', async () => {
-      const result = await api.github.getRepoUrl();
-      expect(typeof result).toBe('string');
+    it('resolves to { stdout, stderr, exitCode } by default', async () => {
+      const result = await api.process.exec('gh', ['issue', 'list']);
+      expect(result.stdout).toBe('');
+      expect(result.stderr).toBe('');
+      expect(result.exitCode).toBe(0);
     });
   });
 

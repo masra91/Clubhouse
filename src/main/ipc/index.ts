@@ -2,12 +2,12 @@ import { registerPtyHandlers } from './pty-handlers';
 import { registerProjectHandlers } from './project-handlers';
 import { registerFileHandlers } from './file-handlers';
 import { registerGitHandlers } from './git-handlers';
-import { registerGithubHandlers } from './github-handlers';
 import { registerAgentHandlers } from './agent-handlers';
 import { registerAgentSettingsHandlers } from './agent-settings-handlers';
 import { registerAppHandlers } from './app-handlers';
 import { registerPluginHandlers } from './plugin-handlers';
 import { registerVoiceHandlers } from './voice-handlers';
+import { registerProcessHandlers } from './process-handlers';
 import * as hookServer from '../services/hook-server';
 import { registerBuiltinProviders } from '../orchestrators';
 import * as logService from '../services/log-service';
@@ -25,12 +25,12 @@ export function registerAllHandlers(): void {
   registerProjectHandlers();
   registerFileHandlers();
   registerGitHandlers();
-  registerGithubHandlers();
   registerAgentHandlers();
   registerAgentSettingsHandlers();
   registerAppHandlers();
   registerPluginHandlers();
   registerVoiceHandlers();
+  registerProcessHandlers();
 
   // Start the hook server for agent status events
   hookServer.start().catch((err) => {

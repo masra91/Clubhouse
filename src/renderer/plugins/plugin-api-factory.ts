@@ -19,7 +19,7 @@ import type {
   VoiceAPI,
   LoggingAPI,
   FilesAPI,
-  GitHubAPI,
+  ProcessAPI,
   PluginContextInfo,
   PluginRenderMode,
   PluginManifest,
@@ -762,28 +762,6 @@ function createFilesAPI(ctx: PluginContext, manifest?: PluginManifest): FilesAPI
   };
 }
 
-function createGitHubAPI(ctx: PluginContext): GitHubAPI {
-  const { projectPath } = ctx;
-  if (!projectPath) {
-    throw new Error('GitHubAPI requires projectPath');
-  }
-
-  return {
-    async listIssues(opts?) {
-      return window.clubhouse.github.listIssues(projectPath, opts);
-    },
-    async viewIssue(issueNumber) {
-      return window.clubhouse.github.viewIssue(projectPath, issueNumber);
-    },
-    async createIssue(title, body) {
-      return window.clubhouse.github.createIssue(projectPath, title, body);
-    },
-    async getRepoUrl() {
-      return window.clubhouse.github.getRepoUrl(projectPath);
-    },
-  };
-}
-
 function createVoiceAPI(): VoiceAPI {
   return {
     async checkModels() {
@@ -815,6 +793,26 @@ function createVoiceAPI(): VoiceAPI {
     },
     async endSession() {
       await window.clubhouse.voice.endSession();
+    },
+  };
+}
+
+function createProcessAPI(ctx: PluginContext, manifest?: PluginManifest): ProcessAPI {
+  const { projectPath, pluginId } = ctx;
+  if (!projectPath) {
+    throw new Error('ProcessAPI requires projectPath');
+  }
+  const allowedCommands = manifest?.allowedCommands ?? [];
+  return {
+    async exec(command, args, options?) {
+      return window.clubhouse.process.exec({
+        pluginId,
+        command,
+        args,
+        allowedCommands,
+        projectPath,
+        options,
+      });
     },
   };
 }
@@ -894,9 +892,9 @@ export function createPluginAPI(ctx: PluginContext, mode?: PluginRenderMode, man
       projectAvailable && !!ctx.projectPath, scopeLabel, 'files', 'files',
       ctx.pluginId, manifest, () => createFilesAPI(ctx, manifest),
     ),
-    github: gated(
-      projectAvailable && !!ctx.projectPath, scopeLabel, 'github', 'github',
-      ctx.pluginId, manifest, () => createGitHubAPI(ctx),
+    process: gated(
+      projectAvailable && !!ctx.projectPath, scopeLabel, 'process', 'process',
+      ctx.pluginId, manifest, () => createProcessAPI(ctx, manifest),
     ),
     context: contextInfo, // always available
   };
