@@ -61,8 +61,9 @@ function makeManifest(overrides?: Partial<PluginManifest>): PluginManifest {
     id: 'test-plugin',
     name: 'Test Plugin',
     version: '1.0.0',
-    engine: { api: 0.4 },
+    engine: { api: 0.5 },
     scope: 'project',
+    permissions: [],
     contributes: {
       help: { topics: [{ id: 'test', title: 'Test', content: 'Test help' }] },
     },
