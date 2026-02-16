@@ -242,7 +242,50 @@ function createUIAPI(): UIAPI {
       return window.confirm(message);
     },
     async showInput(prompt: string, defaultValue = ''): Promise<string | null> {
-      return window.prompt(prompt, defaultValue);
+      return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000';
+
+        const dialog = document.createElement('div');
+        dialog.style.cssText = 'background:var(--ctp-mantle,#1e1e2e);border:1px solid var(--ctp-surface0,#313244);border-radius:8px;padding:16px;min-width:320px;max-width:480px;color:var(--ctp-text,#cdd6f4)';
+
+        const label = document.createElement('div');
+        label.textContent = prompt;
+        label.style.cssText = 'font-size:13px;margin-bottom:8px';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = defaultValue;
+        input.style.cssText = 'width:100%;box-sizing:border-box;padding:6px 8px;background:var(--ctp-base,#11111b);border:1px solid var(--ctp-surface1,#45475a);border-radius:4px;color:var(--ctp-text,#cdd6f4);font-size:13px;outline:none';
+
+        const buttons = document.createElement('div');
+        buttons.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:12px';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = 'padding:4px 12px;border-radius:4px;border:1px solid var(--ctp-surface1,#45475a);background:transparent;color:var(--ctp-subtext0,#a6adc8);cursor:pointer;font-size:12px';
+
+        const okBtn = document.createElement('button');
+        okBtn.textContent = 'OK';
+        okBtn.style.cssText = 'padding:4px 12px;border-radius:4px;border:none;background:var(--ctp-accent,#89b4fa);color:var(--ctp-base,#1e1e2e);cursor:pointer;font-size:12px;font-weight:500';
+
+        buttons.append(cancelBtn, okBtn);
+        dialog.append(label, input, buttons);
+        overlay.append(dialog);
+        document.body.append(overlay);
+
+        input.focus();
+        input.select();
+
+        const cleanup = () => { overlay.remove(); };
+        cancelBtn.onclick = () => { cleanup(); resolve(null); };
+        okBtn.onclick = () => { cleanup(); resolve(input.value); };
+        overlay.onclick = (e) => { if (e.target === overlay) { cleanup(); resolve(null); } };
+        input.onkeydown = (e) => {
+          if (e.key === 'Enter') { cleanup(); resolve(input.value); }
+          if (e.key === 'Escape') { cleanup(); resolve(null); }
+        };
+      });
     },
     async openExternalUrl(url: string): Promise<void> {
       await window.clubhouse.app.openExternalUrl(url);

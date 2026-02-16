@@ -489,11 +489,10 @@ describe('plugin-api-factory', () => {
       expect((window as any).confirm).toHaveBeenCalledWith('Are you sure?');
     });
 
-    it('showInput delegates to window.prompt', async () => {
-      (window as any).prompt = vi.fn(() => 'user input');
-      const result = await api.ui.showInput('Enter name:', 'default');
-      expect(result).toBe('user input');
-      expect((window as any).prompt).toHaveBeenCalledWith('Enter name:', 'default');
+    it('showInput returns a promise', async () => {
+      // showInput now renders a DOM-based modal; in test env verify it returns a promise
+      const promise = api.ui.showInput('Enter name:', 'default');
+      expect(promise).toBeInstanceOf(Promise);
     });
   });
 

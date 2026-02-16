@@ -337,19 +337,11 @@ export function MainPanel({ api }: { api: PluginAPI }) {
     setShowAgentMenu(false);
     const prompt = buildAgentPrompt(detail);
 
-    if (agent.status === 'running') {
-      const ok = await api.ui.showConfirm(
-        'This agent is running. Restarting will interrupt its work. Continue?'
-      );
-      if (!ok) return;
-      await api.agents.kill(agent.id);
-    }
-
     try {
-      await api.agents.resume(agent.id);
-      api.ui.showNotice(`Issue #${detail.number} assigned to ${agent.name}`);
+      await api.agents.runQuick(prompt);
+      api.ui.showNotice(`Quick agent launched for issue #${detail.number} (via ${agent.name})`);
     } catch {
-      api.ui.showError(`Failed to assign to ${agent.name}`);
+      api.ui.showError(`Failed to launch agent for issue #${detail.number}`);
     }
   }, [detail, api]);
 
