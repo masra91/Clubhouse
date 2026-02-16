@@ -11,6 +11,8 @@ import { manifest as issuesManifest } from './issues/manifest';
 import * as issuesModule from './issues/main';
 import { manifest as voiceChatManifest } from './voice-chat/manifest';
 import * as voiceChatModule from './voice-chat/main';
+import { manifest as wikiManifest } from './wiki/manifest';
+import * as wikiModule from './wiki/main';
 
 export interface BuiltinPlugin {
   manifest: PluginManifest;
@@ -25,5 +27,6 @@ export function getBuiltinPlugins(): BuiltinPlugin[] {
     { manifest: filesManifest, module: filesModule },
     { manifest: issuesManifest, module: issuesModule },
     { manifest: voiceChatManifest, module: voiceChatModule },
+    { manifest: wikiManifest, module: wikiModule },
   ];
 }
