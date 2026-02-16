@@ -9,6 +9,7 @@ interface HeadlessState {
   setEnabled: (enabled: boolean) => Promise<void>;
   getProjectMode: (projectPath?: string) => SpawnMode;
   setProjectMode: (projectPath: string, mode: SpawnMode) => Promise<void>;
+  clearProjectMode: (projectPath: string) => Promise<void>;
 }
 
 export const useHeadlessStore = create<HeadlessState>((set, get) => ({
@@ -56,6 +57,20 @@ export const useHeadlessStore = create<HeadlessState>((set, get) => ({
       await window.clubhouse.app.saveHeadlessSettings({
         enabled: get().enabled,
         projectOverrides: newOverrides,
+      });
+    } catch {
+      set({ projectOverrides: prevOverrides });
+    }
+  },
+
+  clearProjectMode: async (projectPath) => {
+    const prevOverrides = get().projectOverrides;
+    const { [projectPath]: _, ...rest } = prevOverrides;
+    set({ projectOverrides: rest });
+    try {
+      await window.clubhouse.app.saveHeadlessSettings({
+        enabled: get().enabled,
+        projectOverrides: rest,
       });
     } catch {
       set({ projectOverrides: prevOverrides });

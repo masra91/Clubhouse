@@ -83,6 +83,8 @@ export interface SpawnAgentParams {
   systemPrompt?: string;
   allowedTools?: string[];
   orchestrator?: OrchestratorId;
+  maxTurns?: number;
+  maxBudgetUsd?: number;
 }
 
 export function isHeadlessAgent(agentId: string): boolean {
@@ -110,8 +112,8 @@ export async function spawnAgent(params: SpawnAgentParams): Promise<void> {
       systemPrompt: params.systemPrompt,
       allowedTools,
       agentId: params.agentId,
-      maxTurns: 50,
-      maxBudgetUsd: 1.0,
+      maxTurns: params.maxTurns || 50,
+      maxBudgetUsd: params.maxBudgetUsd || 1.0,
       noSessionPersistence: true,
     });
 
@@ -193,6 +195,11 @@ export async function checkAvailability(
   return provider.checkAvailability();
 }
 
-export function getAvailableOrchestrators(): Array<{ id: string; displayName: string; badge?: string }> {
-  return getAllProviders().map((p) => ({ id: p.id, displayName: p.displayName, badge: p.badge }));
+export function getAvailableOrchestrators() {
+  return getAllProviders().map((p) => ({
+    id: p.id,
+    displayName: p.displayName,
+    badge: p.badge,
+    capabilities: p.getCapabilities(),
+  }));
 }

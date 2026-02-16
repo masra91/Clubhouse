@@ -52,10 +52,23 @@ export interface OrchestratorConventions {
   localSettingsFile: string;
 }
 
+export interface ProviderCapabilities {
+  headless: boolean;
+  structuredOutput: boolean;
+  hooks: boolean;
+  maxTurns: boolean;
+  maxBudget: boolean;
+  sessionResume: boolean;
+  permissions: boolean;
+}
+
 export interface OrchestratorProvider {
   readonly id: OrchestratorId;
   readonly displayName: string;
   readonly badge?: string;
+
+  // Capabilities
+  getCapabilities(): ProviderCapabilities;
 
   // Lifecycle
   checkAvailability(): Promise<{ available: boolean; error?: string }>;

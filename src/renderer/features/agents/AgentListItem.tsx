@@ -1,6 +1,7 @@
 import { Agent } from '../../../shared/types';
 import { useAgentStore } from '../../stores/agentStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useOrchestratorStore } from '../../stores/orchestratorStore';
 import { AGENT_COLORS } from '../../../shared/name-generator';
 
 interface Props {
@@ -28,6 +29,10 @@ export function AgentListItem({ agent, isActive, isThinking, onSelect, onSpawnQu
   const { killAgent, removeAgent, spawnDurableAgent, openAgentSettings, openDeleteDialog, agentDetailedStatus } = useAgentStore();
   const { projects, activeProjectId } = useProjectStore();
   const activeProject = projects.find((p) => p.id === activeProjectId);
+  const enabledIds = useOrchestratorStore((s) => s.enabled);
+  const allOrchestrators = useOrchestratorStore((s) => s.allOrchestrators);
+  const showProviderBadge = enabledIds.length > 1;
+  const providerInfo = allOrchestrators.find((o) => o.id === (agent.orchestrator || 'claude-code'));
 
   const colorInfo = AGENT_COLORS.find((c) => c.id === agent.color);
   const statusInfo = STATUS_CONFIG[agent.status] || STATUS_CONFIG.sleeping;
@@ -107,6 +112,11 @@ export function AgentListItem({ agent, isActive, isThinking, onSelect, onSpawnQu
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="text-sm text-ctp-text truncate font-medium">{agent.name}</span>
+          {showProviderBadge && providerInfo && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-1 text-ctp-subtext0 flex-shrink-0">
+              {providerInfo.displayName}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className={`text-xs truncate ${

@@ -3,6 +3,7 @@ import * as path from 'path';
 import {
   OrchestratorProvider,
   OrchestratorConventions,
+  ProviderCapabilities,
   SpawnOpts,
   HeadlessOpts,
   HeadlessCommandResult,
@@ -57,6 +58,18 @@ function findClaudeBinary(): string {
 export class ClaudeCodeProvider implements OrchestratorProvider {
   readonly id = 'claude-code' as const;
   readonly displayName = 'Claude Code';
+
+  getCapabilities(): ProviderCapabilities {
+    return {
+      headless: true,
+      structuredOutput: true,
+      hooks: true,
+      maxTurns: true,
+      maxBudget: true,
+      sessionResume: true,
+      permissions: true,
+    };
+  }
 
   readonly conventions: OrchestratorConventions = {
     configDir: '.claude',

@@ -42,6 +42,10 @@ const mockProvider = {
   toolVerb: vi.fn(),
   buildSummaryInstruction: vi.fn(() => ''),
   readQuickSummary: vi.fn(() => Promise.resolve(null)),
+  getCapabilities: vi.fn(() => ({
+    headless: true, structuredOutput: true, hooks: true,
+    maxTurns: true, maxBudget: true, sessionResume: true, permissions: true,
+  })),
 };
 
 const mockAltProvider = {
@@ -279,11 +283,16 @@ describe('agent-system', () => {
   });
 
   describe('getAvailableOrchestrators', () => {
-    it('returns all registered providers', () => {
+    it('returns all registered providers with capabilities', () => {
       const result = getAvailableOrchestrators();
       expect(result).toHaveLength(2);
-      expect(result[0]).toEqual({ id: 'claude-code', displayName: 'Claude Code', badge: undefined });
-      expect(result[1]).toEqual({ id: 'opencode', displayName: 'OpenCode', badge: undefined });
+      expect(result[0].id).toBe('claude-code');
+      expect(result[0].displayName).toBe('Claude Code');
+      expect(result[0].capabilities).toBeDefined();
+      expect(result[0].capabilities.headless).toBe(true);
+      expect(result[1].id).toBe('opencode');
+      expect(result[1].displayName).toBe('OpenCode');
+      expect(result[1].capabilities).toBeDefined();
     });
   });
 });

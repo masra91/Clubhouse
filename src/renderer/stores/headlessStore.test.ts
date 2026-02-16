@@ -226,6 +226,75 @@ describe('headlessStore', () => {
   });
 
   // ============================================================
+  // clearProjectMode
+  // ============================================================
+  describe('clearProjectMode', () => {
+    it('removes project override', async () => {
+      useHeadlessStore.setState({
+        projectOverrides: { '/my/project': 'headless', '/other': 'interactive' },
+      });
+
+      await getState().clearProjectMode('/my/project');
+
+      expect(getState().projectOverrides).toEqual({ '/other': 'interactive' });
+    });
+
+    it('persists to backend without the cleared project', async () => {
+      useHeadlessStore.setState({
+        enabled: true,
+        projectOverrides: { '/my/project': 'headless' },
+      });
+
+      await getState().clearProjectMode('/my/project');
+
+      expect(mockSaveHeadlessSettings).toHaveBeenCalledWith({
+        enabled: true,
+        projectOverrides: {},
+      });
+    });
+
+    it('falls back to global after clearing', async () => {
+      useHeadlessStore.setState({
+        enabled: true,
+        projectOverrides: { '/my/project': 'interactive' },
+      });
+
+      // Before clearing: override says interactive
+      expect(getState().getProjectMode('/my/project')).toBe('interactive');
+
+      await getState().clearProjectMode('/my/project');
+
+      // After clearing: should use global (headless)
+      expect(getState().getProjectMode('/my/project')).toBe('headless');
+    });
+
+    it('no-op when project has no override', async () => {
+      useHeadlessStore.setState({
+        projectOverrides: { '/other': 'headless' },
+      });
+
+      await getState().clearProjectMode('/my/project');
+
+      expect(getState().projectOverrides).toEqual({ '/other': 'headless' });
+    });
+
+    it('rolls back on save failure', async () => {
+      mockSaveHeadlessSettings.mockRejectedValue(new Error('save failed'));
+      useHeadlessStore.setState({
+        projectOverrides: { '/my/project': 'headless', '/other': 'interactive' },
+      });
+
+      await getState().clearProjectMode('/my/project');
+
+      // Should roll back
+      expect(getState().projectOverrides).toEqual({
+        '/my/project': 'headless',
+        '/other': 'interactive',
+      });
+    });
+  });
+
+  // ============================================================
   // Integration: getProjectMode reflects setProjectMode
   // ============================================================
   describe('integration', () => {

@@ -3,6 +3,7 @@ import * as path from 'path';
 import {
   OrchestratorProvider,
   OrchestratorConventions,
+  ProviderCapabilities,
   SpawnOpts,
   HeadlessOpts,
   HeadlessCommandResult,
@@ -44,6 +45,18 @@ export class OpenCodeProvider implements OrchestratorProvider {
   readonly id = 'opencode' as const;
   readonly displayName = 'OpenCode';
   readonly badge = 'Beta';
+
+  getCapabilities(): ProviderCapabilities {
+    return {
+      headless: true,
+      structuredOutput: false,
+      hooks: false,
+      maxTurns: false,
+      maxBudget: false,
+      sessionResume: true,
+      permissions: false,
+    };
+  }
 
   readonly conventions: OrchestratorConventions = {
     configDir: '.opencode',

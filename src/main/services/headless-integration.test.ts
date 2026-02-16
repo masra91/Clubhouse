@@ -66,6 +66,10 @@ const mockProvider = {
   toolVerb: vi.fn(),
   buildSummaryInstruction: vi.fn(() => ''),
   readQuickSummary: vi.fn(() => Promise.resolve(null)),
+  getCapabilities: vi.fn(() => ({
+    headless: true, structuredOutput: true, hooks: true,
+    maxTurns: true, maxBudget: true, sessionResume: true, permissions: true,
+  })),
 };
 
 vi.mock('../orchestrators', () => ({
@@ -374,7 +378,7 @@ describe('Headless integration', () => {
   });
 
   describe('maxTurns and maxBudgetUsd defaults', () => {
-    it('passes maxTurns: 50 and maxBudgetUsd: 1.0 to provider', async () => {
+    it('passes maxTurns: 50 and maxBudgetUsd: 1.0 to provider when params omit them', async () => {
       mockGetSpawnMode.mockReturnValue('headless');
 
       await spawnAgent({
@@ -389,6 +393,67 @@ describe('Headless integration', () => {
         expect.objectContaining({
           maxTurns: 50,
           maxBudgetUsd: 1.0,
+        })
+      );
+    });
+
+    it('uses custom maxTurns from params when provided', async () => {
+      mockGetSpawnMode.mockReturnValue('headless');
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/project',
+        cwd: '/project',
+        kind: 'quick',
+        mission: 'Fix bug',
+        maxTurns: 10,
+      });
+
+      expect(mockBuildHeadlessCommand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          maxTurns: 10,
+          maxBudgetUsd: 1.0,
+        })
+      );
+    });
+
+    it('uses custom maxBudgetUsd from params when provided', async () => {
+      mockGetSpawnMode.mockReturnValue('headless');
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/project',
+        cwd: '/project',
+        kind: 'quick',
+        mission: 'Fix bug',
+        maxBudgetUsd: 5.0,
+      });
+
+      expect(mockBuildHeadlessCommand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          maxTurns: 50,
+          maxBudgetUsd: 5.0,
+        })
+      );
+    });
+
+    it('uses both custom maxTurns and maxBudgetUsd from params', async () => {
+      mockGetSpawnMode.mockReturnValue('headless');
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/project',
+        cwd: '/project',
+        kind: 'quick',
+        mission: 'Fix bug',
+        maxTurns: 25,
+        maxBudgetUsd: 2.5,
+      });
+
+      expect(mockBuildHeadlessCommand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          maxTurns: 25,
+          maxBudgetUsd: 2.5,
         })
       );
     });

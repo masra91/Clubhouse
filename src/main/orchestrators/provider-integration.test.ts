@@ -441,6 +441,54 @@ describe('Provider integration tests', () => {
     });
   });
 
+  describe('getCapabilities', () => {
+    it('ClaudeCode: all capabilities enabled', () => {
+      const caps = new ClaudeCodeProvider().getCapabilities();
+      expect(caps).toEqual({
+        headless: true,
+        structuredOutput: true,
+        hooks: true,
+        maxTurns: true,
+        maxBudget: true,
+        sessionResume: true,
+        permissions: true,
+      });
+    });
+
+    it('CopilotCli: no structuredOutput, maxTurns, or maxBudget', () => {
+      const caps = new CopilotCliProvider().getCapabilities();
+      expect(caps.headless).toBe(true);
+      expect(caps.structuredOutput).toBe(false);
+      expect(caps.hooks).toBe(true);
+      expect(caps.maxTurns).toBe(false);
+      expect(caps.maxBudget).toBe(false);
+      expect(caps.sessionResume).toBe(true);
+      expect(caps.permissions).toBe(true);
+    });
+
+    it('OpenCode: no hooks, maxTurns, maxBudget, or permissions', () => {
+      const caps = new OpenCodeProvider().getCapabilities();
+      expect(caps.headless).toBe(true);
+      expect(caps.structuredOutput).toBe(false);
+      expect(caps.hooks).toBe(false);
+      expect(caps.maxTurns).toBe(false);
+      expect(caps.maxBudget).toBe(false);
+      expect(caps.sessionResume).toBe(true);
+      expect(caps.permissions).toBe(false);
+    });
+
+    it('all providers return an object with all required keys', () => {
+      const requiredKeys = ['headless', 'structuredOutput', 'hooks', 'maxTurns', 'maxBudget', 'sessionResume', 'permissions'];
+      const providers = [new ClaudeCodeProvider(), new CopilotCliProvider(), new OpenCodeProvider()];
+      for (const p of providers) {
+        const caps = p.getCapabilities();
+        for (const key of requiredKeys) {
+          expect(typeof (caps as any)[key]).toBe('boolean');
+        }
+      }
+    });
+  });
+
   describe('getModelOptions', () => {
     it('CopilotCli: includes real model options without gpt-5', () => {
       const provider = new CopilotCliProvider();

@@ -3,6 +3,7 @@ import * as path from 'path';
 import {
   OrchestratorProvider,
   OrchestratorConventions,
+  ProviderCapabilities,
   SpawnOpts,
   HeadlessOpts,
   HeadlessCommandResult,
@@ -50,6 +51,18 @@ export class CopilotCliProvider implements OrchestratorProvider {
   readonly id = 'copilot-cli' as const;
   readonly displayName = 'GitHub Copilot CLI';
   readonly badge = 'Beta';
+
+  getCapabilities(): ProviderCapabilities {
+    return {
+      headless: true,
+      structuredOutput: false,
+      hooks: true,
+      maxTurns: false,
+      maxBudget: false,
+      sessionResume: true,
+      permissions: true,
+    };
+  }
 
   readonly conventions: OrchestratorConventions = {
     configDir: '.github',

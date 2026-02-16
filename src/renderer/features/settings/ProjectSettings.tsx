@@ -4,6 +4,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { AGENT_COLORS } from '../../../shared/name-generator';
 import { ResetProjectDialog } from './ResetProjectDialog';
 import { useOrchestratorStore } from '../../stores/orchestratorStore';
+import { useHeadlessStore, SpawnMode } from '../../stores/headlessStore';
 
 function NameAndPathSection({ projectId }: { projectId: string }) {
   const { projects, updateProject } = useProjectStore();
@@ -168,6 +169,40 @@ function OrchestratorSection({ projectId, projectPath }: { projectId: string; pr
   );
 }
 
+function HeadlessSection({ projectPath }: { projectPath: string }) {
+  const enabled = useHeadlessStore((s) => s.enabled);
+  const projectOverrides = useHeadlessStore((s) => s.projectOverrides);
+  const setProjectMode = useHeadlessStore((s) => s.setProjectMode);
+  const clearProjectMode = useHeadlessStore((s) => s.clearProjectMode);
+
+  const hasOverride = projectPath in projectOverrides;
+  const currentValue = hasOverride ? projectOverrides[projectPath] : 'global';
+
+  const handleChange = (value: string) => {
+    if (value === 'global') clearProjectMode(projectPath);
+    else setProjectMode(projectPath, value as SpawnMode);
+  };
+
+  return (
+    <div className="space-y-2 mb-6">
+      <h3 className="text-xs text-ctp-subtext0 uppercase tracking-wider">Quick Agent Mode</h3>
+      <select
+        value={currentValue}
+        onChange={(e) => handleChange(e.target.value)}
+        className="w-64 px-3 py-1.5 text-sm rounded-lg bg-ctp-mantle border border-surface-2
+          text-ctp-text focus:outline-none focus:border-ctp-accent/50"
+      >
+        <option value="global">Global Default ({enabled ? 'Headless' : 'Interactive'})</option>
+        <option value="headless">Headless</option>
+        <option value="interactive">Interactive</option>
+      </select>
+      <p className="text-xs text-ctp-subtext0">
+        How quick agents spawn in this project. Headless runs faster with richer summaries.
+      </p>
+    </div>
+  );
+}
+
 function DangerZone({ projectId, projectPath, projectName }: { projectId: string; projectPath: string; projectName: string }) {
   const removeProject = useProjectStore((s) => s.removeProject);
   const toggleSettings = useUIStore((s) => s.toggleSettings);
@@ -237,6 +272,7 @@ export function ProjectSettings({ projectId }: { projectId?: string }) {
         <NameAndPathSection projectId={project.id} />
         <AppearanceSection projectId={project.id} />
         <OrchestratorSection projectId={project.id} projectPath={project.path} />
+        <HeadlessSection projectPath={project.path} />
         <DangerZone projectId={project.id} projectPath={project.path} projectName={project.displayName || project.name} />
       </div>
     </div>
