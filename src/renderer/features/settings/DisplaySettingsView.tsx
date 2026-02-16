@@ -14,37 +14,16 @@ const VIEW_TOGGLES = [
       </svg>
     ),
   },
-  {
-    key: 'showCrossHub' as const,
-    label: 'Cross-Project Hub',
-    description: 'Show the Cross-Project Hub in the sidebar',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="3" />
-        <circle cx="5" cy="6" r="2" />
-        <circle cx="19" cy="6" r="2" />
-        <circle cx="5" cy="18" r="2" />
-        <circle cx="19" cy="18" r="2" />
-        <line x1="9.5" y1="10" x2="6.5" y2="7.5" />
-        <line x1="14.5" y1="10" x2="17.5" y2="7.5" />
-        <line x1="9.5" y1="14" x2="6.5" y2="16.5" />
-        <line x1="14.5" y1="14" x2="17.5" y2="16.5" />
-      </svg>
-    ),
-  },
 ];
 
 export function DisplaySettingsView() {
   const themeId = useThemeStore((s) => s.themeId);
   const setTheme = useThemeStore((s) => s.setTheme);
   const showHome = useUIStore((s) => s.showHome);
-  const showCrossHub = useUIStore((s) => s.showCrossHub);
   const setShowHome = useUIStore((s) => s.setShowHome);
-  const setShowCrossHub = useUIStore((s) => s.setShowCrossHub);
 
   const toggleMap = {
     showHome: { value: showHome, set: setShowHome },
-    showCrossHub: { value: showCrossHub, set: setShowCrossHub },
   };
 
   return (

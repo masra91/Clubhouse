@@ -5,15 +5,14 @@ const VIEW_PREFS_KEY = 'clubhouse_view_prefs';
 
 interface ViewPrefs {
   showHome: boolean;
-  showCrossHub: boolean;
 }
 
 function loadViewPrefs(): ViewPrefs {
   try {
     const raw = localStorage.getItem(VIEW_PREFS_KEY);
-    if (raw) return { showHome: true, showCrossHub: true, ...JSON.parse(raw) };
+    if (raw) return { showHome: true, ...JSON.parse(raw) };
   } catch { /* ignore */ }
-  return { showHome: true, showCrossHub: true };
+  return { showHome: true };
 }
 
 function saveViewPrefs(prefs: ViewPrefs): void {
@@ -28,13 +27,14 @@ interface UIState {
   settingsSubPage: SettingsSubPage;
   settingsContext: 'app' | string;
   showHome: boolean;
-  showCrossHub: boolean;
+  pluginSettingsId: string | null;
   setExplorerTab: (tab: ExplorerTab) => void;
   setSettingsSubPage: (page: SettingsSubPage) => void;
   setSettingsContext: (context: 'app' | string) => void;
   toggleSettings: () => void;
   setShowHome: (show: boolean) => void;
-  setShowCrossHub: (show: boolean) => void;
+  openPluginSettings: (pluginId: string) => void;
+  closePluginSettings: () => void;
 }
 
 const initialPrefs = loadViewPrefs();
@@ -45,7 +45,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   settingsSubPage: 'display',
   settingsContext: 'app',
   showHome: initialPrefs.showHome,
-  showCrossHub: initialPrefs.showCrossHub,
+  pluginSettingsId: null,
 
   setExplorerTab: (tab) => set({ explorerTab: tab }),
   setSettingsSubPage: (page) => set({ settingsSubPage: page }),
@@ -63,14 +63,12 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
   setShowHome: (show) => {
     set({ showHome: show });
-    saveViewPrefs({ showHome: show, showCrossHub: get().showCrossHub });
+    saveViewPrefs({ showHome: show });
   },
-  setShowCrossHub: (show) => {
-    set({ showCrossHub: show });
-    saveViewPrefs({ showHome: get().showHome, showCrossHub: show });
-    // If hiding and currently on cross-hub, navigate away
-    if (!show && get().explorerTab === 'cross-hub') {
-      set({ explorerTab: 'agents' });
-    }
+  openPluginSettings: (pluginId) => {
+    set({ pluginSettingsId: pluginId, settingsSubPage: 'plugin-detail' });
+  },
+  closePluginSettings: () => {
+    set({ pluginSettingsId: null, settingsSubPage: 'plugins' });
   },
 }));

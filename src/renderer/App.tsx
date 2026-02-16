@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ProjectRail } from './panels/ProjectRail';
 import { ExplorerRail } from './panels/ExplorerRail';
 import { AccessoryPanel } from './panels/AccessoryPanel';
@@ -12,7 +12,10 @@ import { useNotificationStore } from './stores/notificationStore';
 import { useQuickAgentStore } from './stores/quickAgentStore';
 import { useThemeStore } from './stores/themeStore';
 import { useOrchestratorStore } from './stores/orchestratorStore';
-import { CrossHubCommandCenter } from './features/cross-hub/CrossHubCommandCenter';
+import { usePluginStore } from './plugins/plugin-store';
+import { initializePluginSystem, handleProjectSwitch } from './plugins/plugin-loader';
+import { pluginEventBus } from './plugins/plugin-events';
+import { PluginContentView } from './panels/PluginContentView';
 
 export function App() {
   const loadProjects = useProjectStore((s) => s.loadProjects);
@@ -23,7 +26,14 @@ export function App() {
   const _agents = useAgentStore((s) => s.agents);
   const loadDurableAgents = useAgentStore((s) => s.loadDurableAgents);
   const explorerTab = useUIStore((s) => s.explorerTab);
-  const isFullWidth = explorerTab === 'hub' || explorerTab === 'terminal';
+  const pluginsMap = usePluginStore((s) => s.plugins);
+  const isPluginFullWidth = (() => {
+    if (!explorerTab.startsWith('plugin:')) return false;
+    const pluginId = explorerTab.slice('plugin:'.length);
+    const entry = pluginsMap[pluginId];
+    return entry?.manifest.contributes?.tab?.layout === 'full';
+  })();
+  const isFullWidth = isPluginFullWidth;
   const loadNotificationSettings = useNotificationStore((s) => s.loadSettings);
   const loadTheme = useThemeStore((s) => s.loadTheme);
   const checkAndNotify = useNotificationStore((s) => s.checkAndNotify);
@@ -38,6 +48,9 @@ export function App() {
     loadNotificationSettings();
     loadTheme();
     loadOrchestratorSettings();
+    initializePluginSystem().catch((err) => {
+      console.error('[Plugins] Failed to initialize plugin system:', err);
+    });
   }, [loadProjects, loadNotificationSettings, loadTheme, loadOrchestratorSettings]);
 
   useEffect(() => {
@@ -65,6 +78,54 @@ export function App() {
     }
   }, [projects, loadCompleted]);
 
+  // Handle plugin lifecycle on project switches
+  const prevProjectIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prevId = prevProjectIdRef.current;
+    prevProjectIdRef.current = activeProjectId;
+    if (activeProjectId && activeProjectId !== prevId) {
+      const project = projects.find((p) => p.id === activeProjectId);
+      if (project) {
+        // Load project plugin config then activate
+        (async () => {
+          try {
+            const saved = await window.clubhouse.plugin.storageRead({
+              pluginId: '_system',
+              scope: 'global',
+              key: `project-enabled-${activeProjectId}`,
+            }) as string[] | undefined;
+            if (Array.isArray(saved)) {
+              usePluginStore.getState().loadProjectPluginConfig(activeProjectId, saved);
+            }
+          } catch { /* no saved config */ }
+          await handleProjectSwitch(prevId, activeProjectId, project.path);
+        })().catch((err) => console.error('[Plugins] Project switch error:', err));
+      }
+    }
+  }, [activeProjectId, projects]);
+
+  // Emit agent:status-changed plugin events when agent statuses change
+  const prevAgentStatusesRef = useRef<Record<string, string>>({});
+  useEffect(() => {
+    const unsub = useAgentStore.subscribe((state) => {
+      const prev = prevAgentStatusesRef.current;
+      const next: Record<string, string> = {};
+      for (const [id, agent] of Object.entries(state.agents)) {
+        next[id] = agent.status;
+        if (prev[id] && prev[id] !== agent.status) {
+          pluginEventBus.emit('agent:status-changed', {
+            agentId: id,
+            status: agent.status,
+            prevStatus: prev[id],
+            name: agent.name,
+          });
+        }
+      }
+      prevAgentStatusesRef.current = next;
+    });
+    return unsub;
+  }, []);
+
   // Periodically clear stale detailed statuses (e.g. stuck "Thinking" or "Searching files")
   useEffect(() => {
     const id = setInterval(clearStaleStatuses, 10_000);
@@ -76,6 +137,9 @@ export function App() {
       async (agentId: string, exitCode: number) => {
         const agent = useAgentStore.getState().agents[agentId];
         updateAgentStatus(agentId, 'sleeping', exitCode);
+
+        // Emit plugin event for agent completion
+        pluginEventBus.emit('agent:completed', { agentId, exitCode, name: agent?.name });
 
         // Handle quick agent completion
         if (agent?.kind === 'quick' && agent.mission) {
@@ -123,6 +187,21 @@ export function App() {
         const name = agent?.name ?? agentId;
         checkAndNotify(name, event.kind, event.toolName);
 
+        // Emit plugin events for agent lifecycle
+        if (event.kind === 'stop') {
+          pluginEventBus.emit('agent:completed', { agentId, name });
+        } else {
+          pluginEventBus.emit('agent:spawned', { agentId, name, kind: event.kind });
+        }
+
+        // Emit agent:hook for all hook events
+        pluginEventBus.emit('agent:hook', {
+          agentId,
+          kind: event.kind,
+          toolName: event.toolName,
+          timestamp: event.timestamp,
+        });
+
         // Auto-exit quick agents when the agent finishes (stop event).
         // Delay gives the agent time to write the summary file before we send /exit.
         if (event.kind === 'stop' && agent?.kind === 'quick') {
@@ -143,26 +222,33 @@ export function App() {
   }, [handleHookEvent, checkAndNotify]);
 
 
-  const isCrossHub = explorerTab === 'cross-hub';
-  const isHome = activeProjectId === null && explorerTab !== 'settings' && !isCrossHub;
+  const isAppPlugin = explorerTab.startsWith('plugin:app:');
+  const isHome = activeProjectId === null && explorerTab !== 'settings' && !isAppPlugin;
   const activeProject = projects.find((p) => p.id === activeProjectId);
 
   const CORE_LABELS: Record<string, string> = {
     agents: 'Agents',
-    hub: 'Project Hub',
-    'cross-hub': 'Cross-Project Hub',
-    terminal: 'Terminal',
     settings: 'Settings',
   };
-  const tabLabel = CORE_LABELS[explorerTab] || explorerTab;
+  const tabLabel = (() => {
+    if (explorerTab.startsWith('plugin:app:')) {
+      const pluginId = explorerTab.slice('plugin:app:'.length);
+      const entry = pluginsMap[pluginId];
+      return entry?.manifest.contributes?.railItem?.label || entry?.manifest.name || pluginId;
+    }
+    if (explorerTab.startsWith('plugin:')) {
+      const pluginId = explorerTab.slice('plugin:'.length);
+      const entry = pluginsMap[pluginId];
+      return entry?.manifest.contributes?.tab?.label || entry?.manifest.name || pluginId;
+    }
+    return CORE_LABELS[explorerTab] || explorerTab;
+  })();
 
   const titleText = isHome
     ? 'Home'
-    : isCrossHub
-      ? 'Cross-Project Hub'
-      : activeProject
-        ? `${tabLabel} (${activeProject.displayName || activeProject.name})`
-        : tabLabel;
+    : activeProject
+      ? `${tabLabel} (${activeProject.displayName || activeProject.name})`
+      : tabLabel;
 
   if (isHome) {
     return (
@@ -178,7 +264,8 @@ export function App() {
     );
   }
 
-  if (isCrossHub) {
+  if (isAppPlugin) {
+    const appPluginId = explorerTab.slice('plugin:app:'.length);
     return (
       <div className="h-screen w-screen overflow-hidden bg-ctp-base text-ctp-text flex flex-col">
         <div className="h-[38px] flex-shrink-0 drag-region bg-ctp-mantle border-b border-surface-0 flex items-center justify-center">
@@ -186,7 +273,7 @@ export function App() {
         </div>
         <div className="flex-1 min-h-0 grid grid-cols-[60px_1fr]">
           <ProjectRail />
-          <CrossHubCommandCenter />
+          <PluginContentView pluginId={appPluginId} mode="app" />
         </div>
       </div>
     );

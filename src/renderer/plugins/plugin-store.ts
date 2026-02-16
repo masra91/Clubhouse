@@ -1,0 +1,140 @@
+import { create } from 'zustand';
+import type {
+  PluginRegistryEntry,
+  PluginModule,
+  PluginStatus,
+  PluginManifest,
+  PluginSource,
+} from '../../shared/plugin-types';
+
+interface PluginState {
+  plugins: Record<string, PluginRegistryEntry>;
+  projectEnabled: Record<string, string[]>;   // projectId -> pluginIds
+  appEnabled: string[];
+  modules: Record<string, PluginModule>;
+  safeModeActive: boolean;
+  pluginSettings: Record<string, Record<string, unknown>>; // "projectId:pluginId" or "app:pluginId" -> settings
+
+  // Actions
+  registerPlugin: (manifest: PluginManifest, source: PluginSource, pluginPath: string, status?: PluginStatus, error?: string) => void;
+  setPluginStatus: (pluginId: string, status: PluginStatus, error?: string) => void;
+  setPluginModule: (pluginId: string, mod: PluginModule) => void;
+  removePluginModule: (pluginId: string) => void;
+  enableForProject: (projectId: string, pluginId: string) => void;
+  disableForProject: (projectId: string, pluginId: string) => void;
+  loadProjectPluginConfig: (projectId: string, enabledIds: string[]) => void;
+  enableApp: (pluginId: string) => void;
+  disableApp: (pluginId: string) => void;
+  loadAppPluginConfig: (enabledIds: string[]) => void;
+  setPluginSetting: (scope: string, pluginId: string, key: string, value: unknown) => void;
+  loadPluginSettings: (settingsKey: string, settings: Record<string, unknown>) => void;
+  setSafeModeActive: (active: boolean) => void;
+}
+
+export const usePluginStore = create<PluginState>((set) => ({
+  plugins: {},
+  projectEnabled: {},
+  appEnabled: [],
+  modules: {},
+  safeModeActive: false,
+  pluginSettings: {},
+
+  registerPlugin: (manifest, source, pluginPath, status = 'registered', error) =>
+    set((s) => ({
+      plugins: {
+        ...s.plugins,
+        [manifest.id]: { manifest, status, error, source, pluginPath },
+      },
+    })),
+
+  setPluginStatus: (pluginId, status, error) =>
+    set((s) => {
+      const entry = s.plugins[pluginId];
+      if (!entry) return s;
+      return {
+        plugins: {
+          ...s.plugins,
+          [pluginId]: { ...entry, status, error: error ?? entry.error },
+        },
+      };
+    }),
+
+  setPluginModule: (pluginId, mod) =>
+    set((s) => ({
+      modules: { ...s.modules, [pluginId]: mod },
+    })),
+
+  removePluginModule: (pluginId) =>
+    set((s) => {
+      const { [pluginId]: _, ...rest } = s.modules;
+      return { modules: rest };
+    }),
+
+  enableForProject: (projectId, pluginId) =>
+    set((s) => {
+      const current = s.projectEnabled[projectId] || [];
+      if (current.includes(pluginId)) return s;
+      return {
+        projectEnabled: {
+          ...s.projectEnabled,
+          [projectId]: [...current, pluginId],
+        },
+      };
+    }),
+
+  disableForProject: (projectId, pluginId) =>
+    set((s) => {
+      const current = s.projectEnabled[projectId] || [];
+      return {
+        projectEnabled: {
+          ...s.projectEnabled,
+          [projectId]: current.filter((id) => id !== pluginId),
+        },
+      };
+    }),
+
+  loadProjectPluginConfig: (projectId, enabledIds) =>
+    set((s) => ({
+      projectEnabled: {
+        ...s.projectEnabled,
+        [projectId]: enabledIds,
+      },
+    })),
+
+  enableApp: (pluginId) =>
+    set((s) => {
+      if (s.appEnabled.includes(pluginId)) return s;
+      return { appEnabled: [...s.appEnabled, pluginId] };
+    }),
+
+  disableApp: (pluginId) =>
+    set((s) => ({
+      appEnabled: s.appEnabled.filter((id) => id !== pluginId),
+    })),
+
+  loadAppPluginConfig: (enabledIds) =>
+    set({ appEnabled: enabledIds }),
+
+  setPluginSetting: (scope, pluginId, key, value) =>
+    set((s) => {
+      const settingsKey = `${scope}:${pluginId}`;
+      const current = s.pluginSettings[settingsKey] || {};
+      return {
+        pluginSettings: {
+          ...s.pluginSettings,
+          [settingsKey]: { ...current, [key]: value },
+        },
+      };
+    }),
+
+  loadPluginSettings: (settingsKey, settings) =>
+    set((s) => ({
+      pluginSettings: {
+        ...s.pluginSettings,
+        [settingsKey]: settings,
+      },
+    })),
+
+  setSafeModeActive: (active) =>
+    set({ safeModeActive: active }),
+}));

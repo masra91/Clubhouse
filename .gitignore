@@ -99,3 +99,15 @@ out/
 
 # Materialized MCP config
 .mcp.json
+
+# Local scratch / research folders // TODO REMOVE 
+old-plugins/
+new-plugin/
+user-orchestrators/
+more-testing/
+recovery/
+old-xproj-hub/
+old-hub/
+old-terminal/
+plugin-sdk/
+extensibility-strategy/

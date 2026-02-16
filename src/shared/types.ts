@@ -99,7 +99,7 @@ export interface NotificationSettings {
   playSound: boolean;
 }
 
-export type SettingsSubPage = 'project' | 'notifications' | 'display' | 'orchestrators';
+export type SettingsSubPage = 'project' | 'notifications' | 'display' | 'orchestrators' | 'plugins' | 'plugin-detail' | 'about';
 
 export type ThemeId =
   | 'catppuccin-mocha'

@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { app, ipcMain } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
 import { NotificationSettings } from '../../shared/types';
 import * as notificationService from '../services/notification-service';
@@ -6,6 +6,10 @@ import * as themeService from '../services/theme-service';
 import * as orchestratorSettings from '../services/orchestrator-settings';
 
 export function registerAppHandlers(): void {
+  ipcMain.handle(IPC.APP.GET_VERSION, () => {
+    return app.getVersion();
+  });
+
   ipcMain.handle(IPC.APP.GET_NOTIFICATION_SETTINGS, () => {
     return notificationService.getSettings();
   });

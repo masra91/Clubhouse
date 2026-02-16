@@ -5,13 +5,15 @@ import { useProjectStore } from '../stores/projectStore';
 import { AgentTerminal } from '../features/agents/AgentTerminal';
 import { SleepingAgent } from '../features/agents/SleepingAgent';
 import { AgentSettingsView } from '../features/agents/AgentSettingsView';
-import { QuickAgentGhost } from '../features/hub/QuickAgentGhost';
+import { QuickAgentGhost } from '../features/agents/QuickAgentGhost';
 import { ProjectSettings } from '../features/settings/ProjectSettings';
 import { NotificationSettingsView } from '../features/settings/NotificationSettingsView';
 import { DisplaySettingsView } from '../features/settings/DisplaySettingsView';
 import { OrchestratorSettingsView } from '../features/settings/OrchestratorSettingsView';
-import { CommandCenter } from '../features/hub/CommandCenter';
-import { StandaloneTerminal } from '../features/terminal/StandaloneTerminal';
+import { PluginContentView } from './PluginContentView';
+import { PluginDetailSettings } from '../features/settings/PluginDetailSettings';
+import { PluginListSettings } from '../features/settings/PluginListSettings';
+import { AboutSettingsView } from '../features/settings/AboutSettingsView';
 
 export function MainContentView() {
   const { explorerTab, settingsSubPage, settingsContext } = useUIStore();
@@ -68,20 +70,21 @@ export function MainContentView() {
     );
   }
 
-  if (explorerTab === 'hub') {
-    return <CommandCenter />;
-  }
-
-  if (explorerTab === 'terminal') {
-    return <StandaloneTerminal />;
-  }
-
   if (explorerTab === 'settings') {
     const projectId = settingsContext !== 'app' ? settingsContext : undefined;
     if (settingsSubPage === 'orchestrators') return <OrchestratorSettingsView />;
     if (settingsSubPage === 'notifications') return <NotificationSettingsView />;
     if (settingsSubPage === 'display') return <DisplaySettingsView />;
+    if (settingsSubPage === 'plugin-detail') return <PluginDetailSettings />;
+    if (settingsSubPage === 'plugins') return <PluginListSettings />;
+    if (settingsSubPage === 'about') return <AboutSettingsView />;
     return <ProjectSettings projectId={projectId} />;
+  }
+
+  // Plugin tabs (prefixed with "plugin:")
+  if (explorerTab.startsWith('plugin:')) {
+    const pluginId = explorerTab.slice('plugin:'.length);
+    return <PluginContentView pluginId={pluginId} mode="project" />;
   }
 
   return (

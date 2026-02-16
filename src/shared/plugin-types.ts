@@ -1,0 +1,328 @@
+// ── Disposable ──────────────────────────────────────────────────────────
+export interface Disposable {
+  dispose(): void;
+}
+
+// ── Manifest types ─────────────────────────────────────────────────────
+export interface PluginCommandDeclaration {
+  id: string;
+  title: string;
+}
+
+export interface PluginSettingDeclaration {
+  key: string;
+  type: 'boolean' | 'string' | 'number' | 'select';
+  label: string;
+  description?: string;
+  default?: unknown;
+  options?: Array<{ label: string; value: string }>;  // for 'select' type
+}
+
+export interface PluginStorageDeclaration {
+  scope: 'project' | 'global';
+}
+
+export interface PluginContributes {
+  tab?: {
+    label: string;
+    icon?: string;        // SVG string or icon name
+    layout?: 'sidebar-content' | 'full';  // default: 'sidebar-content'
+  };
+  railItem?: {
+    label: string;
+    icon?: string;
+  };
+  commands?: PluginCommandDeclaration[];
+  settings?: PluginSettingDeclaration[];
+  storage?: PluginStorageDeclaration;
+}
+
+export interface PluginManifest {
+  id: string;
+  name: string;
+  version: string;
+  description?: string;
+  author?: string;
+  engine: { api: number };
+  scope: 'project' | 'app' | 'dual';
+  main?: string;                     // path to main module relative to plugin dir
+  contributes?: PluginContributes;
+  settingsPanel?: 'declarative' | 'custom';
+}
+
+// ── Render mode for dual-scope plugins ───────────────────────────────
+export type PluginRenderMode = 'project' | 'app';
+
+// ── Plugin status & registry ───────────────────────────────────────────
+export type PluginStatus =
+  | 'registered'
+  | 'enabled'
+  | 'activated'
+  | 'deactivated'
+  | 'disabled'
+  | 'errored'
+  | 'incompatible';
+
+export type PluginSource = 'builtin' | 'community';
+
+export interface PluginRegistryEntry {
+  manifest: PluginManifest;
+  status: PluginStatus;
+  error?: string;
+  source: PluginSource;
+  pluginPath: string;
+}
+
+// ── Plugin context (per-activation) ────────────────────────────────────
+export interface PluginContext {
+  pluginId: string;
+  pluginPath: string;
+  scope: 'project' | 'app' | 'dual';
+  projectId?: string;
+  projectPath?: string;
+  subscriptions: Disposable[];
+  settings: Record<string, unknown>;
+}
+
+// ── Plugin module (what a plugin's main.js exports) ────────────────────
+export interface PluginModule {
+  activate?(ctx: PluginContext, api: PluginAPI): void | Promise<void>;
+  deactivate?(): void | Promise<void>;
+  MainPanel?: React.ComponentType<{ api: PluginAPI }>;
+  SidebarPanel?: React.ComponentType<{ api: PluginAPI }>;
+  HubPanel?: React.ComponentType<HubPanelProps>;
+  SettingsPanel?: React.ComponentType<{ api: PluginAPI }>;
+}
+
+export interface HubPanelProps {
+  paneId: string;
+  resourceId?: string;
+}
+
+// ── Sub-API interfaces ─────────────────────────────────────────────────
+export interface DirectoryEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+}
+
+export interface FileEvent {
+  type: 'created' | 'modified' | 'deleted';
+  path: string;
+}
+
+export interface GitStatus {
+  path: string;
+  status: string;
+  staged: boolean;
+}
+
+export interface GitCommit {
+  hash: string;
+  shortHash: string;
+  subject: string;
+  author: string;
+  date: string;
+}
+
+export interface ProjectInfo {
+  id: string;
+  name: string;
+  path: string;
+}
+
+export interface AgentInfo {
+  id: string;
+  name: string;
+  kind: 'durable' | 'quick';
+  status: 'running' | 'sleeping' | 'error';
+  color: string;
+  emoji?: string;
+  exitCode?: number;
+  mission?: string;
+  projectId: string;
+  branch?: string;
+  model?: string;
+  parentAgentId?: string;
+}
+
+export interface PluginAgentDetailedStatus {
+  state: 'idle' | 'working' | 'needs_permission' | 'tool_error';
+  message: string;
+  toolName?: string;
+}
+
+export interface CompletedQuickAgentInfo {
+  id: string;
+  projectId: string;
+  name: string;
+  mission: string;
+  summary: string | null;
+  filesModified: string[];
+  exitCode: number;
+  completedAt: number;
+  parentAgentId?: string;
+}
+
+export interface ScopedStorage {
+  read(key: string): Promise<unknown>;
+  write(key: string, value: unknown): Promise<void>;
+  delete(key: string): Promise<void>;
+  list(): Promise<string[]>;
+}
+
+export interface StorageAPI {
+  project: ScopedStorage;
+  global: ScopedStorage;
+}
+
+export interface ProjectAPI {
+  readFile(relativePath: string): Promise<string>;
+  writeFile(relativePath: string, content: string): Promise<void>;
+  deleteFile(relativePath: string): Promise<void>;
+  fileExists(relativePath: string): Promise<boolean>;
+  listDirectory(relativePath?: string): Promise<DirectoryEntry[]>;
+  readonly projectPath: string;
+  readonly projectId: string;
+}
+
+export interface ProjectsAPI {
+  list(): ProjectInfo[];
+  getActive(): ProjectInfo | null;
+}
+
+export interface GitAPI {
+  status(): Promise<GitStatus[]>;
+  log(limit?: number): Promise<GitCommit[]>;
+  currentBranch(): Promise<string>;
+  diff(filePath: string, staged?: boolean): Promise<string>;
+}
+
+export interface UIAPI {
+  showNotice(message: string): void;
+  showError(message: string): void;
+  showConfirm(message: string): Promise<boolean>;
+  showInput(prompt: string, defaultValue?: string): Promise<string | null>;
+}
+
+export interface CommandsAPI {
+  register(commandId: string, handler: (...args: unknown[]) => void | Promise<void>): Disposable;
+  execute(commandId: string, ...args: unknown[]): Promise<void>;
+}
+
+export interface EventsAPI {
+  on(event: string, handler: (...args: unknown[]) => void): Disposable;
+}
+
+export interface SettingsAPI {
+  get<T = unknown>(key: string): T | undefined;
+  getAll(): Record<string, unknown>;
+  onChange(callback: (key: string, value: unknown) => void): Disposable;
+}
+
+export interface AgentsAPI {
+  list(): AgentInfo[];
+  runQuick(mission: string, options?: { model?: string; systemPrompt?: string }): Promise<string>;
+  kill(agentId: string): Promise<void>;
+  resume(agentId: string): Promise<void>;
+  listCompleted(projectId?: string): CompletedQuickAgentInfo[];
+  dismissCompleted(projectId: string, agentId: string): void;
+  getDetailedStatus(agentId: string): PluginAgentDetailedStatus | null;
+  onStatusChange(callback: (agentId: string, status: string, prevStatus: string) => void): Disposable;
+}
+
+export interface HubAPI {
+  // Placeholder for hub integration
+  refresh(): void;
+}
+
+export interface NavigationAPI {
+  focusAgent(agentId: string): void;
+  setExplorerTab(tabId: string): void;
+}
+
+export interface WidgetsAPI {
+  AgentTerminal: React.ComponentType<{ agentId: string; focused?: boolean }>;
+  SleepingAgent: React.ComponentType<{ agentId: string }>;
+  AgentAvatar: React.ComponentType<{
+    agentId: string;
+    size?: 'sm' | 'md';
+    showStatusRing?: boolean;
+  }>;
+  QuickAgentGhost: React.ComponentType<{
+    completed: CompletedQuickAgentInfo;
+    onDismiss: () => void;
+    onDelete?: () => void;
+  }>;
+}
+
+export interface PluginContextInfo {
+  mode: PluginRenderMode;
+  projectId?: string;
+  projectPath?: string;
+}
+
+// ── Composite PluginAPI ────────────────────────────────────────────────
+export interface PluginAPI {
+  project: ProjectAPI;
+  projects: ProjectsAPI;
+  git: GitAPI;
+  storage: StorageAPI;
+  ui: UIAPI;
+  commands: CommandsAPI;
+  events: EventsAPI;
+  settings: SettingsAPI;
+  agents: AgentsAPI;
+  hub: HubAPI;
+  navigation: NavigationAPI;
+  widgets: WidgetsAPI;
+  context: PluginContextInfo;
+}
+
+// ── Startup marker (safe mode) ─────────────────────────────────────────
+export interface StartupMarker {
+  timestamp: number;
+  attempt: number;
+  lastEnabledPlugins: string[];
+}
+
+// ── IPC request types ──────────────────────────────────────────────────
+export interface PluginStorageReadRequest {
+  pluginId: string;
+  scope: 'project' | 'global';
+  key: string;
+  projectPath?: string;
+}
+
+export interface PluginStorageWriteRequest {
+  pluginId: string;
+  scope: 'project' | 'global';
+  key: string;
+  value: unknown;
+  projectPath?: string;
+}
+
+export interface PluginStorageDeleteRequest {
+  pluginId: string;
+  scope: 'project' | 'global';
+  key: string;
+  projectPath?: string;
+}
+
+export interface PluginStorageListRequest {
+  pluginId: string;
+  scope: 'project' | 'global';
+  projectPath?: string;
+}
+
+export interface PluginFileRequest {
+  pluginId: string;
+  scope: 'project' | 'global';
+  relativePath: string;
+  projectPath?: string;
+}
+
+export interface PluginStorageEntry {
+  key: string;
+  value: unknown;
+}
