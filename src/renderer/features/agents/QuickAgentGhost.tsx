@@ -8,6 +8,17 @@ interface Props {
   onDelete?: () => void;
 }
 
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
 function relativeTime(timestamp: number): string {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
   if (seconds < 60) return 'just now';
@@ -61,7 +72,7 @@ export function QuickAgentGhost({ completed, onDismiss, onDelete }: Props) {
 
   return (
     <div className="flex items-center justify-center h-full bg-ctp-base">
-      <div className="w-[360px] bg-ctp-mantle border border-surface-0 rounded-xl p-5 space-y-3">
+      <div className="w-[360px] max-w-full bg-ctp-mantle border border-surface-0 rounded-xl p-5 space-y-3 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -85,7 +96,7 @@ export function QuickAgentGhost({ completed, onDismiss, onDelete }: Props) {
             )}
             {completed.durationMs != null && (
               <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-ctp-surface0 text-ctp-subtext1">
-                {(completed.durationMs / 1000).toFixed(1)}s
+                {formatDuration(completed.durationMs)}
               </span>
             )}
             {completed.toolsUsed && completed.toolsUsed.map((tool) => (
@@ -97,9 +108,9 @@ export function QuickAgentGhost({ completed, onDismiss, onDelete }: Props) {
         )}
 
         {/* Mission */}
-        <div>
+        <div className="overflow-hidden">
           <div className="text-xs text-ctp-subtext0 mb-1">Mission</div>
-          <p className="text-sm text-ctp-text">{completed.mission}</p>
+          <p className="text-sm text-ctp-text line-clamp-3 break-words">{completed.mission}</p>
         </div>
 
         {/* Summary */}
@@ -216,7 +227,7 @@ export function QuickAgentGhostCompact({ completed, onDismiss, onDelete, onSelec
           {completed.summary || 'Interrupted'}
           {completed.filesModified.length > 0 && ` · ${completed.filesModified.length} file${completed.filesModified.length === 1 ? '' : 's'}`}
           {completed.costUsd != null && ` · $${completed.costUsd.toFixed(4)}`}
-          {completed.durationMs != null && ` · ${(completed.durationMs / 1000).toFixed(1)}s`}
+          {completed.durationMs != null && ` · ${formatDuration(completed.durationMs)}`}
         </div>
       </div>
 

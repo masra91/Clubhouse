@@ -4,6 +4,7 @@ interface TranscriptEvent {
   type: string;
   subtype?: string;
   content_block?: { type: string; text?: string; name?: string; id?: string };
+  message?: { content?: Array<{ type: string; name?: string; id?: string; text?: string }> };
   result?: string;
   cost_usd?: number;
   duration_ms?: number;
@@ -66,13 +67,44 @@ type DisplayItem =
   | { kind: 'text'; text: string }
   | { kind: 'result'; text: string; costUsd?: number; durationMs?: number };
 
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
 function buildDisplayItems(events: TranscriptEvent[]): DisplayItem[] {
   const items: DisplayItem[] = [];
   let currentText = '';
 
   for (const event of events) {
+    // --verbose format: assistant messages contain tool_use and text blocks
+    if (event.type === 'assistant' && event.message) {
+      const msg = event.message as { content?: Array<{ type: string; name?: string; id?: string; text?: string }> };
+      if (Array.isArray(msg.content)) {
+        for (const block of msg.content) {
+          if (block.type === 'tool_use' && block.name) {
+            if (currentText.trim()) {
+              items.push({ kind: 'text', text: currentText.trim() });
+              currentText = '';
+            }
+            items.push({ kind: 'tool', name: block.name, id: block.id });
+          } else if (block.type === 'text' && block.text) {
+            currentText += block.text;
+          }
+        }
+      }
+    }
+
+    // --verbose format: user messages (tool results) — skip, not useful to display
+
+    // Legacy streaming format: content_block_start
     if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
-      // Flush accumulated text
       if (currentText.trim()) {
         items.push({ kind: 'text', text: currentText.trim() });
         currentText = '';
@@ -80,6 +112,7 @@ function buildDisplayItems(events: TranscriptEvent[]): DisplayItem[] {
       items.push({ kind: 'tool', name: event.content_block.name || 'unknown', id: event.content_block.id });
     }
 
+    // Legacy streaming format: content_block_delta
     if (event.type === 'content_block_delta') {
       const delta = event.delta as { type?: string; text?: string } | undefined;
       if (delta?.type === 'text_delta' && delta.text) {
@@ -155,7 +188,7 @@ function TranscriptItem({ item }: { item: DisplayItem }) {
       {item.text && <p className="text-xs text-ctp-text mb-1">{item.text}</p>}
       <div className="flex gap-3 text-[10px] text-ctp-subtext0">
         {item.costUsd != null && <span>${item.costUsd.toFixed(4)}</span>}
-        {item.durationMs != null && <span>{(item.durationMs / 1000).toFixed(1)}s</span>}
+        {item.durationMs != null && <span>{formatDuration(item.durationMs)}</span>}
       </div>
     </div>
   );
