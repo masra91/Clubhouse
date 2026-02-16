@@ -36,9 +36,15 @@ function copyNativeModule(srcRoot: string, destRoot: string, moduleName: string)
 
 const config: ForgeConfig = {
   packagerConfig: {
+    name: 'Clubhouse',
+    appBundleId: 'com.mason-allen.clubhouse',
     icon: path.resolve(__dirname, 'assets', 'icon'),
+    extendInfo: {
+      CFBundleDisplayName: 'Clubhouse',
+      NSUserNotificationAlertStyle: 'alert',
+    },
     asar: {
-      unpack: '**/{node_modules/node-pty,node_modules/node-addon-api,**/*.node}',
+      unpack: '**/node_modules/node-pty/**',
     },
     afterCopy: [
       (buildPath: string, _electronVersion: string, _platform: string, _arch: string, callback: (err?: Error) => void) => {
