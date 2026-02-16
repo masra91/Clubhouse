@@ -15,8 +15,10 @@ export function AddAgentDialog({ onClose, onCreate }: Props) {
   const [useWorktree, setUseWorktree] = useState(false);
   const enabled = useOrchestratorStore((s) => s.enabled);
   const allOrchestrators = useOrchestratorStore((s) => s.allOrchestrators);
+  const availability = useOrchestratorStore((s) => s.availability);
   const enabledOrchestrators = allOrchestrators.filter((o) => enabled.includes(o.id));
   const [orchestrator, setOrchestrator] = useState(enabledOrchestrators[0]?.id || 'claude-code');
+  const selectedAvail = availability[orchestrator];
   const MODEL_OPTIONS = useModelOptions(orchestrator);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -100,10 +102,17 @@ export function AddAgentDialog({ onClose, onCreate }: Props) {
               className="mt-1 w-full bg-surface-0 border border-surface-2 rounded px-3 py-1.5 text-sm
                 text-ctp-text focus:outline-none focus:border-indigo-500"
             >
-              {enabledOrchestrators.map((o) => (
-                <option key={o.id} value={o.id}>{o.displayName}</option>
-              ))}
+              {enabledOrchestrators.map((o) => {
+                const avail = availability[o.id];
+                const suffix = avail && !avail.available ? ' (not found)' : '';
+                return <option key={o.id} value={o.id}>{o.displayName}{suffix}</option>;
+              })}
             </select>
+            {selectedAvail && !selectedAvail.available && (
+              <p className="mt-1 text-xs text-yellow-500">
+                ⚠ {selectedAvail.error || 'CLI not found — agent may fail to start'}
+              </p>
+            )}
           </label>
 
           {/* Use Worktree */}
