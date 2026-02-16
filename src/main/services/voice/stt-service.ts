@@ -1,24 +1,5 @@
+import { transcribe as whisperTranscribe } from '@kutalia/whisper-node-addon';
 import { getModelPaths } from './model-manager';
-
-let whisperAddon: any = null;
-
-async function loadWhisper(): Promise<any> {
-  if (whisperAddon) return whisperAddon;
-
-  try {
-    // Dynamic import to avoid crash if addon not installed
-    const addon = require('@anthropic-ai/whisper-node-addon');
-    const paths = getModelPaths();
-    addon.init(paths.whisper);
-    whisperAddon = addon;
-    return whisperAddon;
-  } catch (err) {
-    throw new Error(
-      `Failed to load whisper addon: ${err instanceof Error ? err.message : String(err)}. ` +
-      'Make sure @anthropic-ai/whisper-node-addon is installed.'
-    );
-  }
-}
 
 /**
  * Transcribe raw PCM audio using Whisper.
@@ -30,11 +11,31 @@ export async function transcribe(pcmBuffer: Float32Array): Promise<string> {
     return '';
   }
 
-  const whisper = await loadWhisper();
+  const paths = getModelPaths();
 
   try {
-    const result = await whisper.transcribe(pcmBuffer);
-    return typeof result === 'string' ? result.trim() : String(result).trim();
+    const result = await whisperTranscribe({
+      pcmf32: pcmBuffer,
+      model: paths.whisper,
+      language: 'en',
+      use_gpu: true,
+      no_prints: true,
+      no_timestamps: true,
+    });
+
+    // result.transcription is string[] (no_timestamps: true) or string[][] (with timestamps)
+    const segments = result.transcription;
+    if (!segments || segments.length === 0) {
+      return '';
+    }
+
+    // With no_timestamps, each entry is a string; join them
+    const text = segments
+      .map((s) => (Array.isArray(s) ? s[s.length - 1] : s))
+      .join(' ')
+      .trim();
+
+    return text;
   } catch (err) {
     throw new Error(
       `Whisper transcription failed: ${err instanceof Error ? err.message : String(err)}`

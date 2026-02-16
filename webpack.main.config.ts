@@ -14,5 +14,6 @@ export const mainConfig: Configuration = {
   },
   externals: {
     'node-pty': 'commonjs node-pty',
+    '@kutalia/whisper-node-addon': 'commonjs @kutalia/whisper-node-addon',
   },
 };
