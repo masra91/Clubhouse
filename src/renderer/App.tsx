@@ -10,6 +10,8 @@ import { useAgentStore } from './stores/agentStore';
 import { useUIStore } from './stores/uiStore';
 import { useNotificationStore } from './stores/notificationStore';
 import { useQuickAgentStore } from './stores/quickAgentStore';
+import { useSchedulerStore } from './stores/schedulerStore';
+import { useThemeStore } from './stores/themeStore';
 
 export function App() {
   const loadProjects = useProjectStore((s) => s.loadProjects);
@@ -24,15 +26,20 @@ export function App() {
   const setSettingsSubPage = useUIStore((s) => s.setSettingsSubPage);
   const isFullWidth = explorerTab === 'terminal' || explorerTab === 'hub';
   const loadNotificationSettings = useNotificationStore((s) => s.loadSettings);
+  const loadTheme = useThemeStore((s) => s.loadTheme);
   const checkAndNotify = useNotificationStore((s) => s.checkAndNotify);
   const addCompleted = useQuickAgentStore((s) => s.addCompleted);
   const loadCompleted = useQuickAgentStore((s) => s.loadCompleted);
   const removeAgent = useAgentStore((s) => s.removeAgent);
+  const loadSchedulerJobs = useSchedulerStore((s) => s.loadJobs);
+  const startScheduler = useSchedulerStore((s) => s.startScheduler);
+  const stopScheduler = useSchedulerStore((s) => s.stopScheduler);
 
   useEffect(() => {
     loadProjects();
     loadNotificationSettings();
-  }, [loadProjects, loadNotificationSettings]);
+    loadTheme();
+  }, [loadProjects, loadNotificationSettings, loadTheme]);
 
   useEffect(() => {
     const remove = window.clubhouse.app.onOpenSettings(() => {
@@ -55,6 +62,15 @@ export function App() {
       loadCompleted(p.id);
     }
   }, [projects, loadCompleted]);
+
+  // Start/stop scheduler when a project is active
+  useEffect(() => {
+    if (activeProjectId) {
+      loadSchedulerJobs();
+      startScheduler();
+      return () => stopScheduler();
+    }
+  }, [activeProjectId, loadSchedulerJobs, startScheduler, stopScheduler]);
 
   useEffect(() => {
     const removeExitListener = window.clubhouse.pty.onExit(
@@ -126,6 +142,7 @@ export function App() {
     terminal: 'Terminal',
     git: 'Git',
     notes: 'Notes',
+    scheduler: 'Scheduler',
     hub: 'Hub',
     settings: 'Settings',
   };

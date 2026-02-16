@@ -3,6 +3,7 @@ import { AgentList } from '../features/agents/AgentList';
 import { GitSidebar } from '../features/git/GitSidebar';
 import { FileTree } from '../features/files/FileTree';
 import { NotesTree } from '../features/notes/NotesTree';
+import { SchedulerList } from '../features/scheduler/SchedulerList';
 
 export function AccessoryPanel() {
   const { explorerTab, settingsSubPage, setSettingsSubPage } = useUIStore();
@@ -13,6 +14,7 @@ export function AccessoryPanel() {
       {explorerTab === 'files' && <FileTree />}
       {explorerTab === 'git' && <GitSidebar />}
       {explorerTab === 'notes' && <NotesTree />}
+      {explorerTab === 'scheduler' && <SchedulerList />}
       {explorerTab === 'settings' && (
         <div className="flex flex-col h-full">
           <div className="px-3 py-2 border-b border-surface-0">
@@ -34,6 +36,14 @@ export function AccessoryPanel() {
               }`}
             >
               Notifications
+            </button>
+            <button
+              onClick={() => setSettingsSubPage('display')}
+              className={`w-full px-3 py-2 text-sm text-left cursor-pointer ${
+                settingsSubPage === 'display' ? 'text-ctp-text bg-surface-1' : 'text-ctp-subtext0 hover:bg-surface-0 hover:text-ctp-subtext1'
+              }`}
+            >
+              Display & UI
             </button>
           </nav>
         </div>

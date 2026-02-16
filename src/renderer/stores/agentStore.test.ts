@@ -11,12 +11,16 @@ vi.stubGlobal('window', {
       listDurable: vi.fn().mockResolvedValue([]),
       setupHooks: vi.fn().mockResolvedValue(undefined),
       renameDurable: vi.fn().mockResolvedValue(undefined),
+      updateDurable: vi.fn().mockResolvedValue(undefined),
       deleteDurable: vi.fn().mockResolvedValue(undefined),
       deleteCommitPush: vi.fn().mockResolvedValue({ ok: true, message: '' }),
       deleteCleanupBranch: vi.fn().mockResolvedValue({ ok: true, message: '' }),
       deleteSavePatch: vi.fn().mockResolvedValue({ ok: true, message: '' }),
       deleteForce: vi.fn().mockResolvedValue({ ok: true, message: '' }),
       deleteUnregister: vi.fn().mockResolvedValue({ ok: true, message: '' }),
+      getDurableConfig: vi.fn().mockResolvedValue(null),
+      getSettings: vi.fn().mockResolvedValue({ defaultClaudeMd: '', quickAgentClaudeMd: '' }),
+      resolveQuickConfig: vi.fn().mockResolvedValue({ claudeMd: '' }),
     },
   },
 });
@@ -222,6 +226,39 @@ describe('agentStore', () => {
     });
   });
 
+  describe('updateAgent', () => {
+    it('patches name in local state', async () => {
+      seedAgent({ id: 'a_upd', name: 'old' });
+      await getState().updateAgent('a_upd', { name: 'new' }, '/proj');
+      expect(getState().agents['a_upd'].name).toBe('new');
+      expect(getState().agents['a_upd'].color).toBe('indigo'); // unchanged
+    });
+
+    it('patches color in local state', async () => {
+      seedAgent({ id: 'a_color', color: 'indigo' });
+      await getState().updateAgent('a_color', { color: 'emerald' }, '/proj');
+      expect(getState().agents['a_color'].color).toBe('emerald');
+    });
+
+    it('sets emoji in local state', async () => {
+      seedAgent({ id: 'a_emoji' });
+      await getState().updateAgent('a_emoji', { emoji: '🔥' }, '/proj');
+      expect(getState().agents['a_emoji'].emoji).toBe('🔥');
+    });
+
+    it('clears emoji (null → undefined) in local state', async () => {
+      seedAgent({ id: 'a_clear', emoji: '🔥' });
+      await getState().updateAgent('a_clear', { emoji: null }, '/proj');
+      expect(getState().agents['a_clear'].emoji).toBeUndefined();
+    });
+
+    it('calls updateDurable IPC', async () => {
+      seedAgent({ id: 'a_ipc' });
+      await getState().updateAgent('a_ipc', { name: 'x', color: 'amber' }, '/proj');
+      expect(window.clubhouse.agent.updateDurable).toHaveBeenCalledWith('/proj', 'a_ipc', { name: 'x', color: 'amber' });
+    });
+  });
+
   describe('removeAgent', () => {
     it('removes from agents map', () => {
       seedAgent({ id: 'a_rem' });
@@ -242,6 +279,111 @@ describe('agentStore', () => {
       useAgentStore.setState({ activeAgentId: 'a_keep_active' });
       getState().removeAgent('a_other');
       expect(getState().activeAgentId).toBe('a_keep_active');
+    });
+  });
+
+  describe('spawnQuickAgent with quick agent defaults', () => {
+    const mockPty = window.clubhouse.pty as any;
+    const mockAgent = window.clubhouse.agent as any;
+
+    beforeEach(() => {
+      mockPty.spawn.mockResolvedValue(undefined);
+      mockAgent.setupHooks.mockResolvedValue(undefined);
+      mockAgent.getDurableConfig.mockResolvedValue(null);
+      mockAgent.getSettings.mockResolvedValue({ defaultClaudeMd: '', quickAgentClaudeMd: '' });
+      mockAgent.resolveQuickConfig.mockResolvedValue({ claudeMd: '' });
+    });
+
+    it('parent with systemPrompt — includes in --append-system-prompt', async () => {
+      seedAgent({ id: 'parent_1', kind: 'durable', worktreePath: '/wt/parent' });
+      mockAgent.getDurableConfig.mockResolvedValue({
+        id: 'parent_1',
+        name: 'parent',
+        quickAgentDefaults: { systemPrompt: 'Be concise and focused' },
+      });
+
+      await getState().spawnQuickAgent('proj_1', '/project', 'do stuff', undefined, 'parent_1');
+
+      const spawnCall = mockPty.spawn.mock.calls[0];
+      const claudeArgs: string[] = spawnCall[2];
+      const appendIdx = claudeArgs.indexOf('--append-system-prompt');
+      expect(appendIdx).toBeGreaterThan(-1);
+      const systemPromptArg = claudeArgs[appendIdx + 1];
+      expect(systemPromptArg).toContain('Be concise and focused');
+      expect(systemPromptArg).toContain('clubhouse-summary');
+    });
+
+    it('parent with allowedTools — passes to setupHooks', async () => {
+      seedAgent({ id: 'parent_2', kind: 'durable', worktreePath: '/wt/parent' });
+      mockAgent.getDurableConfig.mockResolvedValue({
+        id: 'parent_2',
+        name: 'parent',
+        quickAgentDefaults: { allowedTools: ['Bash(npm test:*)', 'Edit'] },
+      });
+
+      await getState().spawnQuickAgent('proj_1', '/project', 'do stuff', undefined, 'parent_2');
+
+      expect(mockAgent.setupHooks).toHaveBeenCalledWith(
+        '/wt/parent',
+        expect.any(String),
+        { allowedTools: ['Bash(npm test:*)', 'Edit'] },
+      );
+    });
+
+    it('parent with defaultModel, no explicit model — uses parent model', async () => {
+      seedAgent({ id: 'parent_3', kind: 'durable', worktreePath: '/wt/parent' });
+      mockAgent.getDurableConfig.mockResolvedValue({
+        id: 'parent_3',
+        name: 'parent',
+        quickAgentDefaults: { defaultModel: 'haiku' },
+      });
+
+      await getState().spawnQuickAgent('proj_1', '/project', 'do stuff', undefined, 'parent_3');
+
+      const spawnCall = mockPty.spawn.mock.calls[0];
+      const claudeArgs: string[] = spawnCall[2];
+      expect(claudeArgs).toContain('--model');
+      expect(claudeArgs[claudeArgs.indexOf('--model') + 1]).toBe('haiku');
+    });
+
+    it('explicit model overrides parent defaultModel', async () => {
+      seedAgent({ id: 'parent_4', kind: 'durable', worktreePath: '/wt/parent' });
+      mockAgent.getDurableConfig.mockResolvedValue({
+        id: 'parent_4',
+        name: 'parent',
+        quickAgentDefaults: { defaultModel: 'haiku' },
+      });
+
+      await getState().spawnQuickAgent('proj_1', '/project', 'do stuff', 'opus', 'parent_4');
+
+      const spawnCall = mockPty.spawn.mock.calls[0];
+      const claudeArgs: string[] = spawnCall[2];
+      expect(claudeArgs).toContain('--model');
+      expect(claudeArgs[claudeArgs.indexOf('--model') + 1]).toBe('opus');
+    });
+
+    it('orphan quick agent — no getDurableConfig call', async () => {
+      await getState().spawnQuickAgent('proj_1', '/project', 'do stuff');
+
+      expect(mockAgent.getDurableConfig).not.toHaveBeenCalled();
+    });
+
+    it('falls back to resolved claudeMd when parent has no systemPrompt', async () => {
+      seedAgent({ id: 'parent_5', kind: 'durable', worktreePath: '/wt/parent' });
+      mockAgent.getDurableConfig.mockResolvedValue({
+        id: 'parent_5',
+        name: 'parent',
+        quickAgentDefaults: {},
+      });
+      mockAgent.resolveQuickConfig.mockResolvedValue({ claudeMd: 'Project-level instructions' });
+
+      await getState().spawnQuickAgent('proj_1', '/project', 'do stuff', undefined, 'parent_5');
+
+      const spawnCall = mockPty.spawn.mock.calls[0];
+      const claudeArgs: string[] = spawnCall[2];
+      const appendIdx = claudeArgs.indexOf('--append-system-prompt');
+      const systemPromptArg = claudeArgs[appendIdx + 1];
+      expect(systemPromptArg).toContain('Project-level instructions');
     });
   });
 });

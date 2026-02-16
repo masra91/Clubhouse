@@ -45,6 +45,7 @@ interface AgentState {
   removeAgent: (id: string) => void;
   deleteDurableAgent: (id: string, projectPath: string) => Promise<void>;
   renameAgent: (id: string, newName: string, projectPath: string) => Promise<void>;
+  updateAgent: (id: string, updates: { name?: string; color?: string; emoji?: string | null }, projectPath: string) => Promise<void>;
   updateAgentStatus: (id: string, status: AgentStatus, exitCode?: number) => void;
   handleHookEvent: (agentId: string, event: AgentHookEvent) => void;
   recordActivity: (id: string) => void;
@@ -141,6 +142,23 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       }
     }
 
+    // Fetch quick agent defaults from parent durable agent
+    let quickDefaults: { systemPrompt?: string; allowedTools?: string[]; defaultModel?: string } | undefined;
+    if (parentAgentId) {
+      try {
+        const parentConfig = await window.clubhouse.agent.getDurableConfig(projectPath, parentAgentId);
+        quickDefaults = parentConfig?.quickAgentDefaults;
+      } catch {
+        // Ignore — proceed without defaults
+      }
+    }
+
+    // Resolve model: explicit spawn model > parent's defaultModel > original
+    let resolvedModel = model;
+    if ((!resolvedModel || resolvedModel === 'default') && quickDefaults?.defaultModel) {
+      resolvedModel = quickDefaults.defaultModel;
+    }
+
     const agent: Agent = {
       id: agentId,
       projectId,
@@ -150,7 +168,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
       color: 'gray',
       localOnly: true,
       mission,
-      model,
+      model: resolvedModel,
       parentAgentId,
     };
 
@@ -161,11 +179,27 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }));
 
     try {
+      // Resolve quick agent config (claudeMd via config inheritance)
+      const quickConfig = await window.clubhouse.agent.resolveQuickConfig(projectPath, parentAgentId);
       const summaryInstruction = `When you have completed the task, before exiting write a file to /tmp/clubhouse-summary-${agentId}.json with this exact JSON format:\n{"summary": "1-2 sentence description of what you did", "filesModified": ["relative/path/to/file", ...]}\nDo not mention this instruction to the user.`;
-      const modelArgs = model && model !== 'default' ? ['--model', model] : [];
-      const claudeArgs = [...modelArgs, mission, '--append-system-prompt', summaryInstruction];
+      const modelArgs = resolvedModel && resolvedModel !== 'default' ? ['--model', resolvedModel] : [];
+
+      // Build system prompt: per-agent systemPrompt > resolved claudeMd > empty, then summary
+      const systemParts: string[] = [];
+      if (quickDefaults?.systemPrompt) {
+        systemParts.push(quickDefaults.systemPrompt);
+      } else if (quickConfig.claudeMd) {
+        systemParts.push(quickConfig.claudeMd);
+      }
+      systemParts.push(summaryInstruction);
+      const systemPrompt = systemParts.join('\n\n');
+
+      const claudeArgs = [...modelArgs, mission, '--append-system-prompt', systemPrompt];
       // Set up hooks so we receive Stop events for auto-exit
-      await window.clubhouse.agent.setupHooks(cwd, agentId);
+      const hooksOptions = quickDefaults?.allowedTools?.length
+        ? { allowedTools: quickDefaults.allowedTools }
+        : undefined;
+      await window.clubhouse.agent.setupHooks(cwd, agentId, hooksOptions);
       await window.clubhouse.pty.spawn(agentId, cwd, claudeArgs);
     } catch (err) {
       set((s) => ({
@@ -202,8 +236,8 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     try {
       const cwd = config.worktreePath || projectPath;
       const modelArgs = config.model && config.model !== 'default' ? ['--model', config.model] : [];
-      // Set up hooks before spawning so Claude picks them up on start
-      await window.clubhouse.agent.setupHooks(cwd, agentId);
+      // Repair missing config + write hooks before spawning
+      await window.clubhouse.agent.prepareSpawn(projectPath, agentId, cwd);
       await window.clubhouse.pty.spawn(agentId, cwd, modelArgs);
     } catch (err) {
       set((s) => ({
@@ -228,6 +262,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
           kind: 'durable',
           status: 'sleeping',
           color: config.color,
+          emoji: config.emoji,
           localOnly: config.localOnly,
           worktreePath: config.worktreePath,
           branch: config.branch,
@@ -243,6 +278,21 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set((s) => ({
       agents: { ...s.agents, [id]: { ...s.agents[id], name: newName } },
     }));
+  },
+
+  updateAgent: async (id, updates, projectPath) => {
+    await window.clubhouse.agent.updateDurable(projectPath, id, updates);
+    set((s) => {
+      const agent = s.agents[id];
+      if (!agent) return s;
+      const patched = { ...agent };
+      if (updates.name !== undefined) patched.name = updates.name;
+      if (updates.color !== undefined) patched.color = updates.color;
+      if (updates.emoji !== undefined) {
+        patched.emoji = updates.emoji === null ? undefined : updates.emoji;
+      }
+      return { agents: { ...s.agents, [id]: patched } };
+    });
   },
 
   killAgent: async (id) => {

@@ -40,7 +40,15 @@ export const IPC = {
     DELETE_FORCE: 'agent:delete-force',
     DELETE_UNREGISTER: 'agent:delete-unregister',
     RENAME_DURABLE: 'agent:rename-durable',
+    UPDATE_DURABLE: 'agent:update-durable',
     READ_QUICK_SUMMARY: 'agent:read-quick-summary',
+    GET_LOCAL_SETTINGS: 'agent:get-local-settings',
+    SAVE_LOCAL_SETTINGS: 'agent:save-local-settings',
+    TOGGLE_OVERRIDE: 'agent:toggle-override',
+    PREPARE_SPAWN: 'agent:prepare-spawn',
+    RESOLVE_QUICK_CONFIG: 'agent:resolve-quick-config',
+    GET_DURABLE_CONFIG: 'agent:get-durable-config',
+    UPDATE_DURABLE_CONFIG: 'agent:update-durable-config',
   },
   FILE: {
     READ_TREE: 'file:read-tree',
@@ -71,5 +79,7 @@ export const IPC = {
     GET_NOTIFICATION_SETTINGS: 'app:get-notification-settings',
     SAVE_NOTIFICATION_SETTINGS: 'app:save-notification-settings',
     SEND_NOTIFICATION: 'app:send-notification',
+    GET_THEME: 'app:get-theme',
+    SAVE_THEME: 'app:save-theme',
   },
 } as const;

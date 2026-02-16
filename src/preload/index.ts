@@ -53,6 +53,8 @@ const api = {
       ipcRenderer.invoke(IPC.AGENT.DELETE_DURABLE, projectPath, agentId),
     renameDurable: (projectPath: string, agentId: string, newName: string) =>
       ipcRenderer.invoke(IPC.AGENT.RENAME_DURABLE, projectPath, agentId, newName),
+    updateDurable: (projectPath: string, agentId: string, updates: { name?: string; color?: string; emoji?: string | null }) =>
+      ipcRenderer.invoke(IPC.AGENT.UPDATE_DURABLE, projectPath, agentId, updates),
     getWorktreeStatus: (projectPath: string, agentId: string) =>
       ipcRenderer.invoke(IPC.AGENT.GET_WORKTREE_STATUS, projectPath, agentId),
     deleteCommitPush: (projectPath: string, agentId: string) =>
@@ -71,8 +73,22 @@ const api = {
       ipcRenderer.invoke(IPC.AGENT.GET_SETTINGS, projectPath),
     saveSettings: (projectPath: string, settings: any) =>
       ipcRenderer.invoke(IPC.AGENT.SAVE_SETTINGS, projectPath, settings),
-    setupHooks: (worktreePath: string, agentId: string) =>
-      ipcRenderer.invoke(IPC.AGENT.SETUP_HOOKS, worktreePath, agentId),
+    setupHooks: (worktreePath: string, agentId: string, options?: { allowedTools?: string[] }) =>
+      ipcRenderer.invoke(IPC.AGENT.SETUP_HOOKS, worktreePath, agentId, options),
+    getLocalSettings: (projectPath: string) =>
+      ipcRenderer.invoke(IPC.AGENT.GET_LOCAL_SETTINGS, projectPath),
+    saveLocalSettings: (projectPath: string, localConfig: any) =>
+      ipcRenderer.invoke(IPC.AGENT.SAVE_LOCAL_SETTINGS, projectPath, localConfig),
+    toggleOverride: (projectPath: string, agentId: string, key: string, enable: boolean) =>
+      ipcRenderer.invoke(IPC.AGENT.TOGGLE_OVERRIDE, projectPath, agentId, key, enable),
+    prepareSpawn: (projectPath: string, agentId: string, worktreePath: string) =>
+      ipcRenderer.invoke(IPC.AGENT.PREPARE_SPAWN, projectPath, agentId, worktreePath),
+    resolveQuickConfig: (projectPath: string, parentAgentId?: string) =>
+      ipcRenderer.invoke(IPC.AGENT.RESOLVE_QUICK_CONFIG, projectPath, parentAgentId),
+    getDurableConfig: (projectPath: string, agentId: string) =>
+      ipcRenderer.invoke(IPC.AGENT.GET_DURABLE_CONFIG, projectPath, agentId),
+    updateDurableConfig: (projectPath: string, agentId: string, updates: any) =>
+      ipcRenderer.invoke(IPC.AGENT.UPDATE_DURABLE_CONFIG, projectPath, agentId, updates),
     onHookEvent: (callback: (agentId: string, event: { eventName: string; toolName?: string; toolInput?: Record<string, unknown>; timestamp: number }) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, agentId: string, hookEvent: { eventName: string; toolName?: string; toolInput?: Record<string, unknown>; timestamp: number }) =>
         callback(agentId, hookEvent);
@@ -98,8 +114,8 @@ const api = {
   agentSettings: {
     readClaudeMd: (worktreePath: string) =>
       ipcRenderer.invoke(IPC.AGENT.READ_CLAUDE_MD, worktreePath),
-    saveClaudeMd: (worktreePath: string, content: string) =>
-      ipcRenderer.invoke(IPC.AGENT.SAVE_CLAUDE_MD, worktreePath, content),
+    saveClaudeMd: (worktreePath: string, content: string, projectPath?: string, agentId?: string) =>
+      ipcRenderer.invoke(IPC.AGENT.SAVE_CLAUDE_MD, worktreePath, content, projectPath, agentId),
     readMcpConfig: (worktreePath: string) =>
       ipcRenderer.invoke(IPC.AGENT.READ_MCP_CONFIG, worktreePath),
     listSkills: (worktreePath: string) =>
@@ -130,6 +146,10 @@ const api = {
       ipcRenderer.on(IPC.APP.OPEN_SETTINGS, listener);
       return () => { ipcRenderer.removeListener(IPC.APP.OPEN_SETTINGS, listener); };
     },
+    getTheme: () =>
+      ipcRenderer.invoke(IPC.APP.GET_THEME),
+    saveTheme: (settings: { themeId: string }) =>
+      ipcRenderer.invoke(IPC.APP.SAVE_THEME, settings),
   },
 };
 
