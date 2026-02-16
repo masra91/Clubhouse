@@ -20,6 +20,8 @@ import type {
   FilesAPI,
   PluginContextInfo,
   PluginRenderMode,
+  PluginManifest,
+  PluginPermission,
   DirectoryEntry,
   GitStatus,
   GitCommit,
@@ -62,6 +64,47 @@ function unavailableAPIProxy<T>(apiName: string, scope: string): T {
       };
     },
   }) as T;
+}
+
+/**
+ * Same pattern as `unavailableAPIProxy`, but for permission denial.
+ * Defers errors to invocation time so React 19 dev-mode prop enumeration stays safe.
+ */
+function permissionDeniedProxy<T>(pluginId: string, permission: PluginPermission, apiName: string): T {
+  return new Proxy({} as object, {
+    get(_t, prop) {
+      if (typeof prop === 'symbol') return undefined;
+      return function permissionDenied() {
+        throw new Error(`Plugin '${pluginId}' requires '${permission}' permission to use api.${apiName}`);
+      };
+    },
+  }) as T;
+}
+
+/** Returns true if the manifest grants the given permission (v0.4 / no manifest = all granted). */
+function hasPermission(manifest: PluginManifest | undefined, perm: PluginPermission): boolean {
+  if (!manifest || manifest.engine.api < 0.5) return true; // v0.4 backward compat
+  return Array.isArray(manifest.permissions) && manifest.permissions.includes(perm);
+}
+
+/**
+ * Wraps API construction with scope check (existing) then permission check (new).
+ * - scope denied → unavailableAPIProxy
+ * - permission denied → permissionDeniedProxy
+ * - both pass → construct API normally
+ */
+function gated<T>(
+  scopeAvailable: boolean,
+  scopeLabel: string,
+  apiName: string,
+  permission: PluginPermission,
+  pluginId: string,
+  manifest: PluginManifest | undefined,
+  construct: () => T,
+): T {
+  if (!scopeAvailable) return unavailableAPIProxy<T>(apiName, scopeLabel);
+  if (!hasPermission(manifest, permission)) return permissionDeniedProxy<T>(pluginId, permission, apiName);
+  return construct();
 }
 
 function createScopedStorage(pluginId: string, storageScope: 'project' | 'project-local' | 'global', projectPath?: string): ScopedStorage {
@@ -586,7 +629,58 @@ function resolvePath(projectPath: string, relativePath: string): string {
   return normalizedResolved;
 }
 
-function createFilesAPI(ctx: PluginContext): FilesAPI {
+/** Creates a FilesAPI scoped to an arbitrary base path (for external roots). forRoot() throws (no nesting). */
+function createFilesAPIForRoot(basePath: string): FilesAPI {
+  return {
+    async readTree(relativePath = '.', options?: { includeHidden?: boolean; depth?: number }) {
+      const fullPath = resolvePath(basePath, relativePath);
+      return window.clubhouse.file.readTree(fullPath, options);
+    },
+    async readFile(relativePath: string) {
+      const fullPath = resolvePath(basePath, relativePath);
+      return window.clubhouse.file.read(fullPath);
+    },
+    async readBinary(relativePath: string) {
+      const fullPath = resolvePath(basePath, relativePath);
+      return window.clubhouse.file.readBinary(fullPath);
+    },
+    async writeFile(relativePath: string, content: string) {
+      const fullPath = resolvePath(basePath, relativePath);
+      await window.clubhouse.file.write(fullPath, content);
+    },
+    async stat(relativePath: string) {
+      const fullPath = resolvePath(basePath, relativePath);
+      return window.clubhouse.file.stat(fullPath);
+    },
+    async rename(oldRelativePath: string, newRelativePath: string) {
+      const oldFull = resolvePath(basePath, oldRelativePath);
+      const newFull = resolvePath(basePath, newRelativePath);
+      await window.clubhouse.file.rename(oldFull, newFull);
+    },
+    async copy(srcRelativePath: string, destRelativePath: string) {
+      const srcFull = resolvePath(basePath, srcRelativePath);
+      const destFull = resolvePath(basePath, destRelativePath);
+      await window.clubhouse.file.copy(srcFull, destFull);
+    },
+    async mkdir(relativePath: string) {
+      const fullPath = resolvePath(basePath, relativePath);
+      await window.clubhouse.file.mkdir(fullPath);
+    },
+    async delete(relativePath: string) {
+      const fullPath = resolvePath(basePath, relativePath);
+      await window.clubhouse.file.delete(fullPath);
+    },
+    async showInFolder(relativePath: string) {
+      const fullPath = resolvePath(basePath, relativePath);
+      await window.clubhouse.file.showInFolder(fullPath);
+    },
+    forRoot(): FilesAPI {
+      throw new Error('forRoot() cannot be called on an external root FilesAPI (no nesting)');
+    },
+  };
+}
+
+function createFilesAPI(ctx: PluginContext, manifest?: PluginManifest): FilesAPI {
   const { projectPath } = ctx;
   if (!projectPath) {
     throw new Error('FilesAPI requires projectPath');
@@ -635,18 +729,40 @@ function createFilesAPI(ctx: PluginContext): FilesAPI {
       const fullPath = resolvePath(projectPath, relativePath);
       await window.clubhouse.file.showInFolder(fullPath);
     },
+    forRoot(rootName: string): FilesAPI {
+      if (!hasPermission(manifest, 'files.external')) {
+        throw new Error(`Plugin '${ctx.pluginId}' requires 'files.external' permission to use api.files.forRoot()`);
+      }
+      if (!manifest?.externalRoots) {
+        throw new Error(`Plugin '${ctx.pluginId}' has no externalRoots declared`);
+      }
+      const rootEntry = manifest.externalRoots.find((r) => r.root === rootName);
+      if (!rootEntry) {
+        throw new Error(`Unknown external root "${rootName}" — not declared in plugin manifest`);
+      }
+      // Read the base path from plugin settings via the declared settingKey
+      const settingsKey = (ctx.scope === 'project' || ctx.scope === 'dual') && ctx.projectId
+        ? `${ctx.projectId}:${ctx.pluginId}`
+        : `app:${ctx.pluginId}`;
+      const allSettings = usePluginStore.getState().pluginSettings[settingsKey] || {};
+      const basePath = allSettings[rootEntry.settingKey] as string | undefined;
+      if (!basePath || typeof basePath !== 'string') {
+        throw new Error(`External root "${rootName}" setting "${rootEntry.settingKey}" is not configured`);
+      }
+      return createFilesAPIForRoot(basePath);
+    },
   };
 }
 
-export function createPluginAPI(ctx: PluginContext, mode?: PluginRenderMode): PluginAPI {
+export function createPluginAPI(ctx: PluginContext, mode?: PluginRenderMode, manifest?: PluginManifest): PluginAPI {
   const effectiveMode = mode || (ctx.scope === 'app' ? 'app' : 'project');
-  const hasProjectContext = effectiveMode === 'project' && !!ctx.projectId;
   const isDual = ctx.scope === 'dual';
 
   // For dual-scope plugins, project API is available only in project mode
   const projectAvailable = ctx.scope === 'project' || (isDual && effectiveMode === 'project');
   // For dual-scope plugins, projects API is always available; for single scope it depends
   const projectsAvailable = ctx.scope === 'app' || isDual;
+  const scopeLabel = effectiveMode === 'app' ? 'app' : ctx.scope;
 
   const contextInfo: PluginContextInfo = {
     mode: effectiveMode,
@@ -655,30 +771,61 @@ export function createPluginAPI(ctx: PluginContext, mode?: PluginRenderMode): Pl
   };
 
   const api: PluginAPI = {
-    project: projectAvailable && ctx.projectPath && ctx.projectId
-      ? createProjectAPI(ctx)
-      : unavailableAPIProxy<ProjectAPI>('project', effectiveMode === 'app' ? 'app' : ctx.scope),
-    projects: projectsAvailable
-      ? createProjectsAPI()
-      : unavailableAPIProxy<ProjectsAPI>('projects', 'project'),
-    git: projectAvailable && ctx.projectPath
-      ? createGitAPI(ctx)
-      : unavailableAPIProxy<GitAPI>('git', effectiveMode === 'app' ? 'app' : ctx.scope),
-    storage: createStorageAPI(ctx),
-    ui: createUIAPI(),
-    commands: createCommandsAPI(ctx),
-    events: createEventsAPI(),
-    settings: createSettingsAPI(ctx),
-    agents: createAgentsAPI(ctx),
-    hub: createHubAPI(),
-    navigation: createNavigationAPI(),
-    widgets: createWidgetsAPI(),
-    terminal: createTerminalAPI(ctx),
-    logging: createLoggingAPI(ctx),
-    files: projectAvailable && ctx.projectPath
-      ? createFilesAPI(ctx)
-      : unavailableAPIProxy<FilesAPI>('files', effectiveMode === 'app' ? 'app' : ctx.scope),
-    context: contextInfo,
+    project: gated(
+      projectAvailable && !!ctx.projectPath && !!ctx.projectId, scopeLabel, 'project', 'files',
+      ctx.pluginId, manifest, () => createProjectAPI(ctx),
+    ),
+    projects: gated(
+      projectsAvailable, 'project', 'projects', 'projects',
+      ctx.pluginId, manifest, () => createProjectsAPI(),
+    ),
+    git: gated(
+      projectAvailable && !!ctx.projectPath, scopeLabel, 'git', 'git',
+      ctx.pluginId, manifest, () => createGitAPI(ctx),
+    ),
+    storage: gated(
+      true, scopeLabel, 'storage', 'storage',
+      ctx.pluginId, manifest, () => createStorageAPI(ctx),
+    ),
+    ui: gated(
+      true, scopeLabel, 'ui', 'notifications',
+      ctx.pluginId, manifest, () => createUIAPI(),
+    ),
+    commands: gated(
+      true, scopeLabel, 'commands', 'commands',
+      ctx.pluginId, manifest, () => createCommandsAPI(ctx),
+    ),
+    events: gated(
+      true, scopeLabel, 'events', 'events',
+      ctx.pluginId, manifest, () => createEventsAPI(),
+    ),
+    settings: createSettingsAPI(ctx), // always available
+    agents: gated(
+      true, scopeLabel, 'agents', 'agents',
+      ctx.pluginId, manifest, () => createAgentsAPI(ctx),
+    ),
+    hub: createHubAPI(), // always available
+    navigation: gated(
+      true, scopeLabel, 'navigation', 'navigation',
+      ctx.pluginId, manifest, () => createNavigationAPI(),
+    ),
+    widgets: gated(
+      true, scopeLabel, 'widgets', 'widgets',
+      ctx.pluginId, manifest, () => createWidgetsAPI(),
+    ),
+    terminal: gated(
+      true, scopeLabel, 'terminal', 'terminal',
+      ctx.pluginId, manifest, () => createTerminalAPI(ctx),
+    ),
+    logging: gated(
+      true, scopeLabel, 'logging', 'logging',
+      ctx.pluginId, manifest, () => createLoggingAPI(ctx),
+    ),
+    files: gated(
+      projectAvailable && !!ctx.projectPath, scopeLabel, 'files', 'files',
+      ctx.pluginId, manifest, () => createFilesAPI(ctx, manifest),
+    ),
+    context: contextInfo, // always available
   };
 
   return api;

@@ -24,6 +24,59 @@ export interface PluginStorageDeclaration {
   scope: 'project' | 'project-local' | 'global';
 }
 
+// ── Permission system (v0.5+) ──────────────────────────────────────────
+export type PluginPermission =
+  | 'files'
+  | 'files.external'
+  | 'git'
+  | 'terminal'
+  | 'agents'
+  | 'notifications'
+  | 'storage'
+  | 'navigation'
+  | 'projects'
+  | 'commands'
+  | 'events'
+  | 'widgets'
+  | 'logging';
+
+export const ALL_PLUGIN_PERMISSIONS: readonly PluginPermission[] = [
+  'files',
+  'files.external',
+  'git',
+  'terminal',
+  'agents',
+  'notifications',
+  'storage',
+  'navigation',
+  'projects',
+  'commands',
+  'events',
+  'widgets',
+  'logging',
+] as const;
+
+export interface PluginExternalRoot {
+  settingKey: string;
+  root: string;
+}
+
+export const PERMISSION_DESCRIPTIONS: Record<PluginPermission, string> = {
+  files: 'Read and write files within the project directory',
+  'files.external': 'Access files outside the project directory',
+  git: 'Read git status, log, branch, and diffs',
+  terminal: 'Spawn and control terminal sessions',
+  agents: 'Spawn, monitor, and manage AI agents',
+  notifications: 'Display notices, errors, and input prompts',
+  storage: 'Store and retrieve persistent plugin data',
+  navigation: 'Navigate the UI (focus agents, switch tabs)',
+  projects: 'List and access other open projects',
+  commands: 'Register and execute commands',
+  events: 'Subscribe to the event bus',
+  widgets: 'Use shared UI widget components',
+  logging: 'Write to the application log',
+};
+
 export interface PluginHelpTopic {
   id: string;
   title: string;
@@ -62,6 +115,8 @@ export interface PluginManifest {
   main?: string;                     // path to main module relative to plugin dir
   contributes?: PluginContributes;
   settingsPanel?: 'declarative' | 'custom';
+  permissions?: PluginPermission[];         // required for v0.5+
+  externalRoots?: PluginExternalRoot[];     // requires 'files.external' permission
 }
 
 // ── Render mode for dual-scope plugins ───────────────────────────────
@@ -334,6 +389,8 @@ export interface FilesAPI {
   mkdir(relativePath: string): Promise<void>;
   delete(relativePath: string): Promise<void>;
   showInFolder(relativePath: string): Promise<void>;
+  /** Returns a FilesAPI scoped to an external root directory (requires files.external permission). */
+  forRoot(rootName: string): FilesAPI;
 }
 
 // ── Composite PluginAPI ────────────────────────────────────────────────

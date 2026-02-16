@@ -346,4 +346,121 @@ describe('manifest-validator', () => {
       expect(result.errors[0]).toContain('contributes.help');
     });
   });
+
+  // --- v0.5 permission validation ---
+
+  describe('v0.5 permission validation', () => {
+    const v05Base = {
+      ...validManifest,
+      engine: { api: 0.5 },
+      permissions: ['files', 'git'],
+    };
+
+    it('0.5 is in SUPPORTED_API_VERSIONS', () => {
+      expect(SUPPORTED_API_VERSIONS).toContain(0.5);
+    });
+
+    it('rejects v0.5 without permissions array', () => {
+      const { permissions, ...rest } = v05Base;
+      const result = validateManifest(rest);
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('permissions array');
+    });
+
+    it('accepts v0.5 with empty permissions array', () => {
+      const result = validateManifest({ ...v05Base, permissions: [] });
+      expect(result.valid).toBe(true);
+    });
+
+    it('accepts v0.5 with valid permissions', () => {
+      const result = validateManifest(v05Base);
+      expect(result.valid).toBe(true);
+    });
+
+    it('rejects unknown permission strings', () => {
+      const result = validateManifest({ ...v05Base, permissions: ['files', 'teleport'] });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('unknown permission "teleport"');
+    });
+
+    it('rejects duplicate permissions', () => {
+      const result = validateManifest({ ...v05Base, permissions: ['files', 'git', 'files'] });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('duplicate permission "files"');
+    });
+
+    it('rejects non-string permission entries', () => {
+      const result = validateManifest({ ...v05Base, permissions: ['files', 42] });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('must be a string');
+    });
+
+    it('rejects externalRoots without files.external permission', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files'],
+        externalRoots: [{ settingKey: 'wiki-root', root: 'wiki' }],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('requires the "files.external" permission');
+    });
+
+    it('rejects files.external without externalRoots', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files', 'files.external'],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain('requires at least one externalRoots entry');
+    });
+
+    it('accepts files.external with valid externalRoots', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files', 'files.external'],
+        externalRoots: [{ settingKey: 'wiki-root', root: 'wiki' }],
+      });
+      expect(result.valid).toBe(true);
+    });
+
+    it('validates externalRoots entry shape — missing settingKey', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files', 'files.external'],
+        externalRoots: [{ root: 'wiki' }],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e: string) => e.includes('settingKey'))).toBe(true);
+    });
+
+    it('validates externalRoots entry shape — missing root', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files', 'files.external'],
+        externalRoots: [{ settingKey: 'wiki-root' }],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e: string) => e.includes('root'))).toBe(true);
+    });
+
+    it('validates externalRoots entry shape — empty strings', () => {
+      const result = validateManifest({
+        ...v05Base,
+        permissions: ['files', 'files.external'],
+        externalRoots: [{ settingKey: '', root: '' }],
+      });
+      expect(result.valid).toBe(false);
+      expect(result.errors.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('v0.4 manifests are unaffected by permission validation', () => {
+      const result = validateManifest(validManifest);
+      expect(result.valid).toBe(true);
+    });
+
+    it('v0.4 manifest with permissions field is accepted (ignored)', () => {
+      const result = validateManifest({ ...validManifest, permissions: ['files'] });
+      expect(result.valid).toBe(true);
+    });
+  });
 });

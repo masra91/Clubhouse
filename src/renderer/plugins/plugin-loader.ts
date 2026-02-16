@@ -153,7 +153,7 @@ export async function activatePlugin(
 
     // Create the API — for dual plugins activated at app level, set mode explicitly
     const activationMode = (!projectId && entry.manifest.scope === 'dual') ? 'app' as const : undefined;
-    const api = createPluginAPI(ctx, activationMode);
+    const api = createPluginAPI(ctx, activationMode, entry.manifest);
 
     // Call activate if it exists
     if (mod.activate) {

@@ -6,7 +6,7 @@ import { usePluginStore } from './plugin-store';
 import { useAgentStore } from '../stores/agentStore';
 import { useUIStore } from '../stores/uiStore';
 import { useQuickAgentStore } from '../stores/quickAgentStore';
-import type { PluginContext, PluginAPI } from '../../shared/plugin-types';
+import type { PluginContext, PluginAPI, PluginManifest } from '../../shared/plugin-types';
 
 // Mock window.clubhouse for IPC calls
 const mockLog = {
@@ -1999,6 +1999,630 @@ describe('plugin-api-factory', () => {
         await api.agents.runQuick('task', { model: 'opus' });
         expect(spawnSpy).toHaveBeenCalledWith('proj-1', '/projects/my-project', 'task', 'opus');
       });
+    });
+  });
+
+  // ── Permission enforcement (v0.5) ────────────────────────────────────
+
+  describe('permission enforcement (v0.5)', () => {
+    const v05Manifest = (permissions: string[], overrides?: Partial<PluginManifest>): PluginManifest => ({
+      id: 'test-plugin',
+      name: 'Test Plugin',
+      version: '1.0.0',
+      engine: { api: 0.5 },
+      scope: 'project',
+      contributes: { help: {} },
+      permissions: permissions as PluginManifest['permissions'],
+      ...overrides,
+    });
+
+    // ── Per-API permission isolation ──────────────────────────────────
+
+    describe('per-API permission isolation', () => {
+      // Each gated API paired with its permission and a method to invoke
+      // Each gated API paired with its permission.
+      // `invokeSync` exercises a synchronous call path that will throw immediately
+      // if the permission proxy is in place (avoids unhandled promise rejections).
+      // `verifyGranted` checks the API object is a real implementation (not a proxy).
+      const gatedAPIs: Array<{
+        apiName: keyof PluginAPI;
+        permission: string;
+        invokeSync: (api: PluginAPI) => void;
+        verifyGranted: (api: PluginAPI) => void;
+      }> = [
+        {
+          apiName: 'project', permission: 'files',
+          invokeSync: (a) => a.project.readFile('x'),
+          verifyGranted: (a) => { expect(a.project.projectPath).toBe('/projects/my-project'); },
+        },
+        {
+          apiName: 'git', permission: 'git',
+          invokeSync: (a) => a.git.status(),
+          verifyGranted: (a) => { expect(typeof a.git.status).toBe('function'); expect(typeof a.git.log).toBe('function'); },
+        },
+        {
+          apiName: 'files', permission: 'files',
+          invokeSync: (a) => a.files.readFile('x'),
+          verifyGranted: (a) => { expect(typeof a.files.readFile).toBe('function'); expect(typeof a.files.writeFile).toBe('function'); },
+        },
+        {
+          apiName: 'storage', permission: 'storage',
+          // The proxy is at api.storage level; .project returns a function, not a ScopedStorage
+          invokeSync: (a) => (a.storage as any).project(),
+          verifyGranted: (a) => { expect(typeof a.storage.project.read).toBe('function'); },
+        },
+        {
+          apiName: 'ui', permission: 'notifications',
+          invokeSync: (a) => a.ui.showNotice('hi'),
+          verifyGranted: (a) => { expect(typeof a.ui.showNotice).toBe('function'); },
+        },
+        {
+          apiName: 'commands', permission: 'commands',
+          invokeSync: (a) => a.commands.register('x', () => {}),
+          verifyGranted: (a) => { expect(typeof a.commands.register).toBe('function'); },
+        },
+        {
+          apiName: 'events', permission: 'events',
+          invokeSync: (a) => a.events.on('x', () => {}),
+          verifyGranted: (a) => { expect(typeof a.events.on).toBe('function'); },
+        },
+        {
+          apiName: 'agents', permission: 'agents',
+          invokeSync: (a) => a.agents.list(),
+          verifyGranted: (a) => { expect(typeof a.agents.list).toBe('function'); expect(typeof a.agents.runQuick).toBe('function'); },
+        },
+        {
+          apiName: 'navigation', permission: 'navigation',
+          invokeSync: (a) => a.navigation.focusAgent('a'),
+          verifyGranted: (a) => { expect(typeof a.navigation.focusAgent).toBe('function'); },
+        },
+        {
+          apiName: 'widgets', permission: 'widgets',
+          invokeSync: (a) => (a.widgets.AgentTerminal as unknown as () => void)(),
+          verifyGranted: (a) => { expect(typeof a.widgets.AgentTerminal).toBe('function'); },
+        },
+        {
+          apiName: 'terminal', permission: 'terminal',
+          invokeSync: (a) => a.terminal.write('s1', 'x'),
+          verifyGranted: (a) => { expect(typeof a.terminal.spawn).toBe('function'); expect(typeof a.terminal.write).toBe('function'); },
+        },
+        {
+          apiName: 'logging', permission: 'logging',
+          invokeSync: (a) => a.logging.info('msg'),
+          verifyGranted: (a) => { expect(typeof a.logging.info).toBe('function'); expect(typeof a.logging.error).toBe('function'); },
+        },
+      ];
+
+      for (const { apiName, permission, invokeSync, verifyGranted } of gatedAPIs) {
+        it(`api.${apiName} works when '${permission}' permission is granted`, () => {
+          const manifest = v05Manifest([permission]);
+          const api = createPluginAPI(makeCtx(), undefined, manifest);
+          verifyGranted(api);
+        });
+
+        it(`api.${apiName} throws when '${permission}' permission is NOT granted`, () => {
+          const manifest = v05Manifest([]);
+          const api = createPluginAPI(makeCtx(), undefined, manifest);
+          expect(() => invokeSync(api)).toThrow(`requires '${permission}' permission`);
+        });
+
+        it(`api.${apiName} error message includes plugin name and API name`, () => {
+          const manifest = v05Manifest([]);
+          const api = createPluginAPI(makeCtx(), undefined, manifest);
+          expect(() => invokeSync(api)).toThrow(`Plugin 'test-plugin'`);
+          expect(() => invokeSync(api)).toThrow(`api.${apiName}`);
+        });
+      }
+
+      it('granting one permission does not leak to another', () => {
+        const manifest = v05Manifest(['git']);
+        const api = createPluginAPI(makeCtx(), undefined, manifest);
+        // git works
+        expect(typeof api.git.status).toBe('function');
+        expect(typeof api.git.log).toBe('function');
+        // terminal does not
+        expect(() => api.terminal.write('s1', 'x')).toThrow("requires 'terminal' permission");
+        // files does not
+        expect(() => api.files.readFile('x')).toThrow("requires 'files' permission");
+        // agents does not
+        expect(() => api.agents.list()).toThrow("requires 'agents' permission");
+      });
+
+      it('granting all permissions makes everything work', () => {
+        const allPerms = ['files', 'git', 'storage', 'notifications', 'commands', 'events', 'agents', 'navigation', 'widgets', 'terminal', 'logging'];
+        const manifest = v05Manifest(allPerms);
+        const api = createPluginAPI(makeCtx(), undefined, manifest);
+        for (const { verifyGranted } of gatedAPIs) {
+          verifyGranted(api);
+        }
+      });
+    });
+
+    // ── Always-available APIs ─────────────────────────────────────────
+
+    describe('always-available APIs (no permission needed)', () => {
+      it('api.context is available with empty permissions', () => {
+        const manifest = v05Manifest([]);
+        const api = createPluginAPI(makeCtx(), undefined, manifest);
+        expect(api.context.mode).toBe('project');
+        expect(api.context.projectId).toBe('proj-1');
+        expect(api.context.projectPath).toBe('/projects/my-project');
+      });
+
+      it('api.settings is available with empty permissions', () => {
+        usePluginStore.setState({
+          pluginSettings: { 'proj-1:test-plugin': { theme: 'dark' } },
+        });
+        const manifest = v05Manifest([]);
+        const api = createPluginAPI(makeCtx(), undefined, manifest);
+        expect(api.settings.get('theme')).toBe('dark');
+        expect(typeof api.settings.getAll).toBe('function');
+        expect(typeof api.settings.onChange).toBe('function');
+      });
+
+      it('api.hub is available with empty permissions', () => {
+        const manifest = v05Manifest([]);
+        const api = createPluginAPI(makeCtx(), undefined, manifest);
+        expect(typeof api.hub.refresh).toBe('function');
+        expect(() => api.hub.refresh()).not.toThrow();
+      });
+    });
+
+    // ── permissionDeniedProxy React dev-mode safety ────────────────────
+
+    describe('permissionDeniedProxy React dev-mode safety', () => {
+      it('property access on denied API does not throw', () => {
+        const manifest = v05Manifest([]);
+        const api = createPluginAPI(makeCtx(), undefined, manifest);
+        // React 19 dev-mode enumerates props — must not throw
+        expect(() => api.git.status).not.toThrow();
+        expect(() => api.git.log).not.toThrow();
+        expect(() => api.git.currentBranch).not.toThrow();
+        expect(() => api.git.diff).not.toThrow();
+        expect(() => api.terminal.spawn).not.toThrow();
+        expect(() => api.terminal.write).not.toThrow();
+        expect(() => api.terminal.kill).not.toThrow();
+        expect(() => api.agents.list).not.toThrow();
+        expect(() => api.agents.runQuick).not.toThrow();
+        expect(() => api.files.readFile).not.toThrow();
+        expect(() => api.files.writeFile).not.toThrow();
+        expect(() => api.storage.project).not.toThrow();
+      });
+
+      it('Symbol access on denied proxy returns undefined (React $$typeof, iterator)', () => {
+        const manifest = v05Manifest([]);
+        const api = createPluginAPI(makeCtx(), undefined, manifest);
+        // Proxied denied APIs
+        expect((api.git as any)[Symbol.toPrimitive]).toBeUndefined();
+        expect((api.git as any)[Symbol.iterator]).toBeUndefined();
+        expect((api.git as any)[Symbol.toStringTag]).toBeUndefined();
+        expect((api.terminal as any)[Symbol.toPrimitive]).toBeUndefined();
+        expect((api.agents as any)[Symbol.iterator]).toBeUndefined();
+      });
+
+      it('denied proxy methods are typeof function', () => {
+        const manifest = v05Manifest([]);
+        const api = createPluginAPI(makeCtx(), undefined, manifest);
+        expect(typeof api.git.status).toBe('function');
+        expect(typeof api.terminal.spawn).toBe('function');
+        expect(typeof api.agents.list).toBe('function');
+        expect(typeof api.logging.info).toBe('function');
+      });
+
+      it('accessing the same denied method multiple times returns consistent functions', () => {
+        const manifest = v05Manifest([]);
+        const api = createPluginAPI(makeCtx(), undefined, manifest);
+        // Each access creates a new function via Proxy get trap — but both should throw same error
+        const fn1 = api.git.status;
+        const fn2 = api.git.status;
+        expect(typeof fn1).toBe('function');
+        expect(typeof fn2).toBe('function');
+        expect(() => (fn1 as () => void)()).toThrow("requires 'git' permission");
+        expect(() => (fn2 as () => void)()).toThrow("requires 'git' permission");
+      });
+    });
+
+    // ── Backward compatibility ────────────────────────────────────────
+
+    describe('backward compatibility', () => {
+      it('no manifest → all APIs work', () => {
+        const api = createPluginAPI(makeCtx());
+        expect(typeof api.git.status).toBe('function');
+        expect(typeof api.terminal.spawn).toBe('function');
+        expect(typeof api.agents.list).toBe('function');
+        expect(typeof api.logging.info).toBe('function');
+        expect(typeof api.files.readFile).toBe('function');
+        expect(typeof api.storage.project.read).toBe('function');
+        expect(typeof api.ui.showNotice).toBe('function');
+        expect(typeof api.commands.register).toBe('function');
+        expect(typeof api.events.on).toBe('function');
+        expect(typeof api.navigation.focusAgent).toBe('function');
+      });
+
+      it('v0.4 manifest → all APIs work (no permissions needed)', () => {
+        const v04: PluginManifest = {
+          id: 'test-plugin', name: 'Test', version: '1.0.0',
+          engine: { api: 0.4 }, scope: 'project', contributes: { help: {} },
+        };
+        const api = createPluginAPI(makeCtx(), undefined, v04);
+        expect(typeof api.git.status).toBe('function');
+        expect(typeof api.terminal.spawn).toBe('function');
+        expect(typeof api.agents.list).toBe('function');
+        expect(typeof api.files.readFile).toBe('function');
+      });
+
+      it('v0.4 manifest with permissions field is ignored (all APIs work)', () => {
+        const v04WithPerms: PluginManifest = {
+          id: 'test-plugin', name: 'Test', version: '1.0.0',
+          engine: { api: 0.4 }, scope: 'project', contributes: { help: {} },
+          permissions: ['git'],
+        };
+        const api = createPluginAPI(makeCtx(), undefined, v04WithPerms);
+        // All APIs work regardless of permissions field
+        expect(typeof api.terminal.spawn).toBe('function');
+        expect(typeof api.agents.list).toBe('function');
+      });
+    });
+
+    // ── Scope vs permission priority ──────────────────────────────────
+
+    describe('scope vs permission priority', () => {
+      it('scope denial takes priority over permission denial', () => {
+        // project-scoped plugin with 'projects' permission → scope denies before permission
+        const manifest = v05Manifest(['projects']);
+        const api = createPluginAPI(makeCtx({ scope: 'project' }), undefined, manifest);
+        expect(() => api.projects.list()).toThrow('not available for project-scoped');
+      });
+
+      it('scope denial message shown when both scope and permission deny', () => {
+        // project-scoped plugin, no 'projects' permission, scope also denies
+        const manifest = v05Manifest([]);
+        const api = createPluginAPI(makeCtx({ scope: 'project' }), undefined, manifest);
+        // Should get scope error, not permission error
+        expect(() => api.projects.list()).toThrow('not available for project-scoped');
+      });
+
+      it('app-scoped plugin: scope denies project/git/files even with permissions', () => {
+        const manifest = v05Manifest(['files', 'git'], { scope: 'app' });
+        const api = createPluginAPI(
+          makeCtx({ scope: 'app', projectId: undefined, projectPath: undefined }),
+          undefined,
+          manifest,
+        );
+        expect(() => api.project.readFile('x')).toThrow('not available for app-scoped');
+        expect(() => api.git.status()).toThrow('not available for app-scoped');
+        expect(() => api.files.readFile('x')).toThrow('not available for app-scoped');
+      });
+    });
+
+    // ── Dual-scope + permissions ──────────────────────────────────────
+
+    describe('dual-scope with permissions', () => {
+      it('dual-scope plugin in project mode: permissions enforced', () => {
+        const manifest = v05Manifest(['git'], { scope: 'dual' });
+        const api = createPluginAPI(makeCtx({ scope: 'dual' }), 'project', manifest);
+        // git permitted
+        expect(typeof api.git.status).toBe('function');
+        // files not permitted
+        expect(() => api.files.readFile('x')).toThrow("requires 'files' permission");
+      });
+
+      it('dual-scope plugin in app mode: project-scope APIs denied by scope, not permission', () => {
+        const manifest = v05Manifest(['files', 'git'], { scope: 'dual' });
+        const api = createPluginAPI(makeCtx({ scope: 'dual' }), 'app', manifest);
+        // project/git/files denied by scope (app mode)
+        expect(() => api.project.readFile('x')).toThrow('not available');
+        expect(() => api.git.status()).toThrow('not available');
+        expect(() => api.files.readFile('x')).toThrow('not available');
+      });
+
+      it('dual-scope plugin: projects API requires permission even though scope allows', () => {
+        const manifest = v05Manifest([], { scope: 'dual' });
+        const api = createPluginAPI(makeCtx({ scope: 'dual' }), 'app', manifest);
+        // projects is scope-available for dual, but permission not granted
+        expect(() => api.projects.list()).toThrow("requires 'projects' permission");
+      });
+
+      it('dual-scope plugin: scope-free APIs still need permissions', () => {
+        const manifest = v05Manifest([], { scope: 'dual' });
+        const api = createPluginAPI(makeCtx({ scope: 'dual' }), 'project', manifest);
+        expect(() => api.terminal.spawn('s1')).toThrow("requires 'terminal' permission");
+        expect(() => api.agents.list()).toThrow("requires 'agents' permission");
+        expect(() => api.logging.info('x')).toThrow("requires 'logging' permission");
+      });
+    });
+  });
+
+  // ── forRoot() ────────────────────────────────────────────────────────
+
+  describe('forRoot()', () => {
+    function v05ManifestWithExternal(
+      settings?: Record<string, unknown>,
+      roots?: Array<{ settingKey: string; root: string }>,
+      overrides?: Partial<PluginManifest>,
+    ): { manifest: PluginManifest; ctx: PluginContext } {
+      const manifest: PluginManifest = {
+        id: 'test-plugin',
+        name: 'Test Plugin',
+        version: '1.0.0',
+        engine: { api: 0.5 },
+        scope: 'project',
+        contributes: { help: {} },
+        permissions: ['files', 'files.external'],
+        externalRoots: roots || [{ settingKey: 'wiki-path', root: 'wiki' }],
+        ...overrides,
+      };
+      const ctx = makeCtx();
+      if (settings) {
+        usePluginStore.setState({
+          pluginSettings: { 'proj-1:test-plugin': settings },
+        });
+      }
+      return { manifest, ctx };
+    }
+
+    // ── Permission checks ─────────────────────────────────────────────
+
+    it('forRoot() without files.external permission → throws', () => {
+      const manifest: PluginManifest = {
+        id: 'test-plugin', name: 'Test', version: '1.0.0',
+        engine: { api: 0.5 }, scope: 'project', contributes: { help: {} },
+        permissions: ['files'],
+      };
+      const api = createPluginAPI(makeCtx(), undefined, manifest);
+      expect(() => api.files.forRoot('wiki')).toThrow("requires 'files.external' permission");
+    });
+
+    it('v0.4 plugin (no manifest) FilesAPI forRoot throws no externalRoots error', () => {
+      const api = createPluginAPI(makeCtx());
+      expect(() => api.files.forRoot('wiki')).toThrow('no externalRoots declared');
+    });
+
+    // ── Root resolution ───────────────────────────────────────────────
+
+    it('forRoot() with unknown root name → throws', () => {
+      const { manifest, ctx } = v05ManifestWithExternal({ 'wiki-path': '/wiki' });
+      const api = createPluginAPI(ctx, undefined, manifest);
+      expect(() => api.files.forRoot('unknown')).toThrow('Unknown external root "unknown"');
+    });
+
+    it('forRoot() with unconfigured setting → throws', () => {
+      const { manifest, ctx } = v05ManifestWithExternal({});
+      const api = createPluginAPI(ctx, undefined, manifest);
+      expect(() => api.files.forRoot('wiki')).toThrow('not configured');
+    });
+
+    it('forRoot() with null setting value → throws', () => {
+      const { manifest, ctx } = v05ManifestWithExternal({ 'wiki-path': null });
+      const api = createPluginAPI(ctx, undefined, manifest);
+      expect(() => api.files.forRoot('wiki')).toThrow('not configured');
+    });
+
+    it('forRoot() with numeric setting value → throws', () => {
+      const { manifest, ctx } = v05ManifestWithExternal({ 'wiki-path': 42 });
+      const api = createPluginAPI(ctx, undefined, manifest);
+      expect(() => api.files.forRoot('wiki')).toThrow('not configured');
+    });
+
+    it('forRoot() with empty string setting value → throws', () => {
+      const { manifest, ctx } = v05ManifestWithExternal({ 'wiki-path': '' });
+      const api = createPluginAPI(ctx, undefined, manifest);
+      expect(() => api.files.forRoot('wiki')).toThrow('not configured');
+    });
+
+    // ── Multiple external roots ───────────────────────────────────────
+
+    it('selects correct root when multiple roots are declared', () => {
+      const roots = [
+        { settingKey: 'wiki-path', root: 'wiki' },
+        { settingKey: 'docs-path', root: 'docs' },
+      ];
+      const { manifest, ctx } = v05ManifestWithExternal(
+        { 'wiki-path': '/external/wiki', 'docs-path': '/external/docs' },
+        roots,
+      );
+      const api = createPluginAPI(ctx, undefined, manifest);
+
+      const wikiFiles = api.files.forRoot('wiki');
+      const docsFiles = api.files.forRoot('docs');
+
+      // Verify they resolve to different paths
+      mockFile.read.mockResolvedValue('content');
+      wikiFiles.readFile('page.md');
+      expect(mockFile.read).toHaveBeenCalledWith('/external/wiki/page.md');
+      mockFile.read.mockClear();
+      docsFiles.readFile('readme.md');
+      expect(mockFile.read).toHaveBeenCalledWith('/external/docs/readme.md');
+    });
+
+    it('unknown root with multiple roots still throws', () => {
+      const roots = [
+        { settingKey: 'wiki-path', root: 'wiki' },
+        { settingKey: 'docs-path', root: 'docs' },
+      ];
+      const { manifest, ctx } = v05ManifestWithExternal(
+        { 'wiki-path': '/w', 'docs-path': '/d' },
+        roots,
+      );
+      const api = createPluginAPI(ctx, undefined, manifest);
+      expect(() => api.files.forRoot('other')).toThrow('Unknown external root "other"');
+    });
+
+    // ── Full FilesAPI surface on external root ────────────────────────
+
+    describe('external root FilesAPI — all methods', () => {
+      let extFiles: ReturnType<typeof createPluginAPI>['files'];
+
+      beforeEach(() => {
+        const { manifest, ctx } = v05ManifestWithExternal({ 'wiki-path': '/ext/wiki' });
+        const api = createPluginAPI(ctx, undefined, manifest);
+        extFiles = api.files.forRoot('wiki');
+      });
+
+      it('readFile resolves against external root', async () => {
+        mockFile.read.mockResolvedValue('content');
+        const result = await extFiles.readFile('page.md');
+        expect(mockFile.read).toHaveBeenCalledWith('/ext/wiki/page.md');
+        expect(result).toBe('content');
+      });
+
+      it('readTree resolves against external root', async () => {
+        mockFile.readTree.mockResolvedValue([{ name: 'a.md', path: '/ext/wiki/a.md', isDirectory: false }]);
+        const result = await extFiles.readTree('subdir');
+        expect(mockFile.readTree).toHaveBeenCalledWith('/ext/wiki/subdir', undefined);
+        expect(result).toHaveLength(1);
+      });
+
+      it('readTree default path resolves to root', async () => {
+        mockFile.readTree.mockResolvedValue([]);
+        await extFiles.readTree();
+        expect(mockFile.readTree).toHaveBeenCalledWith('/ext/wiki/.', undefined);
+      });
+
+      it('readTree passes options through', async () => {
+        mockFile.readTree.mockResolvedValue([]);
+        await extFiles.readTree('.', { includeHidden: true, depth: 2 });
+        expect(mockFile.readTree).toHaveBeenCalledWith('/ext/wiki/.', { includeHidden: true, depth: 2 });
+      });
+
+      it('readBinary resolves against external root', async () => {
+        mockFile.readBinary.mockResolvedValue('base64data');
+        const result = await extFiles.readBinary('image.png');
+        expect(mockFile.readBinary).toHaveBeenCalledWith('/ext/wiki/image.png');
+        expect(result).toBe('base64data');
+      });
+
+      it('writeFile resolves against external root', async () => {
+        await extFiles.writeFile('new.md', '# New Page');
+        expect(mockFile.write).toHaveBeenCalledWith('/ext/wiki/new.md', '# New Page');
+      });
+
+      it('stat resolves against external root', async () => {
+        mockFile.stat.mockResolvedValue({ size: 256, isDirectory: false, isFile: true, modifiedAt: 1000 });
+        const result = await extFiles.stat('page.md');
+        expect(mockFile.stat).toHaveBeenCalledWith('/ext/wiki/page.md');
+        expect(result.size).toBe(256);
+      });
+
+      it('rename resolves both paths against external root', async () => {
+        await extFiles.rename('old.md', 'new.md');
+        expect(mockFile.rename).toHaveBeenCalledWith('/ext/wiki/old.md', '/ext/wiki/new.md');
+      });
+
+      it('copy resolves both paths against external root', async () => {
+        await extFiles.copy('src.md', 'dest.md');
+        expect(mockFile.copy).toHaveBeenCalledWith('/ext/wiki/src.md', '/ext/wiki/dest.md');
+      });
+
+      it('mkdir resolves against external root', async () => {
+        await extFiles.mkdir('subdir');
+        expect(mockFile.mkdir).toHaveBeenCalledWith('/ext/wiki/subdir');
+      });
+
+      it('delete resolves against external root', async () => {
+        await extFiles.delete('old.md');
+        expect(mockFile.delete).toHaveBeenCalledWith('/ext/wiki/old.md');
+      });
+
+      it('showInFolder resolves against external root', async () => {
+        await extFiles.showInFolder('page.md');
+        expect(mockFile.showInFolder).toHaveBeenCalledWith('/ext/wiki/page.md');
+      });
+    });
+
+    // ── Path traversal on external root ───────────────────────────────
+
+    describe('external root path traversal prevention', () => {
+      let extFiles: ReturnType<typeof createPluginAPI>['files'];
+
+      beforeEach(() => {
+        const { manifest, ctx } = v05ManifestWithExternal({ 'wiki-path': '/ext/wiki' });
+        const api = createPluginAPI(ctx, undefined, manifest);
+        extFiles = api.files.forRoot('wiki');
+      });
+
+      it('readFile prevents traversal via ../', async () => {
+        await expect(extFiles.readFile('../../etc/passwd')).rejects.toThrow('traversal');
+      });
+
+      it('writeFile prevents traversal', async () => {
+        await expect(extFiles.writeFile('../../../tmp/evil', 'x')).rejects.toThrow('traversal');
+      });
+
+      it('readBinary prevents traversal', async () => {
+        await expect(extFiles.readBinary('../../secret')).rejects.toThrow('traversal');
+      });
+
+      it('rename prevents traversal on source', async () => {
+        await expect(extFiles.rename('../../etc/shadow', 'x')).rejects.toThrow('traversal');
+      });
+
+      it('rename prevents traversal on destination', async () => {
+        await expect(extFiles.rename('x.md', '../../etc/shadow')).rejects.toThrow('traversal');
+      });
+
+      it('copy prevents traversal on source', async () => {
+        await expect(extFiles.copy('../../etc/hosts', 'x')).rejects.toThrow('traversal');
+      });
+
+      it('copy prevents traversal on destination', async () => {
+        await expect(extFiles.copy('x.md', '../../../tmp/evil')).rejects.toThrow('traversal');
+      });
+
+      it('mkdir prevents traversal', async () => {
+        await expect(extFiles.mkdir('../../evil-dir')).rejects.toThrow('traversal');
+      });
+
+      it('delete prevents traversal', async () => {
+        await expect(extFiles.delete('../../etc/passwd')).rejects.toThrow('traversal');
+      });
+
+      it('stat prevents traversal', async () => {
+        await expect(extFiles.stat('../../etc/passwd')).rejects.toThrow('traversal');
+      });
+
+      it('showInFolder prevents traversal', async () => {
+        await expect(extFiles.showInFolder('../../etc/passwd')).rejects.toThrow('traversal');
+      });
+
+      it('readTree prevents traversal', async () => {
+        await expect(extFiles.readTree('../../etc')).rejects.toThrow('traversal');
+      });
+    });
+
+    // ── No nesting ────────────────────────────────────────────────────
+
+    it('forRoot() on external root FilesAPI → throws (no nesting)', () => {
+      const { manifest, ctx } = v05ManifestWithExternal({ 'wiki-path': '/ext/wiki' });
+      const api = createPluginAPI(ctx, undefined, manifest);
+      const extFiles = api.files.forRoot('wiki');
+      expect(() => extFiles.forRoot('wiki')).toThrow('no nesting');
+      expect(() => extFiles.forRoot('other')).toThrow('no nesting');
+    });
+
+    // ── Settings key resolution ───────────────────────────────────────
+
+    it('resolves settings from app:pluginId for app-scoped plugin', () => {
+      const manifest: PluginManifest = {
+        id: 'test-plugin', name: 'Test', version: '1.0.0',
+        engine: { api: 0.5 }, scope: 'app', contributes: { help: {} },
+        permissions: ['files', 'files.external'],
+        externalRoots: [{ settingKey: 'ext-path', root: 'ext' }],
+      };
+      // For app-scoped, files is scope-denied (no project context), so
+      // we test via a dual plugin in project mode instead
+      const dualManifest: PluginManifest = {
+        ...manifest,
+        scope: 'dual',
+      };
+      usePluginStore.setState({
+        pluginSettings: { 'proj-1:test-plugin': { 'ext-path': '/dual/ext' } },
+      });
+      const api = createPluginAPI(makeCtx({ scope: 'dual' }), 'project', dualManifest);
+      const extFiles = api.files.forRoot('ext');
+      mockFile.read.mockResolvedValue('ok');
+      extFiles.readFile('test.txt');
+      expect(mockFile.read).toHaveBeenCalledWith('/dual/ext/test.txt');
     });
   });
 
