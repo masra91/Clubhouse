@@ -175,7 +175,7 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
     fs.writeFileSync(filePath, content, 'utf-8');
   }
 
-  getModelOptions() { return MODEL_OPTIONS; }
+  async getModelOptions() { return MODEL_OPTIONS; }
   getDefaultPermissions(kind: 'durable' | 'quick') {
     return kind === 'durable' ? [...DEFAULT_DURABLE_PERMISSIONS] : [...DEFAULT_QUICK_PERMISSIONS];
   }

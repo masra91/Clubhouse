@@ -109,7 +109,7 @@ export class OpenCodeProvider implements OrchestratorProvider {
     fs.writeFileSync(path.join(dir, 'instructions.md'), content, 'utf-8');
   }
 
-  getModelOptions() { return [{ id: 'default', label: 'Default' }]; }
+  async getModelOptions() { return [{ id: 'default', label: 'Default' }]; }
   getDefaultPermissions(): string[] { return []; }
   toolVerb(toolName: string) { return TOOL_VERBS[toolName]; }
   buildSummaryInstruction(agentId: string) { return buildSummaryInstruction(agentId); }

@@ -214,8 +214,8 @@ describe('ClaudeCodeProvider', () => {
   });
 
   describe('getModelOptions', () => {
-    it('returns list including default, opus, sonnet, haiku', () => {
-      const options = provider.getModelOptions();
+    it('returns list including default, opus, sonnet, haiku', async () => {
+      const options = await provider.getModelOptions();
       expect(options.length).toBeGreaterThanOrEqual(4);
       expect(options[0]).toEqual({ id: 'default', label: 'Default' });
       const ids = options.map(o => o.id);
