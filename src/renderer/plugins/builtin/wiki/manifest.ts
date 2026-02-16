@@ -18,9 +18,9 @@ export const manifest: PluginManifest = {
     settings: [
       {
         key: 'wikiPath',
-        type: 'string',
+        type: 'directory',
         label: 'Wiki path',
-        description: 'Absolute path to the wiki directory (e.g. ~/wiki or /path/to/wiki).',
+        description: 'Path to the wiki directory. Use Browse to pick a folder, or type a path (relative paths resolve against the project root).',
         default: '',
       },
       {

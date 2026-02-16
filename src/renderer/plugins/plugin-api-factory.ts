@@ -753,9 +753,20 @@ function createFilesAPI(ctx: PluginContext, manifest?: PluginManifest): FilesAPI
         ? `${ctx.projectId}:${ctx.pluginId}`
         : `app:${ctx.pluginId}`;
       const allSettings = usePluginStore.getState().pluginSettings[settingsKey] || {};
-      const basePath = allSettings[rootEntry.settingKey] as string | undefined;
+      let basePath = allSettings[rootEntry.settingKey] as string | undefined;
       if (!basePath || typeof basePath !== 'string') {
         throw new Error(`External root "${rootName}" setting "${rootEntry.settingKey}" is not configured`);
+      }
+      // Expand tilde to home directory
+      if (basePath.startsWith('~/') || basePath === '~') {
+        const home = typeof process !== 'undefined' ? process.env.HOME : undefined;
+        if (home) {
+          basePath = basePath === '~' ? home : `${home}${basePath.slice(1)}`;
+        }
+      }
+      // Resolve relative paths against project root
+      if (!basePath.startsWith('/') && ctx.projectPath) {
+        basePath = `${ctx.projectPath}/${basePath}`;
       }
       return createFilesAPIForRoot(basePath);
     },

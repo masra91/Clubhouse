@@ -62,7 +62,7 @@ describe('wiki plugin manifest', () => {
 
   it('contributes wikiPath and showHiddenFiles settings', () => {
     expect(manifest.contributes?.settings).toContainEqual(
-      expect.objectContaining({ key: 'wikiPath', type: 'string' }),
+      expect.objectContaining({ key: 'wikiPath', type: 'directory' }),
     );
     expect(manifest.contributes?.settings).toContainEqual(
       expect.objectContaining({ key: 'showHiddenFiles', type: 'boolean' }),

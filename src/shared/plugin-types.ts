@@ -13,7 +13,7 @@ export interface PluginCommandDeclaration {
 
 export interface PluginSettingDeclaration {
   key: string;
-  type: 'boolean' | 'string' | 'number' | 'select';
+  type: 'boolean' | 'string' | 'number' | 'select' | 'directory';
   label: string;
   description?: string;
   default?: unknown;

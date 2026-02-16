@@ -13,6 +13,7 @@ vi.stubGlobal('clubhouse', {
     deleteFile: asyncNoop,
     fileExists: async () => false,
     listDirectory: async () => [],
+    pickDirectory: async () => null,
   },
   agent: {
     list: () => [],

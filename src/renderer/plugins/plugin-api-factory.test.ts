@@ -2637,6 +2637,65 @@ describe('plugin-api-factory', () => {
       extFiles.readFile('test.txt');
       expect(mockFile.read).toHaveBeenCalledWith('/dual/ext/test.txt');
     });
+
+    // ── Path resolution (tilde & relative) ────────────────────────────
+
+    it('forRoot() expands ~ to HOME', () => {
+      const originalHome = process.env.HOME;
+      process.env.HOME = '/home/testuser';
+      try {
+        const { manifest, ctx } = v05ManifestWithExternal({ 'wiki-path': '~/my-wiki' });
+        const api = createPluginAPI(ctx, undefined, manifest);
+        const extFiles = api.files.forRoot('wiki');
+        mockFile.read.mockResolvedValue('ok');
+        extFiles.readFile('page.md');
+        expect(mockFile.read).toHaveBeenCalledWith('/home/testuser/my-wiki/page.md');
+      } finally {
+        process.env.HOME = originalHome;
+      }
+    });
+
+    it('forRoot() expands bare ~ to HOME', () => {
+      const originalHome = process.env.HOME;
+      process.env.HOME = '/home/testuser';
+      try {
+        const { manifest, ctx } = v05ManifestWithExternal({ 'wiki-path': '~' });
+        const api = createPluginAPI(ctx, undefined, manifest);
+        const extFiles = api.files.forRoot('wiki');
+        mockFile.read.mockResolvedValue('ok');
+        extFiles.readFile('page.md');
+        expect(mockFile.read).toHaveBeenCalledWith('/home/testuser/page.md');
+      } finally {
+        process.env.HOME = originalHome;
+      }
+    });
+
+    it('forRoot() resolves relative path against projectPath', () => {
+      const { manifest, ctx } = v05ManifestWithExternal({ 'wiki-path': 'wiki' });
+      const api = createPluginAPI(ctx, undefined, manifest);
+      const extFiles = api.files.forRoot('wiki');
+      mockFile.read.mockResolvedValue('ok');
+      extFiles.readFile('page.md');
+      expect(mockFile.read).toHaveBeenCalledWith('/projects/my-project/wiki/page.md');
+    });
+
+    it('forRoot() resolves ./relative path against projectPath', () => {
+      const { manifest, ctx } = v05ManifestWithExternal({ 'wiki-path': './docs/wiki' });
+      const api = createPluginAPI(ctx, undefined, manifest);
+      const extFiles = api.files.forRoot('wiki');
+      mockFile.read.mockResolvedValue('ok');
+      extFiles.readFile('page.md');
+      expect(mockFile.read).toHaveBeenCalledWith('/projects/my-project/./docs/wiki/page.md');
+    });
+
+    it('forRoot() leaves absolute paths unchanged', () => {
+      const { manifest, ctx } = v05ManifestWithExternal({ 'wiki-path': '/absolute/wiki' });
+      const api = createPluginAPI(ctx, undefined, manifest);
+      const extFiles = api.files.forRoot('wiki');
+      mockFile.read.mockResolvedValue('ok');
+      extFiles.readFile('page.md');
+      expect(mockFile.read).toHaveBeenCalledWith('/absolute/wiki/page.md');
+    });
   });
 
   // ── FilesAPI ────────────────────────────────────────────────────────
