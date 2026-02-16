@@ -11,7 +11,7 @@ export const manifest: PluginManifest = {
   engine: { api: 0.5 },
   scope: 'project',
   settingsPanel: 'custom',
-  permissions: ['voice', 'agents', 'notifications'],
+  permissions: ['voice', 'agents', 'notifications', 'widgets'],
   contributes: {
     tab: { label: 'Voice', icon: MIC_ICON, layout: 'sidebar-content' },
     help: {

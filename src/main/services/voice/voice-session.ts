@@ -48,6 +48,31 @@ function sendTurnComplete(): void {
 }
 
 /**
+ * Strip markdown formatting so TTS reads clean prose.
+ */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, ' code block ')  // fenced code blocks
+    .replace(/`([^`]+)`/g, '$1')                  // inline code
+    .replace(/#{1,6}\s+/g, '')                     // headings
+    .replace(/\*\*([^*]+)\*\*/g, '$1')             // bold
+    .replace(/\*([^*]+)\*/g, '$1')                 // italic
+    .replace(/__([^_]+)__/g, '$1')                 // bold alt
+    .replace(/_([^_]+)_/g, '$1')                   // italic alt
+    .replace(/~~([^~]+)~~/g, '$1')                 // strikethrough
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')       // links
+    .replace(/^\s*[-*+]\s+/gm, '')                 // unordered list markers
+    .replace(/^\s*\d+\.\s+/gm, '')                 // ordered list markers
+    .replace(/^\s*>\s+/gm, '')                     // blockquotes
+    .replace(/\|/g, ' ')                           // table pipes
+    .replace(/---+/g, '')                          // horizontal rules
+    .replace(/\n{2,}/g, '. ')                      // paragraph breaks → pause
+    .replace(/\n/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+/**
  * Split text on sentence boundaries for incremental TTS.
  * Returns [completeSentences, remainder].
  */
@@ -91,6 +116,7 @@ export async function sendTurn(text: string): Promise<void> {
   const binary = findClaudeBinary();
   const args: string[] = [
     '-p', text,
+    '--verbose',
     '--output-format', 'stream-json',
   ];
 
@@ -102,11 +128,21 @@ export async function sendTurn(text: string): Promise<void> {
     args.push('--resume', currentSession.resumeId);
   }
 
+  // Clean env: remove vars that confuse nested Claude processes,
+  // and set auto-accept so it doesn't block on permission prompts.
+  const cleanEnv = { ...process.env };
+  delete cleanEnv['CLAUDECODE'];
+  delete cleanEnv['CLAUDE_CODE_ENTRYPOINT'];
+  cleanEnv['CLAUDE_AUTO_ACCEPT_PERMISSIONS'] = '1';
+
   const proc = spawn(binary, args, {
     cwd: currentSession.cwd,
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env },
+    env: cleanEnv,
   });
+
+  // Close stdin immediately — headless mode reads from -p arg, not stdin.
+  proc.stdin?.end();
 
   currentSession.activeProcess = proc;
 
@@ -125,35 +161,49 @@ export async function sendTurn(text: string): Promise<void> {
       try {
         const event = JSON.parse(line);
 
-        // Capture session ID for --resume on subsequent turns
-        if (event.type === 'message_start' && event.message?.id) {
-          if (currentSession) {
-            currentSession.resumeId = event.message.id;
+        // --verbose format: assistant messages contain text blocks
+        if (event.type === 'assistant' && event.message?.content) {
+          for (const block of event.message.content) {
+            if (block.type === 'text' && block.text) {
+              accumulatedText += block.text;
+              fullResponseText += block.text;
+
+              // Split sentences for streaming TTS
+              const [sentences, remainder] = splitSentences(accumulatedText);
+              accumulatedText = remainder;
+
+              for (const sentence of sentences) {
+                try {
+                  const audio = await synthesize(stripMarkdown(sentence), currentSession?.speakerId);
+                  sendTurnChunk(sentence, audio);
+                } catch {
+                  sendTurnChunk(sentence);
+                }
+              }
+            }
           }
         }
 
-        // Extract text from content block deltas
+        // Legacy streaming format (fallback)
         if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
           const newText = event.delta.text;
           accumulatedText += newText;
           fullResponseText += newText;
 
-          // Try to split sentences for streaming TTS
           const [sentences, remainder] = splitSentences(accumulatedText);
           accumulatedText = remainder;
 
           for (const sentence of sentences) {
             try {
-              const audio = await synthesize(sentence, currentSession?.speakerId);
+              const audio = await synthesize(stripMarkdown(sentence), currentSession?.speakerId);
               sendTurnChunk(sentence, audio);
             } catch {
-              // TTS failed, send text only
               sendTurnChunk(sentence);
             }
           }
         }
 
-        // Look for session_id in result event
+        // Capture session_id for --resume on subsequent turns
         if (event.type === 'result' && event.session_id) {
           if (currentSession) {
             currentSession.resumeId = event.session_id;
@@ -179,7 +229,7 @@ export async function sendTurn(text: string): Promise<void> {
       // Flush remaining text
       if (accumulatedText.trim()) {
         try {
-          const audio = await synthesize(accumulatedText.trim(), currentSession?.speakerId);
+          const audio = await synthesize(stripMarkdown(accumulatedText.trim()), currentSession?.speakerId);
           sendTurnChunk(accumulatedText.trim(), audio);
         } catch {
           sendTurnChunk(accumulatedText.trim());

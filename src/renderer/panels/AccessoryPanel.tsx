@@ -4,6 +4,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { PluginAPIProvider } from '../plugins/plugin-context';
 import { createPluginAPI } from '../plugins/plugin-api-factory';
 import { getActiveContext } from '../plugins/plugin-loader';
+import { PluginErrorBoundary } from './PluginContentView';
 import { AgentList } from '../features/agents/AgentList';
 import { SettingsSubPage } from '../../shared/types';
 
@@ -71,9 +72,11 @@ function PluginSidebarPanel({ pluginId }: { pluginId: string }) {
   const SidebarPanel = mod.SidebarPanel;
 
   return (
-    <PluginAPIProvider api={api}>
-      <SidebarPanel api={api} />
-    </PluginAPIProvider>
+    <PluginErrorBoundary key={pluginId} pluginId={pluginId}>
+      <PluginAPIProvider api={api}>
+        <SidebarPanel api={api} />
+      </PluginAPIProvider>
+    </PluginErrorBoundary>
   );
 }
 

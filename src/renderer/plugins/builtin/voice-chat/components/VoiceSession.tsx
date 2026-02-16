@@ -225,9 +225,9 @@ export function VoiceSession({ api }: { api: PluginAPI }) {
       className: 'flex items-center justify-between px-3 py-1.5 border-b border-ctp-surface0 bg-ctp-mantle flex-shrink-0',
     },
       React.createElement('div', { className: 'flex items-center gap-2' },
-        React.createElement('span', {
-          className: 'w-2 h-2 rounded-full',
-          style: { backgroundColor: selectedAgent.color },
+        React.createElement(api.widgets.AgentAvatar, {
+          agentId: selectedAgent.id,
+          size: 'sm',
         }),
         React.createElement('span', { className: 'text-xs font-medium text-ctp-text' },
           `Voice — ${agentLabel}`,

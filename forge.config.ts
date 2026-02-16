@@ -7,6 +7,7 @@ import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-nati
 import { WebpackPlugin } from '@electron-forge/plugin-webpack';
 import path from 'path';
 import fs from 'fs';
+import { execFileSync } from 'child_process';
 
 import { mainConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';
@@ -32,6 +33,74 @@ function copyNativeModule(srcRoot: string, destRoot: string, moduleName: string)
   }
 }
 
+/**
+ * Rewrite hardcoded absolute dylib paths in the whisper native addon to use
+ * @loader_path so they resolve relative to the binary at runtime.
+ * The upstream package embeds CI build paths (e.g. /Users/runner/work/...).
+ */
+function fixWhisperDylibPaths(buildPath: string, platform: string, arch: string): void {
+  if (platform !== 'darwin') return;
+
+  const addonDir = path.join(
+    buildPath, 'node_modules', '@kutalia', 'whisper-node-addon',
+    'dist', `mac-${arch}`,
+  );
+  if (!fs.existsSync(addonDir)) return;
+
+  const dylibs = fs.readdirSync(addonDir).filter(f => f.endsWith('.dylib'));
+  const machoBins = [
+    ...dylibs.map(f => path.join(addonDir, f)),
+    path.join(addonDir, 'whisper.node'),
+  ].filter(f => fs.existsSync(f));
+
+  for (const bin of machoBins) {
+    // Read current LC_LOAD_DYLIB entries
+    let otoolOut: string;
+    try {
+      otoolOut = execFileSync('otool', ['-L', bin], { encoding: 'utf-8' });
+    } catch {
+      continue;
+    }
+
+    // Match lines with absolute paths that should be @loader_path-relative
+    const lines = otoolOut.split('\n');
+    for (const line of lines) {
+      const match = line.match(/^\s+(.+\.dylib)\s+\(/);
+      if (!match) continue;
+      const libPath = match[1];
+
+      // Skip system libs and already-relative paths
+      if (libPath.startsWith('/usr/lib') || libPath.startsWith('/System')) continue;
+      if (libPath.startsWith('@loader_path') || libPath.startsWith('@rpath') || libPath.startsWith('@executable_path')) continue;
+
+      // Extract the filename and rewrite to @loader_path/
+      const libName = path.basename(libPath);
+      try {
+        execFileSync('install_name_tool', ['-change', libPath, `@loader_path/${libName}`, bin]);
+      } catch {
+        // Best effort — some may be the install name itself, not a dependency
+      }
+    }
+
+    // Also fix the install name (id) for dylibs to use @loader_path
+    if (bin.endsWith('.dylib')) {
+      const libName = path.basename(bin);
+      try {
+        execFileSync('install_name_tool', ['-id', `@loader_path/${libName}`, bin]);
+      } catch {
+        // Best effort
+      }
+    }
+
+    // Re-sign after modification (ad-hoc) — macOS invalidates signatures on modification
+    try {
+      execFileSync('codesign', ['--force', '--sign', '-', bin]);
+    } catch {
+      // codesign may not be needed in dev, ignore failures
+    }
+  }
+}
+
 const config: ForgeConfig = {
   packagerConfig: {
     name: 'Clubhouse',
@@ -51,11 +120,12 @@ const config: ForgeConfig = {
       unpack: '{**/node_modules/node-pty/**,**/node_modules/@kutalia/whisper-node-addon/**}',
     },
     afterCopy: [
-      (buildPath: string, _electronVersion: string, _platform: string, _arch: string, callback: (err?: Error) => void) => {
+      (buildPath: string, _electronVersion: string, platform: string, arch: string, callback: (err?: Error) => void) => {
         try {
           const projectRoot = path.resolve(__dirname);
           copyNativeModule(projectRoot, buildPath, 'node-pty');
           copyNativeModule(projectRoot, buildPath, '@kutalia/whisper-node-addon');
+          fixWhisperDylibPaths(buildPath, platform, arch);
           callback();
         } catch (err) {
           callback(err as Error);

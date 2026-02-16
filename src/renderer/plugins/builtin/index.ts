@@ -24,6 +24,7 @@ const DEFAULT_ENABLED_IDS: ReadonlySet<string> = new Set([
   'hub',
   'terminal',
   'files',
+  'voice-chat',
 ]);
 
 export function getBuiltinPlugins(): BuiltinPlugin[] {

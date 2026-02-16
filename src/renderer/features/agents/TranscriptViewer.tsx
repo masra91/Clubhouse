@@ -168,7 +168,7 @@ function TranscriptItem({ item }: { item: DisplayItem }) {
     const truncated = item.text.length > 200;
     const displayText = expanded ? item.text : item.text.slice(0, 200);
     return (
-      <div className="text-xs text-ctp-subtext1">
+      <div className="text-xs text-ctp-text">
         <p className="whitespace-pre-wrap">{displayText}{truncated && !expanded ? '...' : ''}</p>
         {truncated && (
           <button

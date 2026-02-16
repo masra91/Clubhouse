@@ -17,13 +17,18 @@ function ensurePiper(): void {
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 
+  piperProcess.stderr?.on('data', (chunk: Buffer) => {
+    console.error('Piper stderr:', chunk.toString('utf-8'));
+  });
+
   piperProcess.on('error', (err) => {
     console.error('Piper process error:', err);
     piperProcess = null;
     piperReady = false;
   });
 
-  piperProcess.on('exit', () => {
+  piperProcess.on('exit', (code) => {
+    console.error('Piper process exited with code:', code);
     piperProcess = null;
     piperReady = false;
   });

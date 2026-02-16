@@ -55,21 +55,19 @@ export function AgentPicker({ api }: { api: PluginAPI }) {
         sleeping.map((agent) =>
           React.createElement('button', {
             key: agent.id,
-            className: `w-full text-left px-3 py-3 text-sm cursor-pointer transition-colors ${
+            className: `w-full text-left px-3 py-2.5 text-sm cursor-pointer transition-colors ${
               selectedAgent?.id === agent.id
                 ? 'bg-surface-1 text-ctp-text font-medium'
                 : 'text-ctp-subtext1 hover:bg-surface-0 hover:text-ctp-text'
             }`,
             onClick: () => handleSelect(agent),
           },
-            React.createElement('div', { className: 'flex items-center gap-3' },
-              React.createElement('span', {
-                className: 'w-2 h-2 rounded-full flex-shrink-0',
-                style: { backgroundColor: agent.color },
+            React.createElement('div', { className: 'flex items-center gap-2.5' },
+              React.createElement(api.widgets.AgentAvatar, {
+                agentId: agent.id,
+                size: 'sm',
               }),
-              React.createElement('span', { className: 'truncate' },
-                agent.emoji ? `${agent.emoji} ${agent.name}` : agent.name,
-              ),
+              React.createElement('span', { className: 'truncate' }, agent.name),
             ),
           ),
         ),
@@ -83,22 +81,21 @@ export function AgentPicker({ api }: { api: PluginAPI }) {
         running.map((agent) =>
           React.createElement('button', {
             key: agent.id,
-            className: `w-full text-left px-3 py-3 text-sm cursor-pointer transition-colors ${
+            className: `w-full text-left px-3 py-2.5 text-sm cursor-pointer transition-colors ${
               selectedAgent?.id === agent.id
                 ? 'bg-surface-1 text-ctp-text font-medium'
                 : 'text-ctp-subtext1 hover:bg-surface-0 hover:text-ctp-text'
             }`,
             onClick: () => handleSelect(agent),
           },
-            React.createElement('div', { className: 'flex items-center gap-3' },
-              React.createElement('span', {
-                className: 'w-2 h-2 rounded-full flex-shrink-0',
-                style: { backgroundColor: agent.color },
+            React.createElement('div', { className: 'flex items-center gap-2.5' },
+              React.createElement(api.widgets.AgentAvatar, {
+                agentId: agent.id,
+                size: 'sm',
+                showStatusRing: true,
               }),
               React.createElement('div', { className: 'flex flex-col min-w-0' },
-                React.createElement('span', { className: 'truncate' },
-                  agent.emoji ? `${agent.emoji} ${agent.name}` : agent.name,
-                ),
+                React.createElement('span', { className: 'truncate' }, agent.name),
                 React.createElement('span', { className: 'text-xs text-ctp-peach truncate' },
                   'Will end current session',
                 ),
