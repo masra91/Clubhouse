@@ -24,6 +24,7 @@ export interface IssueDetail extends IssueListItem {
 
 export const issueState = {
   selectedIssueNumber: null as number | null,
+  creatingNew: false,
   issues: [] as IssueListItem[],
   page: 1,
   hasMore: false,
@@ -32,6 +33,13 @@ export const issueState = {
 
   setSelectedIssue(num: number | null): void {
     this.selectedIssueNumber = num;
+    this.creatingNew = false;
+    this.notify();
+  },
+
+  setCreatingNew(val: boolean): void {
+    this.creatingNew = val;
+    if (val) this.selectedIssueNumber = null;
     this.notify();
   },
 
@@ -65,6 +73,7 @@ export const issueState = {
 
   reset(): void {
     this.selectedIssueNumber = null;
+    this.creatingNew = false;
     this.issues = [];
     this.page = 1;
     this.hasMore = false;

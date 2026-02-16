@@ -55,18 +55,8 @@ export function activate(ctx: PluginContext, api: PluginAPI): void {
   });
   ctx.subscriptions.push(refreshCmd);
 
-  const createCmd = api.commands.register('create', async () => {
-    const title = await api.ui.showInput('Issue title');
-    if (!title) return;
-    const body = await api.ui.showInput('Issue body (optional)', '');
-    const r = await api.process.exec('gh', ['issue', 'create', '--title', title, '--body', body ?? ''], { timeout: 30000 });
-    if (r.exitCode === 0) {
-      api.ui.showNotice(`Issue created: ${r.stdout.trim()}`);
-      issueState.page = 1;
-      issueState.setIssues([]);
-    } else {
-      api.ui.showError(r.stderr.trim() || 'Failed to create issue');
-    }
+  const createCmd = api.commands.register('create', () => {
+    issueState.setCreatingNew(true);
   });
   ctx.subscriptions.push(createCmd);
 }
@@ -150,18 +140,9 @@ export function SidebarPanel({ api }: { api: PluginAPI }) {
   }, []);
 
   // ── New Issue ─────────────────────────────────────────────────────────
-  const handleNewIssue = useCallback(async () => {
-    const title = await api.ui.showInput('Issue title');
-    if (!title) return;
-    const body = await api.ui.showInput('Issue body (optional)', '');
-    const r = await api.process.exec('gh', ['issue', 'create', '--title', title, '--body', body ?? ''], { timeout: 30000 });
-    if (r.exitCode === 0) {
-      api.ui.showNotice(`Issue created: ${r.stdout.trim()}`);
-      fetchIssues(1, false);
-    } else {
-      api.ui.showError(r.stderr.trim() || 'Failed to create issue');
-    }
-  }, [api, fetchIssues]);
+  const handleNewIssue = useCallback(() => {
+    issueState.setCreatingNew(true);
+  }, []);
 
   // ── New Issue with Agent ──────────────────────────────────────────────
   const handleNewIssueAgent = useCallback(async () => {
@@ -264,16 +245,24 @@ export function SidebarPanel({ api }: { api: PluginAPI }) {
 
 export function MainPanel({ api }: { api: PluginAPI }) {
   const [selected, setSelected] = useState<number | null>(issueState.selectedIssueNumber);
+  const [creatingNew, setCreatingNew] = useState(issueState.creatingNew);
   const [detail, setDetail] = useState<IssueDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [showAgentMenu, setShowAgentMenu] = useState(false);
   const [durableAgents, setDurableAgents] = useState<AgentInfo[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Inline create form state
+  const [newTitle, setNewTitle] = useState('');
+  const [newBody, setNewBody] = useState('');
+  const [newLabels, setNewLabels] = useState('');
+  const [creating, setCreating] = useState(false);
+
   // Subscribe to shared state
   useEffect(() => {
     const unsub = issueState.subscribe(() => {
       setSelected(issueState.selectedIssueNumber);
+      setCreatingNew(issueState.creatingNew);
     });
     return unsub;
   }, []);
@@ -350,6 +339,101 @@ export function MainPanel({ api }: { api: PluginAPI }) {
     setDurableAgents(agents);
     setShowAgentMenu(true);
   }, [api]);
+
+  // ── Create form handlers ─────────────────────────────────────────────
+  const handleCreate = useCallback(async () => {
+    if (!newTitle.trim()) return;
+    setCreating(true);
+    const args = ['issue', 'create', '--title', newTitle.trim(), '--body', newBody.trim()];
+    const labels = newLabels.split(',').map((l) => l.trim()).filter(Boolean);
+    for (const l of labels) {
+      args.push('--label', l);
+    }
+    const r = await api.process.exec('gh', args, { timeout: 30000 });
+    setCreating(false);
+    if (r.exitCode === 0) {
+      api.ui.showNotice(`Issue created: ${r.stdout.trim()}`);
+      setNewTitle('');
+      setNewBody('');
+      setNewLabels('');
+      issueState.setCreatingNew(false);
+      issueState.page = 1;
+      issueState.setIssues([]);
+    } else {
+      api.ui.showError(r.stderr.trim() || 'Failed to create issue');
+    }
+  }, [newTitle, newBody, newLabels, api]);
+
+  const handleCancelCreate = useCallback(() => {
+    setNewTitle('');
+    setNewBody('');
+    setNewLabels('');
+    issueState.setCreatingNew(false);
+  }, []);
+
+  // ── Inline create form ──────────────────────────────────────────────
+  if (creatingNew) {
+    return React.createElement('div', { className: 'flex flex-col h-full bg-ctp-base' },
+      // Header
+      React.createElement('div', {
+        className: 'flex items-center px-4 py-2.5 border-b border-ctp-surface0 bg-ctp-mantle flex-shrink-0',
+      },
+        React.createElement('span', { className: 'text-sm font-medium text-ctp-text' }, 'New Issue'),
+      ),
+      // Form
+      React.createElement('div', { className: 'flex-1 overflow-y-auto px-4 py-4 space-y-4' },
+        // Title
+        React.createElement('div', null,
+          React.createElement('label', { className: 'block text-xs font-medium text-ctp-subtext1 mb-1' }, 'Title'),
+          React.createElement('input', {
+            type: 'text',
+            className: 'w-full px-3 py-2 text-sm bg-ctp-mantle text-ctp-text border border-ctp-surface1 rounded-lg focus:outline-none focus:border-ctp-accent placeholder:text-ctp-subtext0',
+            placeholder: 'Issue title',
+            value: newTitle,
+            onChange: (e: React.ChangeEvent<HTMLInputElement>) => setNewTitle(e.target.value),
+            autoFocus: true,
+          }),
+        ),
+        // Body
+        React.createElement('div', null,
+          React.createElement('label', { className: 'block text-xs font-medium text-ctp-subtext1 mb-1' }, 'Body'),
+          React.createElement('textarea', {
+            className: 'w-full px-3 py-2 text-sm bg-ctp-mantle text-ctp-text border border-ctp-surface1 rounded-lg focus:outline-none focus:border-ctp-accent placeholder:text-ctp-subtext0 resize-y',
+            placeholder: 'Describe the issue...',
+            rows: 10,
+            value: newBody,
+            onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => setNewBody(e.target.value),
+          }),
+        ),
+        // Labels
+        React.createElement('div', null,
+          React.createElement('label', { className: 'block text-xs font-medium text-ctp-subtext1 mb-1' }, 'Labels'),
+          React.createElement('input', {
+            type: 'text',
+            className: 'w-full px-3 py-2 text-sm bg-ctp-mantle text-ctp-text border border-ctp-surface1 rounded-lg focus:outline-none focus:border-ctp-accent placeholder:text-ctp-subtext0',
+            placeholder: 'bug, enhancement, ...',
+            value: newLabels,
+            onChange: (e: React.ChangeEvent<HTMLInputElement>) => setNewLabels(e.target.value),
+          }),
+        ),
+      ),
+      // Bottom bar
+      React.createElement('div', {
+        className: 'flex items-center justify-end gap-2 px-4 py-3 border-t border-ctp-surface0 bg-ctp-mantle flex-shrink-0',
+      },
+        React.createElement('button', {
+          className: 'px-3 py-1.5 text-xs text-ctp-subtext0 hover:text-ctp-text hover:bg-ctp-surface0 rounded transition-colors',
+          onClick: handleCancelCreate,
+          disabled: creating,
+        }, 'Cancel'),
+        React.createElement('button', {
+          className: 'px-3 py-1.5 text-xs bg-ctp-accent/10 text-ctp-accent border border-ctp-accent/30 rounded hover:bg-ctp-accent/20 transition-colors disabled:opacity-50',
+          onClick: handleCreate,
+          disabled: creating || !newTitle.trim(),
+        }, creating ? 'Creating...' : 'Create Issue'),
+      ),
+    );
+  }
 
   // ── Empty state ───────────────────────────────────────────────────────
   if (selected === null) {
