@@ -222,6 +222,7 @@ export interface UIAPI {
   showError(message: string): void;
   showConfirm(message: string): Promise<boolean>;
   showInput(prompt: string, defaultValue?: string): Promise<string | null>;
+  openExternalUrl(url: string): Promise<void>;
 }
 
 export interface CommandsAPI {
@@ -336,6 +337,30 @@ export interface FilesAPI {
   showInFolder(relativePath: string): Promise<void>;
 }
 
+export interface GitHubIssueListItem {
+  number: number;
+  title: string;
+  state: string;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
+  author: { login: string };
+  labels: Array<{ name: string; color: string }>;
+}
+
+export interface GitHubIssueDetail extends GitHubIssueListItem {
+  body: string;
+  comments: Array<{ author: { login: string }; body: string; createdAt: string }>;
+  assignees: Array<{ login: string }>;
+}
+
+export interface GitHubAPI {
+  listIssues(opts?: { page?: number; perPage?: number; state?: string }): Promise<{ issues: GitHubIssueListItem[]; hasMore: boolean }>;
+  viewIssue(issueNumber: number): Promise<GitHubIssueDetail | null>;
+  createIssue(title: string, body: string): Promise<{ ok: boolean; url?: string; message?: string }>;
+  getRepoUrl(): Promise<string>;
+}
+
 export interface VoiceModelStatus {
   name: string;
   path: string;
@@ -395,6 +420,7 @@ export interface PluginAPI {
   voice: VoiceAPI;
   logging: LoggingAPI;
   files: FilesAPI;
+  github: GitHubAPI;
   context: PluginContextInfo;
 }
 

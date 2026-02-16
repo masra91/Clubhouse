@@ -83,7 +83,14 @@ export const IPC = {
     STASH: 'git:stash',
     STASH_POP: 'git:stash-pop',
   },
+  GITHUB: {
+    LIST_ISSUES: 'github:list-issues',
+    VIEW_ISSUE: 'github:view-issue',
+    CREATE_ISSUE: 'github:create-issue',
+    GET_REPO_URL: 'github:get-repo-url',
+  },
   APP: {
+    OPEN_EXTERNAL_URL: 'app:open-external-url',
     OPEN_SETTINGS: 'app:open-settings',
     GET_NOTIFICATION_SETTINGS: 'app:get-notification-settings',
     SAVE_NOTIFICATION_SETTINGS: 'app:save-notification-settings',

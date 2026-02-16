@@ -64,6 +64,7 @@ export function createMockAPI(overrides?: Partial<PluginAPI>): PluginAPI {
       showError: noop,
       showConfirm: async () => false,
       showInput: asyncNull,
+      openExternalUrl: asyncNoop,
     },
     commands: {
       register: () => ({ dispose: noop }),
@@ -141,6 +142,12 @@ export function createMockAPI(overrides?: Partial<PluginAPI>): PluginAPI {
       mkdir: asyncNoop,
       delete: asyncNoop,
       showInFolder: asyncNoop,
+    },
+    github: {
+      listIssues: async () => ({ issues: [], hasMore: false }),
+      viewIssue: async () => null,
+      createIssue: async () => ({ ok: true, url: 'https://github.com/test/repo/issues/1' }),
+      getRepoUrl: async () => 'https://github.com/test/repo',
     },
     context: {
       mode: 'project',
