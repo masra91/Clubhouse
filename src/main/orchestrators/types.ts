@@ -19,6 +19,15 @@ export interface HeadlessOpts extends SpawnOpts {
   disallowedTools?: string[];
 }
 
+export type HeadlessOutputKind = 'stream-json' | 'text';
+
+export interface HeadlessCommandResult {
+  binary: string;
+  args: string[];
+  env?: Record<string, string>;
+  outputKind?: HeadlessOutputKind;  // defaults to 'stream-json'
+}
+
 export interface NormalizedHookEvent {
   kind: 'pre_tool' | 'post_tool' | 'tool_error' | 'stop' | 'notification' | 'permission_request';
   toolName?: string;
@@ -72,5 +81,5 @@ export interface OrchestratorProvider {
   readQuickSummary(agentId: string): Promise<{ summary: string | null; filesModified: string[] } | null>;
 
   // Headless mode (optional — absence means headless not supported)
-  buildHeadlessCommand?(opts: HeadlessOpts): Promise<{ binary: string; args: string[]; env?: Record<string, string> } | null>;
+  buildHeadlessCommand?(opts: HeadlessOpts): Promise<HeadlessCommandResult | null>;
 }

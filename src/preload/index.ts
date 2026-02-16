@@ -283,7 +283,7 @@ const api = {
       ipcRenderer.invoke(IPC.APP.GET_VERSION),
     getHeadlessSettings: () =>
       ipcRenderer.invoke(IPC.APP.GET_HEADLESS_SETTINGS),
-    saveHeadlessSettings: (settings: { enabled: boolean }) =>
+    saveHeadlessSettings: (settings: { enabled: boolean; projectOverrides?: Record<string, string> }) =>
       ipcRenderer.invoke(IPC.APP.SAVE_HEADLESS_SETTINGS, settings),
   },
 };

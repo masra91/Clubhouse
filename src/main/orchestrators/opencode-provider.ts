@@ -5,6 +5,7 @@ import {
   OrchestratorConventions,
   SpawnOpts,
   HeadlessOpts,
+  HeadlessCommandResult,
   NormalizedHookEvent,
 } from './types';
 import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary } from './shared';
@@ -119,7 +120,7 @@ export class OpenCodeProvider implements OrchestratorProvider {
     fs.writeFileSync(path.join(dir, 'instructions.md'), content, 'utf-8');
   }
 
-  async buildHeadlessCommand(opts: HeadlessOpts): Promise<{ binary: string; args: string[] } | null> {
+  async buildHeadlessCommand(opts: HeadlessOpts): Promise<HeadlessCommandResult | null> {
     if (!opts.mission) return null;
 
     const binary = findOpenCodeBinary();
@@ -129,7 +130,7 @@ export class OpenCodeProvider implements OrchestratorProvider {
       args.push('--model', opts.model);
     }
 
-    return { binary, args };
+    return { binary, args, outputKind: 'text' };
   }
 
   getModelOptions() { return MODEL_OPTIONS; }

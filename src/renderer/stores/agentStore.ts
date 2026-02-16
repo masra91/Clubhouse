@@ -174,7 +174,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     // Explicit orchestrator > inherit from parent
     const resolvedOrchestrator = orchestrator || (parentAgentId ? get().agents[parentAgentId]?.orchestrator : undefined);
 
-    const isHeadless = useHeadlessStore.getState().enabled;
+    const isHeadless = useHeadlessStore.getState().getProjectMode(projectPath) === 'headless';
 
     const agent: Agent = {
       id: agentId,

@@ -101,8 +101,8 @@ export async function spawnAgent(params: SpawnAgentParams): Promise<void> {
     || (params.kind === 'quick' ? provider.getDefaultPermissions('quick') : undefined);
 
   // Try headless path for quick agents when enabled
-  const settings = headlessSettings.getSettings();
-  if (settings.enabled && params.kind === 'quick' && provider.buildHeadlessCommand) {
+  const spawnMode = headlessSettings.getSpawnMode(params.projectPath);
+  if (spawnMode === 'headless' && params.kind === 'quick' && provider.buildHeadlessCommand) {
     const headlessResult = await provider.buildHeadlessCommand({
       cwd: params.cwd,
       model: params.model,
@@ -110,8 +110,8 @@ export async function spawnAgent(params: SpawnAgentParams): Promise<void> {
       systemPrompt: params.systemPrompt,
       allowedTools,
       agentId: params.agentId,
-      outputFormat: 'stream-json',
-      permissionMode: 'auto',
+      maxTurns: 50,
+      maxBudgetUsd: 1.0,
       noSessionPersistence: true,
     });
 
@@ -124,6 +124,7 @@ export async function spawnAgent(params: SpawnAgentParams): Promise<void> {
         headlessResult.binary,
         headlessResult.args,
         spawnEnv,
+        headlessResult.outputKind || 'stream-json',
       );
       return;
     }

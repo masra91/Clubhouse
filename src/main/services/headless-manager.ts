@@ -7,14 +7,17 @@ import { JsonlParser, StreamJsonEvent } from './jsonl-parser';
 import { parseTranscript, TranscriptSummary } from './transcript-parser';
 import { getShellEnvironment } from '../util/shell';
 import { appLog } from './log-service';
+import { HeadlessOutputKind } from '../orchestrators/types';
 
 interface HeadlessSession {
   process: ChildProcess;
   agentId: string;
-  parser: JsonlParser;
+  outputKind: HeadlessOutputKind;
+  parser: JsonlParser | null;
   transcript: StreamJsonEvent[];
   transcriptPath: string;
   startedAt: number;
+  textBuffer?: string;
 }
 
 const sessions = new Map<string, HeadlessSession>();
@@ -42,6 +45,7 @@ export function spawnHeadless(
   binary: string,
   args: string[],
   extraEnv?: Record<string, string>,
+  outputKind: HeadlessOutputKind = 'stream-json',
 ): void {
   // Clean up any existing session
   if (sessions.has(agentId)) {
@@ -78,7 +82,7 @@ export function spawnHeadless(
     appLog('core:headless', 'info', `Process spawned`, { meta: { agentId, pid: proc.pid } });
   }
 
-  const parser = new JsonlParser();
+  const parser = outputKind === 'stream-json' ? new JsonlParser() : null;
   const transcript: StreamJsonEvent[] = [];
   let stdoutBytes = 0;
   let stderrChunks: string[] = [];
@@ -86,6 +90,7 @@ export function spawnHeadless(
   const session: HeadlessSession = {
     process: proc,
     agentId,
+    outputKind,
     parser,
     transcript,
     transcriptPath,
@@ -98,30 +103,44 @@ export function spawnHeadless(
   // Track which content_block indices are tool_use (for matching content_block_stop)
   const activeToolBlocks = new Map<number, string>();
 
-  parser.on('line', (event: StreamJsonEvent) => {
-    transcript.push(event);
+  if (parser) {
+    parser.on('line', (event: StreamJsonEvent) => {
+      transcript.push(event);
 
-    // Log first event for diagnostics
-    if (transcript.length === 1) {
-      appLog('core:headless', 'info', `First JSONL event received`, {
-        meta: { agentId, type: event.type },
-      });
-    }
+      // Log first event for diagnostics
+      if (transcript.length === 1) {
+        appLog('core:headless', 'info', `First JSONL event received`, {
+          meta: { agentId, type: event.type },
+        });
+      }
 
-    // Persist to disk
-    logStream.write(JSON.stringify(event) + '\n');
+      // Persist to disk
+      logStream.write(JSON.stringify(event) + '\n');
 
-    // Emit hook events to renderer for status tracking
-    const hookEvents = mapToHookEvent(event, activeToolBlocks);
-    if (hookEvents.length > 0) {
-      const win = getMainWindow();
-      if (win && !win.isDestroyed()) {
-        for (const hookEvent of hookEvents) {
-          win.webContents.send(IPC.AGENT.HOOK_EVENT, agentId, hookEvent);
+      // Emit hook events to renderer for status tracking
+      const hookEvents = mapToHookEvent(event, activeToolBlocks);
+      if (hookEvents.length > 0) {
+        const win = getMainWindow();
+        if (win && !win.isDestroyed()) {
+          for (const hookEvent of hookEvents) {
+            win.webContents.send(IPC.AGENT.HOOK_EVENT, agentId, hookEvent);
+          }
         }
       }
+    });
+  }
+
+  // Emit initial notification for text mode so HeadlessAgentView shows activity
+  if (outputKind === 'text') {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(IPC.AGENT.HOOK_EVENT, agentId, {
+        kind: 'notification',
+        message: 'Agent running (text output — live events unavailable)',
+        timestamp: Date.now(),
+      });
     }
-  });
+  }
 
   proc.stdout?.on('data', (chunk: Buffer) => {
     const str = chunk.toString();
@@ -132,7 +151,11 @@ export function spawnHeadless(
         meta: { agentId, bytes: str.length, preview: str.slice(0, 200) },
       });
     }
-    parser.feed(str);
+    if (parser) {
+      parser.feed(str);
+    } else {
+      session.textBuffer = (session.textBuffer || '') + str;
+    }
   });
 
   proc.stderr?.on('data', (chunk: Buffer) => {
@@ -152,7 +175,31 @@ export function spawnHeadless(
   });
 
   proc.on('close', (code) => {
-    parser.flush();
+    if (parser) {
+      parser.flush();
+    }
+
+    // For text mode, synthesize a result transcript entry from buffered output
+    if (outputKind === 'text' && session.textBuffer) {
+      const resultEvent: StreamJsonEvent = {
+        type: 'result',
+        result: session.textBuffer.trim(),
+        duration_ms: Date.now() - session.startedAt,
+        cost_usd: 0,
+      };
+      transcript.push(resultEvent);
+      logStream.write(JSON.stringify(resultEvent) + '\n');
+
+      const win = getMainWindow();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send(IPC.AGENT.HOOK_EVENT, agentId, {
+          kind: 'stop',
+          message: session.textBuffer.trim().slice(0, 500),
+          timestamp: Date.now(),
+        });
+      }
+    }
+
     logStream.end();
     sessions.delete(agentId);
 

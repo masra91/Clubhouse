@@ -107,6 +107,7 @@ describe('Provider integration tests', () => {
 
       expect(result).not.toBeNull();
       const { args } = result!;
+      expect(result!.outputKind).toBe('stream-json');
       expect(args).toContain('-p');
       expect(args[args.indexOf('-p') + 1]).toBe('Fix the auth bug');
       expect(args).toContain('--output-format');
@@ -167,7 +168,7 @@ describe('Provider integration tests', () => {
       expect(args[args.indexOf('--disallowedTools') + 1]).toBe('Bash');
     });
 
-    it('CopilotCli: generates headless command with --allow-all --silent', async () => {
+    it('CopilotCli: generates headless command with --allow-all --silent and text outputKind', async () => {
       const provider = new CopilotCliProvider();
       const result = await provider.buildHeadlessCommand!({
         cwd: '/p',
@@ -177,6 +178,7 @@ describe('Provider integration tests', () => {
       });
 
       expect(result).not.toBeNull();
+      expect(result!.outputKind).toBe('text');
       const { args } = result!;
       expect(args).toContain('-p');
       const pIdx = args.indexOf('-p');
@@ -194,7 +196,7 @@ describe('Provider integration tests', () => {
       expect(result).toBeNull();
     });
 
-    it('OpenCode: generates headless command with run --format json', async () => {
+    it('OpenCode: generates headless command with run --format json and text outputKind', async () => {
       const provider = new OpenCodeProvider();
       const result = await provider.buildHeadlessCommand!({
         cwd: '/p',
@@ -203,6 +205,7 @@ describe('Provider integration tests', () => {
       });
 
       expect(result).not.toBeNull();
+      expect(result!.outputKind).toBe('text');
       const { args } = result!;
       expect(args[0]).toBe('run');
       expect(args[1]).toBe('Fix the bug');

@@ -25,8 +25,10 @@ vi.mock('./headless-manager', () => ({
 
 // Mock headless-settings
 const mockGetSettings = vi.fn(() => ({ enabled: true }));
+const mockGetSpawnMode = vi.fn(() => 'headless' as const);
 vi.mock('./headless-settings', () => ({
   getSettings: () => mockGetSettings(),
+  getSpawnMode: (...args: unknown[]) => mockGetSpawnMode(...args),
   saveSettings: vi.fn(),
 }));
 
@@ -83,6 +85,7 @@ describe('Headless fallback behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetSettings.mockReturnValue({ enabled: true });
+    mockGetSpawnMode.mockReturnValue('headless');
     activeProvider = providerWithoutHeadless;
   });
 
@@ -106,7 +109,7 @@ describe('Headless fallback behavior', () => {
   });
 
   it('falls back to PTY when headless disabled + Claude Code', async () => {
-    mockGetSettings.mockReturnValue({ enabled: false });
+    mockGetSpawnMode.mockReturnValue('interactive');
     activeProvider = providerWithHeadlessNull;
 
     await spawnAgent({

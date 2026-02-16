@@ -5,6 +5,7 @@ import {
   OrchestratorConventions,
   SpawnOpts,
   HeadlessOpts,
+  HeadlessCommandResult,
   NormalizedHookEvent,
 } from './types';
 import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary } from './shared';
@@ -176,7 +177,7 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
     fs.writeFileSync(filePath, content, 'utf-8');
   }
 
-  async buildHeadlessCommand(opts: HeadlessOpts): Promise<{ binary: string; args: string[]; env?: Record<string, string> } | null> {
+  async buildHeadlessCommand(opts: HeadlessOpts): Promise<HeadlessCommandResult | null> {
     if (!opts.mission) return null;
 
     const binary = findClaudeBinary();
@@ -220,7 +221,7 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
       args.push('--no-session-persistence');
     }
 
-    return { binary, args };
+    return { binary, args, outputKind: 'stream-json' };
   }
 
   getModelOptions() { return MODEL_OPTIONS; }

@@ -28,8 +28,10 @@ vi.mock('./headless-manager', () => ({
 
 // Mock headless-settings
 const mockGetSettings = vi.fn(() => ({ enabled: false }));
+const mockGetSpawnMode = vi.fn(() => 'interactive' as const);
 vi.mock('./headless-settings', () => ({
   getSettings: () => mockGetSettings(),
+  getSpawnMode: (...args: unknown[]) => mockGetSpawnMode(...args),
   saveSettings: vi.fn(),
 }));
 
@@ -82,9 +84,11 @@ describe('Headless integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetSettings.mockReturnValue({ enabled: false });
+    mockGetSpawnMode.mockReturnValue('interactive');
     mockBuildHeadlessCommand.mockResolvedValue({
       binary: '/usr/local/bin/claude',
       args: ['-p', 'Fix bug', '--output-format', 'stream-json'],
+      outputKind: 'stream-json',
     });
   });
 
@@ -109,7 +113,7 @@ describe('Headless integration', () => {
     });
 
     it('uses headless when enabled and kind is quick', async () => {
-      mockGetSettings.mockReturnValue({ enabled: true });
+      mockGetSpawnMode.mockReturnValue('headless');
 
       await spawnAgent({
         agentId: 'test-agent',
@@ -124,7 +128,7 @@ describe('Headless integration', () => {
     });
 
     it('uses PTY for durable agents even when headless is enabled', async () => {
-      mockGetSettings.mockReturnValue({ enabled: true });
+      mockGetSpawnMode.mockReturnValue('headless');
 
       await spawnAgent({
         agentId: 'test-agent',
@@ -138,7 +142,7 @@ describe('Headless integration', () => {
     });
 
     it('falls back to PTY when buildHeadlessCommand returns null', async () => {
-      mockGetSettings.mockReturnValue({ enabled: true });
+      mockGetSpawnMode.mockReturnValue('headless');
       mockBuildHeadlessCommand.mockResolvedValue(null);
 
       await spawnAgent({
@@ -154,7 +158,7 @@ describe('Headless integration', () => {
     });
 
     it('passes correct args to headless spawn', async () => {
-      mockGetSettings.mockReturnValue({ enabled: true });
+      mockGetSpawnMode.mockReturnValue('headless');
 
       await spawnAgent({
         agentId: 'test-agent',
@@ -171,12 +175,13 @@ describe('Headless integration', () => {
         ['-p', 'Fix bug', '--output-format', 'stream-json'],
         expect.objectContaining({
           CLUBHOUSE_AGENT_ID: 'test-agent',
-        })
+        }),
+        'stream-json',
       );
     });
 
     it('headless agents skip hook server setup', async () => {
-      mockGetSettings.mockReturnValue({ enabled: true });
+      mockGetSpawnMode.mockReturnValue('headless');
 
       await spawnAgent({
         agentId: 'test-agent',
@@ -191,7 +196,7 @@ describe('Headless integration', () => {
     });
 
     it('headless provider receives correct opts', async () => {
-      mockGetSettings.mockReturnValue({ enabled: true });
+      mockGetSpawnMode.mockReturnValue('headless');
 
       await spawnAgent({
         agentId: 'test-agent',
@@ -211,8 +216,8 @@ describe('Headless integration', () => {
           model: 'sonnet',
           systemPrompt: 'Be thorough',
           allowedTools: ['Read'],
-          outputFormat: 'stream-json',
-          permissionMode: 'auto',
+          maxTurns: 50,
+          maxBudgetUsd: 1.0,
           noSessionPersistence: true,
         })
       );
@@ -221,7 +226,7 @@ describe('Headless integration', () => {
 
   describe('headless agent tracking', () => {
     it('isHeadlessAgent returns true for headless agents', async () => {
-      mockGetSettings.mockReturnValue({ enabled: true });
+      mockGetSpawnMode.mockReturnValue('headless');
 
       await spawnAgent({
         agentId: 'test-agent',
@@ -249,9 +254,165 @@ describe('Headless integration', () => {
     });
   });
 
+  describe('per-project spawn mode routing', () => {
+    it('getSpawnMode is called with projectPath', async () => {
+      mockGetSpawnMode.mockReturnValue('headless');
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/my/specific/project',
+        cwd: '/my/specific/project',
+        kind: 'quick',
+        mission: 'Fix bug',
+      });
+
+      expect(mockGetSpawnMode).toHaveBeenCalledWith('/my/specific/project');
+    });
+
+    it('project set to headless spawns headless even if global is interactive', async () => {
+      // Simulate per-project override returning headless
+      mockGetSpawnMode.mockReturnValue('headless');
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/headless-project',
+        cwd: '/headless-project',
+        kind: 'quick',
+        mission: 'Fix bug',
+      });
+
+      expect(mockHeadlessSpawn).toHaveBeenCalled();
+      expect(mockPtySpawn).not.toHaveBeenCalled();
+    });
+
+    it('project set to interactive spawns PTY even if global is headless', async () => {
+      // Simulate per-project override returning interactive
+      mockGetSpawnMode.mockReturnValue('interactive');
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/interactive-project',
+        cwd: '/interactive-project',
+        kind: 'quick',
+        mission: 'Fix bug',
+      });
+
+      expect(mockPtySpawn).toHaveBeenCalled();
+      expect(mockHeadlessSpawn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('outputKind passthrough', () => {
+    it('passes stream-json outputKind to headless manager', async () => {
+      mockGetSpawnMode.mockReturnValue('headless');
+      mockBuildHeadlessCommand.mockResolvedValue({
+        binary: '/usr/local/bin/claude',
+        args: ['-p', 'test'],
+        outputKind: 'stream-json',
+      });
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/project',
+        cwd: '/project',
+        kind: 'quick',
+        mission: 'test',
+      });
+
+      expect(mockHeadlessSpawn).toHaveBeenCalledWith(
+        'test-agent', '/project', '/usr/local/bin/claude', ['-p', 'test'],
+        expect.any(Object),
+        'stream-json',
+      );
+    });
+
+    it('passes text outputKind to headless manager', async () => {
+      mockGetSpawnMode.mockReturnValue('headless');
+      mockBuildHeadlessCommand.mockResolvedValue({
+        binary: '/usr/local/bin/copilot',
+        args: ['-p', 'test', '--allow-all'],
+        outputKind: 'text',
+      });
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/project',
+        cwd: '/project',
+        kind: 'quick',
+        mission: 'test',
+      });
+
+      expect(mockHeadlessSpawn).toHaveBeenCalledWith(
+        'test-agent', '/project', '/usr/local/bin/copilot', ['-p', 'test', '--allow-all'],
+        expect.any(Object),
+        'text',
+      );
+    });
+
+    it('defaults to stream-json when provider does not set outputKind', async () => {
+      mockGetSpawnMode.mockReturnValue('headless');
+      mockBuildHeadlessCommand.mockResolvedValue({
+        binary: '/usr/local/bin/claude',
+        args: ['-p', 'test'],
+        // No outputKind property
+      });
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/project',
+        cwd: '/project',
+        kind: 'quick',
+        mission: 'test',
+      });
+
+      expect(mockHeadlessSpawn).toHaveBeenCalledWith(
+        'test-agent', '/project', '/usr/local/bin/claude', ['-p', 'test'],
+        expect.any(Object),
+        'stream-json',
+      );
+    });
+  });
+
+  describe('maxTurns and maxBudgetUsd defaults', () => {
+    it('passes maxTurns: 50 and maxBudgetUsd: 1.0 to provider', async () => {
+      mockGetSpawnMode.mockReturnValue('headless');
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/project',
+        cwd: '/project',
+        kind: 'quick',
+        mission: 'Fix bug',
+      });
+
+      expect(mockBuildHeadlessCommand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          maxTurns: 50,
+          maxBudgetUsd: 1.0,
+        })
+      );
+    });
+
+    it('does not pass outputFormat or permissionMode to provider', async () => {
+      mockGetSpawnMode.mockReturnValue('headless');
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/project',
+        cwd: '/project',
+        kind: 'quick',
+        mission: 'Fix bug',
+      });
+
+      const callArgs = mockBuildHeadlessCommand.mock.calls[0][0];
+      expect(callArgs.outputFormat).toBeUndefined();
+      expect(callArgs.permissionMode).toBeUndefined();
+    });
+  });
+
   describe('killAgent routing', () => {
     it('kills headless agents via headless manager', async () => {
-      mockGetSettings.mockReturnValue({ enabled: true });
+      mockGetSpawnMode.mockReturnValue('headless');
 
       await spawnAgent({
         agentId: 'test-agent',
