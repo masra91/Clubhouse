@@ -192,7 +192,8 @@ export function VoiceSession({ api }: { api: PluginAPI }) {
             ),
           )
         : React.createElement('button', {
-            className: 'px-4 py-2 text-sm bg-ctp-blue text-ctp-base rounded-lg hover:bg-ctp-blue/80 transition-colors',
+            className: 'px-4 py-2 text-sm rounded-lg transition-colors cursor-pointer',
+            style: { backgroundColor: 'var(--ctp-blue, #89b4fa)', color: 'var(--ctp-base, #1e1e2e)' },
             onClick: handleDownloadModels,
           }, 'Download Models'),
       error && React.createElement('p', { className: 'text-xs text-ctp-red' }, error),

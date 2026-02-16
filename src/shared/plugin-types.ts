@@ -441,6 +441,8 @@ export interface VoiceAPI {
   checkModels(): Promise<VoiceModelStatus[]>;
   /** Download missing STT/TTS models (~200MB). */
   downloadModels(): Promise<void>;
+  /** Delete all downloaded voice models from disk. */
+  deleteModels(): Promise<void>;
   /** Subscribe to model download progress events. */
   onDownloadProgress(callback: (progress: VoiceDownloadProgress) => void): Disposable;
   /** Transcribe 16kHz mono Float32 PCM audio to text via Whisper. */

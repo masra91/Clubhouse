@@ -13,6 +13,7 @@ vi.mock('fs', () => ({
   existsSync: vi.fn(() => false),
   statSync: vi.fn(() => ({ size: 100 })),
   mkdirSync: vi.fn(),
+  rmSync: vi.fn(),
   createWriteStream: vi.fn(() => ({
     close: vi.fn((cb: () => void) => cb()),
     on: vi.fn(),
@@ -22,7 +23,7 @@ vi.mock('fs', () => ({
   chmodSync: vi.fn(),
 }));
 
-import { checkModels, getModelPaths } from './model-manager';
+import { checkModels, getModelPaths, deleteModels } from './model-manager';
 import * as fs from 'fs';
 
 describe('model-manager', () => {
@@ -90,6 +91,23 @@ describe('model-manager', () => {
       const models = checkModels();
       const binary = models.find((m) => m.name === 'piper');
       expect(binary).toBeDefined();
+    });
+  });
+
+  describe('deleteModels', () => {
+    it('removes the models directory when it exists', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(true);
+      deleteModels();
+      expect(fs.rmSync).toHaveBeenCalledWith(
+        expect.stringContaining('voice-models'),
+        { recursive: true },
+      );
+    });
+
+    it('does not throw when models directory does not exist', () => {
+      vi.mocked(fs.existsSync).mockReturnValue(false);
+      expect(() => deleteModels()).not.toThrow();
+      expect(fs.rmSync).not.toHaveBeenCalled();
     });
   });
 

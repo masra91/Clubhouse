@@ -13,6 +13,10 @@ export function registerVoiceHandlers(): void {
     await modelManager.downloadModels();
   });
 
+  ipcMain.handle(IPC.VOICE.DELETE_MODELS, () => {
+    modelManager.deleteModels();
+  });
+
   ipcMain.handle(IPC.VOICE.TRANSCRIBE, async (_event, pcmData: ArrayBuffer) => {
     const pcmFloat32 = new Float32Array(pcmData);
     return sttService.transcribe(pcmFloat32);

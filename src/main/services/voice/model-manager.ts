@@ -99,8 +99,8 @@ function downloadFile(url: string, destPath: string, modelName: string): Promise
     const get = url.startsWith('https') ? https.get : http.get;
 
     const request = get(url, (response) => {
-      // Follow redirects
-      if (response.statusCode === 301 || response.statusCode === 302) {
+      // Follow redirects (301, 302, 307, 308)
+      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
         file.close();
         fs.unlinkSync(tmpPath);
         downloadFile(response.headers.location!, destPath, modelName).then(resolve, reject);
@@ -176,6 +176,12 @@ export async function downloadModels(): Promise<void> {
     if (fs.existsSync(piperBin)) {
       fs.chmodSync(piperBin, 0o755);
     }
+  }
+}
+
+export function deleteModels(): void {
+  if (fs.existsSync(MODELS_DIR)) {
+    fs.rmSync(MODELS_DIR, { recursive: true });
   }
 }
 
