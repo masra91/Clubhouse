@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// Mock config-pipeline
+vi.mock('./config-pipeline', () => ({
+  snapshotFile: vi.fn(),
+  restoreForAgent: vi.fn(),
+  getHooksConfigPath: vi.fn(() => '/project/.mock/settings.json'),
+  restoreAll: vi.fn(),
+}));
+
 // Mock pty-manager
 const mockPtySpawn = vi.fn();
 const mockPtyGracefulKill = vi.fn();

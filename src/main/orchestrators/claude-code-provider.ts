@@ -10,6 +10,7 @@ import {
   NormalizedHookEvent,
 } from './types';
 import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary } from './shared';
+import { isClubhouseHookEntry } from '../services/config-pipeline';
 
 const TOOL_VERBS: Record<string, string> = {
   Bash: 'Running command',
@@ -148,7 +149,17 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
       // No existing file
     }
 
-    const merged: Record<string, unknown> = { ...existing, hooks };
+    // Merge per-event key: preserve user hooks, replace stale Clubhouse entries
+    const existingHooks = (existing.hooks || {}) as Record<string, unknown[]>;
+    const mergedHooks: Record<string, unknown[]> = { ...existingHooks };
+
+    for (const [eventKey, ourEntries] of Object.entries(hooks)) {
+      const current = mergedHooks[eventKey] || [];
+      const userEntries = current.filter(e => !isClubhouseHookEntry(e));
+      mergedHooks[eventKey] = [...userEntries, ...ourEntries];
+    }
+
+    const merged: Record<string, unknown> = { ...existing, hooks: mergedHooks };
     fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2), 'utf-8');
   }
 

@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog } from 'electron';
 import { registerAllHandlers } from './ipc';
 import { killAll } from './services/pty-manager';
+import { restoreAll } from './services/config-pipeline';
 import { buildMenu } from './menu';
 import { getSettings as getThemeSettings } from './services/theme-service';
 import * as safeMode from './services/safe-mode';
@@ -156,6 +157,7 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', () => {
-  appLog('core:shutdown', 'info', 'App shutting down, killing all PTY sessions');
+  appLog('core:shutdown', 'info', 'App shutting down, restoring configs and killing all PTY sessions');
+  restoreAll();
   killAll();
 });

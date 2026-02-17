@@ -7,6 +7,7 @@ import * as ptyManager from './pty-manager';
 import { appLog } from './log-service';
 import * as headlessManager from './headless-manager';
 import * as headlessSettings from './headless-settings';
+import * as configPipeline from './config-pipeline';
 
 const DEFAULT_ORCHESTRATOR: OrchestratorId = 'claude-code';
 
@@ -127,6 +128,9 @@ export async function spawnAgent(params: SpawnAgentParams): Promise<void> {
         headlessResult.args,
         spawnEnv,
         headlessResult.outputKind || 'stream-json',
+        (exitAgentId) => {
+          configPipeline.restoreForAgent(exitAgentId);
+        },
       );
       return;
     }
@@ -143,6 +147,12 @@ async function spawnPtyAgent(
 ): Promise<void> {
   const nonce = randomUUID();
   agentNonceMap.set(params.agentId, nonce);
+
+  // Snapshot hooks config before writing so we can restore on exit
+  const hookConfigPath = configPipeline.getHooksConfigPath(provider, params.cwd);
+  if (hookConfigPath) {
+    configPipeline.snapshotFile(params.agentId, hookConfigPath);
+  }
 
   const port = await waitHookServerReady();
   const hookUrl = `http://127.0.0.1:${port}/hook`;
@@ -168,7 +178,9 @@ async function spawnPtyAgent(
   });
 
   const spawnEnv = { ...env, CLUBHOUSE_AGENT_ID: params.agentId, CLUBHOUSE_HOOK_NONCE: nonce };
-  ptyManager.spawn(params.agentId, params.cwd, binary, args, spawnEnv);
+  ptyManager.spawn(params.agentId, params.cwd, binary, args, spawnEnv, (exitAgentId) => {
+    configPipeline.restoreForAgent(exitAgentId);
+  });
 }
 
 export async function killAgent(agentId: string, projectPath: string, orchestrator?: OrchestratorId): Promise<void> {

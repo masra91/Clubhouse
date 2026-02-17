@@ -489,6 +489,105 @@ describe('Provider integration tests', () => {
     });
   });
 
+  describe('writeHooksConfig merge behavior', () => {
+    it('ClaudeCode: preserves existing user hooks alongside Clubhouse hooks', async () => {
+      const provider = new ClaudeCodeProvider();
+      vi.mocked(fs.existsSync).mockImplementation((p) => String(p).endsWith('/claude'));
+
+      // Simulate existing user hooks
+      const existingConfig = {
+        someOtherSetting: true,
+        hooks: {
+          PreToolUse: [{ hooks: [{ type: 'command', command: 'echo "user pre-tool hook"' }] }],
+          Stop: [{ hooks: [{ type: 'command', command: 'echo "user stop hook"' }] }],
+        },
+      };
+      vi.mocked(fs.readFileSync).mockReturnValueOnce(JSON.stringify(existingConfig));
+
+      await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
+
+      const written = JSON.parse(vi.mocked(fs.writeFileSync).mock.calls[0][1] as string);
+      // User's other settings preserved
+      expect(written.someOtherSetting).toBe(true);
+      // PreToolUse should have user entry + our entry
+      expect(written.hooks.PreToolUse).toHaveLength(2);
+      expect(written.hooks.PreToolUse[0].hooks[0].command).toBe('echo "user pre-tool hook"');
+      expect(written.hooks.PreToolUse[1].hooks[0].command).toContain('CLUBHOUSE_AGENT_ID');
+      // Stop should have user entry + our entry
+      expect(written.hooks.Stop).toHaveLength(2);
+    });
+
+    it('ClaudeCode: replaces stale Clubhouse entries (idempotent)', async () => {
+      const provider = new ClaudeCodeProvider();
+      vi.mocked(fs.existsSync).mockImplementation((p) => String(p).endsWith('/claude'));
+
+      // Simulate existing config with old Clubhouse entries
+      const existingConfig = {
+        hooks: {
+          PreToolUse: [
+            { hooks: [{ type: 'command', command: 'cat | curl -s -X POST http://127.0.0.1:8888/hook/${CLUBHOUSE_AGENT_ID} || true' }] },
+            { hooks: [{ type: 'command', command: 'echo "user hook"' }] },
+          ],
+        },
+      };
+      vi.mocked(fs.readFileSync).mockReturnValueOnce(JSON.stringify(existingConfig));
+
+      await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
+
+      const written = JSON.parse(vi.mocked(fs.writeFileSync).mock.calls[0][1] as string);
+      // Should have user entry + new Clubhouse entry (old one replaced)
+      expect(written.hooks.PreToolUse).toHaveLength(2);
+      expect(written.hooks.PreToolUse[0].hooks[0].command).toBe('echo "user hook"');
+      expect(written.hooks.PreToolUse[1].hooks[0].command).toContain('127.0.0.1:9999');
+    });
+
+    it('CopilotCli: preserves existing user hooks alongside Clubhouse hooks', async () => {
+      const provider = new CopilotCliProvider();
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        const s = String(p);
+        return s.endsWith('/copilot') || s.includes('.github');
+      });
+
+      // Simulate existing user hooks
+      const existingConfig = {
+        version: 1,
+        hooks: {
+          preToolUse: [{ bash: 'echo "user pre-tool hook"', timeoutSec: 10 }],
+          customEvent: [{ bash: 'echo "custom"' }],
+        },
+      };
+      vi.mocked(fs.readFileSync).mockReturnValueOnce(JSON.stringify(existingConfig));
+
+      await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
+
+      const written = JSON.parse(vi.mocked(fs.writeFileSync).mock.calls[0][1] as string);
+      expect(written.version).toBe(1);
+      // preToolUse should have user entry + our entry
+      expect(written.hooks.preToolUse).toHaveLength(2);
+      expect(written.hooks.preToolUse[0].bash).toBe('echo "user pre-tool hook"');
+      expect(written.hooks.preToolUse[1].bash).toContain('CLUBHOUSE_AGENT_ID');
+      // Custom event preserved
+      expect(written.hooks.customEvent).toHaveLength(1);
+    });
+
+    it('CopilotCli: handles missing config file gracefully', async () => {
+      const provider = new CopilotCliProvider();
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        const s = String(p);
+        return s.endsWith('/copilot') || s.includes('.github');
+      });
+      // readFileSync throws (no existing file)
+      vi.mocked(fs.readFileSync).mockImplementation(() => { throw new Error('ENOENT'); });
+
+      await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
+
+      const written = JSON.parse(vi.mocked(fs.writeFileSync).mock.calls[0][1] as string);
+      expect(written.version).toBe(1);
+      expect(written.hooks.preToolUse).toHaveLength(1);
+      expect(written.hooks.preToolUse[0].bash).toContain('CLUBHOUSE_AGENT_ID');
+    });
+  });
+
   describe('getModelOptions', () => {
     it('CopilotCli: includes real model options without gpt-5', () => {
       const provider = new CopilotCliProvider();

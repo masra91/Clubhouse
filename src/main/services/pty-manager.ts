@@ -42,7 +42,7 @@ function cleanupSession(agentId: string): void {
   sessions.delete(agentId);
 }
 
-export function spawn(agentId: string, cwd: string, binary: string, args: string[] = [], extraEnv?: Record<string, string>): void {
+export function spawn(agentId: string, cwd: string, binary: string, args: string[] = [], extraEnv?: Record<string, string>, onExit?: (agentId: string, exitCode: number) => void): void {
   if (sessions.has(agentId)) {
     const existing = sessions.get(agentId)!;
     try { existing.process.kill(); } catch {}
@@ -110,6 +110,7 @@ export function spawn(agentId: string, cwd: string, binary: string, args: string
     }
 
     cleanupSession(agentId);
+    onExit?.(agentId, exitCode);
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
       win.webContents.send(IPC.PTY.EXIT, agentId, exitCode);

@@ -1,5 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+// Mock config-pipeline
+const mockSnapshotFile = vi.fn();
+const mockRestoreForAgent = vi.fn();
+const mockGetHooksConfigPath = vi.fn(() => '/project/.claude/settings.local.json');
+vi.mock('./config-pipeline', () => ({
+  snapshotFile: (...args: unknown[]) => mockSnapshotFile(...args),
+  restoreForAgent: (...args: unknown[]) => mockRestoreForAgent(...args),
+  getHooksConfigPath: (...args: unknown[]) => mockGetHooksConfigPath(...args),
+  restoreAll: vi.fn(),
+}));
+
 // Mock pty-manager
 const mockPtySpawn = vi.fn();
 const mockPtyGracefulKill = vi.fn();
@@ -181,6 +192,7 @@ describe('Headless integration', () => {
           CLUBHOUSE_AGENT_ID: 'test-agent',
         }),
         'stream-json',
+        expect.any(Function),
       );
     });
 
@@ -327,6 +339,7 @@ describe('Headless integration', () => {
         'test-agent', '/project', '/usr/local/bin/claude', ['-p', 'test'],
         expect.any(Object),
         'stream-json',
+        expect.any(Function),
       );
     });
 
@@ -350,6 +363,7 @@ describe('Headless integration', () => {
         'test-agent', '/project', '/usr/local/bin/copilot', ['-p', 'test', '--allow-all'],
         expect.any(Object),
         'text',
+        expect.any(Function),
       );
     });
 
@@ -373,6 +387,7 @@ describe('Headless integration', () => {
         'test-agent', '/project', '/usr/local/bin/claude', ['-p', 'test'],
         expect.any(Object),
         'stream-json',
+        expect.any(Function),
       );
     });
   });
@@ -508,6 +523,43 @@ describe('Headless integration', () => {
 
       expect(mockPtyGracefulKill).toHaveBeenCalledWith('test-agent', '/exit\r');
       expect(mockHeadlessKill).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('config pipeline integration (headless)', () => {
+    it('headless spawn does NOT call snapshotFile (no hooks for headless)', async () => {
+      mockGetSpawnMode.mockReturnValue('headless');
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/project',
+        cwd: '/project',
+        kind: 'quick',
+        mission: 'Fix bug',
+      });
+
+      expect(mockSnapshotFile).not.toHaveBeenCalled();
+    });
+
+    it('headless spawn passes onExit callback that calls restoreForAgent', async () => {
+      mockGetSpawnMode.mockReturnValue('headless');
+
+      await spawnAgent({
+        agentId: 'test-agent',
+        projectPath: '/project',
+        cwd: '/project',
+        kind: 'quick',
+        mission: 'Fix bug',
+      });
+
+      // headless spawn should have received an onExit callback as the 7th arg (index 6)
+      expect(mockHeadlessSpawn).toHaveBeenCalled();
+      const onExitCallback = mockHeadlessSpawn.mock.calls[0][6];
+      expect(typeof onExitCallback).toBe('function');
+
+      // Simulate agent exit
+      onExitCallback('test-agent', 0);
+      expect(mockRestoreForAgent).toHaveBeenCalledWith('test-agent');
     });
   });
 });

@@ -46,6 +46,7 @@ export function spawnHeadless(
   args: string[],
   extraEnv?: Record<string, string>,
   outputKind: HeadlessOutputKind = 'stream-json',
+  onExit?: (agentId: string, exitCode: number) => void,
 ): void {
   // Clean up any existing session
   if (sessions.has(agentId)) {
@@ -206,6 +207,8 @@ export function spawnHeadless(
     appLog('core:headless', 'info', `Process exited`, {
       meta: { agentId, exitCode: code, stdoutBytes, events: transcript.length, stderr: stderrChunks.join('\n').slice(0, 500) },
     });
+
+    onExit?.(agentId, code ?? 0);
 
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {

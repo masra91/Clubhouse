@@ -10,6 +10,7 @@ import {
   NormalizedHookEvent,
 } from './types';
 import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary } from './shared';
+import { isClubhouseHookEntry } from '../services/config-pipeline';
 
 // Copilot CLI uses lowercase tool names
 const TOOL_VERBS: Record<string, string> = {
@@ -119,13 +120,10 @@ export class CopilotCliProvider implements OrchestratorProvider {
 
     const hookEntry = { type: 'command', bash: curlBase, timeoutSec: 5 };
 
-    const config = {
-      version: 1,
-      hooks: {
-        preToolUse: [hookEntry],
-        postToolUse: [hookEntry],
-        errorOccurred: [hookEntry],
-      },
+    const ourHooks: Record<string, unknown[]> = {
+      preToolUse: [hookEntry],
+      postToolUse: [hookEntry],
+      errorOccurred: [hookEntry],
     };
 
     const githubDir = path.join(cwd, '.github');
@@ -135,7 +133,25 @@ export class CopilotCliProvider implements OrchestratorProvider {
     }
 
     const settingsPath = path.join(hooksDir, 'hooks.json');
-    fs.writeFileSync(settingsPath, JSON.stringify(config, null, 2), 'utf-8');
+
+    let existing: Record<string, unknown> = { version: 1 };
+    try {
+      existing = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    } catch {
+      // No existing file
+    }
+
+    // Merge per-event key: preserve user hooks, replace stale Clubhouse entries
+    const existingHooks = (existing.hooks || {}) as Record<string, unknown[]>;
+    const mergedHooks: Record<string, unknown[]> = { ...existingHooks };
+
+    for (const [eventKey, ourEntries] of Object.entries(ourHooks)) {
+      const current = mergedHooks[eventKey] || [];
+      const userEntries = current.filter(e => !isClubhouseHookEntry(e));
+      mergedHooks[eventKey] = [...userEntries, ...ourEntries];
+    }
+
+    fs.writeFileSync(settingsPath, JSON.stringify({ ...existing, hooks: mergedHooks }, null, 2), 'utf-8');
   }
 
   parseHookEvent(raw: unknown): NormalizedHookEvent | null {
