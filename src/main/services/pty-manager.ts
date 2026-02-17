@@ -1,7 +1,7 @@
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
-import { getShellEnvironment } from '../util/shell';
+import { getShellEnvironment, getDefaultShell } from '../util/shell';
 import { appLog } from './log-service';
 
 interface ManagedSession {
@@ -49,8 +49,7 @@ export function spawn(agentId: string, cwd: string, binary: string, args: string
     cleanupSession(agentId);
   }
 
-  const shellCmd = [binary, ...args].map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ');
-  const shell = process.env.SHELL || '/bin/zsh';
+  const isWin = process.platform === 'win32';
 
   const spawnEnv = extraEnv
     ? { ...getShellEnvironment(), ...extraEnv }
@@ -60,14 +59,31 @@ export function spawn(agentId: string, cwd: string, binary: string, args: string
   delete spawnEnv.CLAUDE_CODE_ENTRYPOINT;
 
   let proc: pty.IPty;
+  let pendingCommand: string | undefined;
+
   try {
-    proc = pty.spawn(shell, ['-il'], {
-      name: 'xterm-256color',
-      cwd,
-      env: spawnEnv,
-      cols: 120,
-      rows: 30,
-    });
+    if (isWin) {
+      // On Windows, spawn the binary directly — no shell wrapper needed
+      proc = pty.spawn(binary, args, {
+        name: 'xterm-256color',
+        cwd,
+        env: spawnEnv,
+        cols: 120,
+        rows: 30,
+      });
+    } else {
+      const shellCmd = [binary, ...args].map(a => `'${a.replace(/'/g, "'\\''")}'`).join(' ');
+      const shell = process.env.SHELL || '/bin/zsh';
+      pendingCommand = shellCmd;
+
+      proc = pty.spawn(shell, ['-il'], {
+        name: 'xterm-256color',
+        cwd,
+        env: spawnEnv,
+        cols: 120,
+        rows: 30,
+      });
+    }
   } catch (err) {
     appLog('core:pty', 'error', 'Failed to spawn PTY process', {
       meta: { agentId, binary, cwd, error: err instanceof Error ? err.message : String(err) },
@@ -82,7 +98,7 @@ export function spawn(agentId: string, cwd: string, binary: string, args: string
     killing: false,
     outputChunks: [],
     outputSize: 0,
-    pendingCommand: shellCmd,
+    pendingCommand,
   };
   sessions.set(agentId, session);
 
@@ -125,11 +141,13 @@ export function spawnShell(id: string, projectPath: string): void {
     cleanupSession(id);
   }
 
-  const shellPath = process.env.SHELL || '/bin/zsh';
+  const isWin = process.platform === 'win32';
+  const shellPath = getDefaultShell();
+  const shellArgs = isWin ? [] : ['-il'];
 
   let proc: pty.IPty;
   try {
-    proc = pty.spawn(shellPath, ['-il'], {
+    proc = pty.spawn(shellPath, shellArgs, {
       name: 'xterm-256color',
       cwd: projectPath,
       env: getShellEnvironment(),

@@ -17,6 +17,7 @@ vi.mock('node-pty', () => ({
 // Mock shell utility
 vi.mock('../util/shell', () => ({
   getShellEnvironment: vi.fn(() => ({ ...process.env })),
+  getDefaultShell: vi.fn(() => process.platform === 'win32' ? (process.env.COMSPEC || 'cmd.exe') : (process.env.SHELL || '/bin/zsh')),
 }));
 
 // Mock the IPC channels
@@ -127,12 +128,17 @@ describe('pty-manager', () => {
       spawn('agent_suppress', '/test', '/usr/local/bin/claude', []);
       const onDataCb = mockProcess.onData.mock.calls[0][0];
       onDataCb('shell startup noise');
-      expect(getBuffer('agent_suppress')).toBe('');
 
-      // After resize, data flows
-      resize('agent_suppress', 120, 30);
-      onDataCb('real data');
-      expect(getBuffer('agent_suppress')).toBe('real data');
+      if (process.platform === 'win32') {
+        // On Windows, binary is spawned directly — no pending command, no suppression
+        expect(getBuffer('agent_suppress')).toBe('shell startup noise');
+      } else {
+        // On Unix, data is suppressed until resize fires the pending command
+        expect(getBuffer('agent_suppress')).toBe('');
+        resize('agent_suppress', 120, 30);
+        onDataCb('real data');
+        expect(getBuffer('agent_suppress')).toBe('real data');
+      }
     });
   });
 
@@ -183,15 +189,23 @@ describe('pty-manager', () => {
     it('fires pending command on first resize', () => {
       spawn('agent_pc', '/test', '/usr/local/bin/claude', ['--model', 'opus']);
       resize('agent_pc', 120, 30);
-      // Should write exec command
-      expect(mockProcess.write).toHaveBeenCalledWith(
-        expect.stringContaining('exec ')
-      );
+
+      if (process.platform === 'win32') {
+        // On Windows, binary is spawned directly — no pending command to fire
+        expect(mockProcess.write).not.toHaveBeenCalledWith(
+          expect.stringContaining('exec ')
+        );
+      } else {
+        // On Unix, resize triggers the pending shell exec command
+        expect(mockProcess.write).toHaveBeenCalledWith(
+          expect.stringContaining('exec ')
+        );
+      }
     });
 
     it('does not fire pending command on subsequent resize', () => {
       spawn('agent_pc2', '/test', '/usr/local/bin/claude', []);
-      resize('agent_pc2', 120, 30); // clears pending
+      resize('agent_pc2', 120, 30); // clears pending (Unix only)
       mockProcess.write.mockClear();
       resize('agent_pc2', 200, 50); // no pending command
       // write should only have been called for resize, not exec
@@ -328,13 +342,25 @@ describe('pty-manager', () => {
       vi.mocked(pty.spawn).mockClear();
       spawn('agent_env', '/test', '/usr/local/bin/claude', [], { CUSTOM_VAR: 'value' });
 
-      expect(pty.spawn).toHaveBeenCalledWith(
-        expect.any(String),
-        ['-il'],
-        expect.objectContaining({
-          env: expect.objectContaining({ CUSTOM_VAR: 'value' }),
-        })
-      );
+      if (process.platform === 'win32') {
+        // On Windows, binary is spawned directly with its args
+        expect(pty.spawn).toHaveBeenCalledWith(
+          '/usr/local/bin/claude',
+          [],
+          expect.objectContaining({
+            env: expect.objectContaining({ CUSTOM_VAR: 'value' }),
+          })
+        );
+      } else {
+        // On Unix, spawned via login shell wrapper
+        expect(pty.spawn).toHaveBeenCalledWith(
+          expect.any(String),
+          ['-il'],
+          expect.objectContaining({
+            env: expect.objectContaining({ CUSTOM_VAR: 'value' }),
+          })
+        );
+      }
     });
   });
 });

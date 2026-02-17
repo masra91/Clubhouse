@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as os from 'os';
 import * as path from 'path';
+
+const SEP = path.delimiter; // ':' on Unix, ';' on Windows
 
 // Must vi.mock fs at top level for ESM compat
 vi.mock('fs', () => ({
@@ -13,7 +16,7 @@ vi.mock('child_process', () => ({
 }));
 
 vi.mock('../util/shell', () => ({
-  getShellEnvironment: vi.fn(() => ({ PATH: '/usr/local/bin:/usr/bin' })),
+  getShellEnvironment: vi.fn(() => ({ PATH: `/usr/local/bin${path.delimiter}/usr/bin` })),
 }));
 
 import * as fs from 'fs';
@@ -45,29 +48,31 @@ describe('shared orchestrator utilities', () => {
     });
 
     it('finds binary on shell PATH', () => {
+      const expected = path.join('/usr/local/bin', 'claude');
       vi.mocked(fs.existsSync).mockImplementation((p) => {
-        return p === '/usr/local/bin/claude';
+        return p === expected;
       });
       const result = findBinaryInPath(['claude'], ['/nonexistent/claude']);
-      expect(result).toBe('/usr/local/bin/claude');
+      expect(result).toBe(expected);
     });
 
     it('tries multiple binary names on PATH', () => {
+      const expected = path.join('/usr/bin', 'code');
       vi.mocked(fs.existsSync).mockImplementation((p) => {
-        return p === '/usr/bin/code';
+        return p === expected;
       });
       const result = findBinaryInPath(['claude', 'code'], ['/nope/claude']);
-      expect(result).toBe('/usr/bin/code');
+      expect(result).toBe(expected);
     });
 
     it('skips empty PATH entries', async () => {
       const shell = await import('../util/shell');
-      vi.mocked(shell.getShellEnvironment).mockReturnValue({ PATH: ':/usr/bin:' } as any);
+      vi.mocked(shell.getShellEnvironment).mockReturnValue({ PATH: `${SEP}/usr/bin${SEP}` } as any);
       vi.mocked(fs.existsSync).mockImplementation((p) => {
-        return p === '/usr/bin/claude';
+        return p === path.join('/usr/bin', 'claude');
       });
       const result = findBinaryInPath(['claude'], []);
-      expect(result).toBe('/usr/bin/claude');
+      expect(result).toBe(path.join('/usr/bin', 'claude'));
     });
 
     it('falls back to interactive shell which', () => {
@@ -129,7 +134,7 @@ describe('shared orchestrator utilities', () => {
       );
 
       await readQuickSummary('agent-2');
-      expect(fs.unlinkSync).toHaveBeenCalledWith('/tmp/clubhouse-summary-agent-2.json');
+      expect(fs.unlinkSync).toHaveBeenCalledWith(path.join(os.tmpdir(), 'clubhouse-summary-agent-2.json'));
     });
 
     it('returns null when file does not exist', async () => {
