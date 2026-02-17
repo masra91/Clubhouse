@@ -87,7 +87,7 @@ export interface OrchestratorProvider {
   readonly conventions: OrchestratorConventions;
 
   // UI helpers
-  getModelOptions(): Array<{ id: string; label: string }>;
+  getModelOptions(): Promise<Array<{ id: string; label: string }>>;
   getDefaultPermissions(kind: 'durable' | 'quick'): string[];
   toolVerb(toolName: string): string | undefined;
   buildSummaryInstruction(agentId: string): string;

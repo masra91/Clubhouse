@@ -10,6 +10,10 @@ vi.mock('fs', () => ({
 
 vi.mock('child_process', () => ({
   execSync: vi.fn(() => { throw new Error('not found'); }),
+  execFile: vi.fn((_cmd: string, _args: string[], _opts: unknown, cb?: (err: Error | null, result: { stdout: string; stderr: string }) => void) => {
+    if (cb) cb(new Error('not found'), { stdout: '', stderr: '' });
+    return { stdout: '', stderr: '' };
+  }),
 }));
 
 vi.mock('../util/shell', () => ({
@@ -312,20 +316,22 @@ describe('Provider integration tests', () => {
       expect(perms).toContain('Grep');
     });
 
-    it('CopilotCli quick agents get lowercase file tools', () => {
+    it('CopilotCli quick agents get PascalCase file tools', () => {
       const provider = new CopilotCliProvider();
       const perms = provider.getDefaultPermissions('quick');
-      expect(perms).toContain('read');
-      expect(perms).toContain('edit');
-      expect(perms).toContain('search');
+      expect(perms).toContain('Read');
+      expect(perms).toContain('Write');
+      expect(perms).toContain('Edit');
+      expect(perms).toContain('Glob');
+      expect(perms).toContain('Grep');
     });
 
-    it('CopilotCli durable agents get lowercase shell permissions', () => {
+    it('CopilotCli durable agents get PascalCase Bash permissions', () => {
       const provider = new CopilotCliProvider();
       const perms = provider.getDefaultPermissions('durable');
-      expect(perms).toContain('shell(git:*)');
-      expect(perms).toContain('shell(npm:*)');
-      expect(perms).toContain('shell(npx:*)');
+      expect(perms).toContain('Bash(git:*)');
+      expect(perms).toContain('Bash(npm:*)');
+      expect(perms).toContain('Bash(npx:*)');
     });
 
     it('OpenCode quick agents get lowercase tool permissions', () => {
@@ -589,25 +595,29 @@ describe('Provider integration tests', () => {
   });
 
   describe('getModelOptions', () => {
-    it('CopilotCli: includes real model options without gpt-5', () => {
+    it('CopilotCli: falls back to static list when binary not found', async () => {
       const provider = new CopilotCliProvider();
-      const options = provider.getModelOptions();
+      const options = await provider.getModelOptions();
       const ids = options.map(o => o.id);
       expect(ids).toContain('default');
       expect(ids).toContain('claude-sonnet-4-5');
-      expect(ids).toContain('claude-haiku-4-5');
       expect(ids).toContain('o4-mini');
-      expect(ids).not.toContain('gpt-5');
     });
 
-    it('OpenCode: uses provider/model format', () => {
+    it('OpenCode: falls back to default when binary not found', async () => {
       const provider = new OpenCodeProvider();
-      const options = provider.getModelOptions();
+      const options = await provider.getModelOptions();
+      expect(options).toEqual([{ id: 'default', label: 'Default' }]);
+    });
+
+    it('ClaudeCode: falls back to static list when binary not found', async () => {
+      const provider = new ClaudeCodeProvider();
+      const options = await provider.getModelOptions();
       const ids = options.map(o => o.id);
       expect(ids).toContain('default');
-      expect(ids).toContain('anthropic/claude-sonnet-4-5');
-      expect(ids).toContain('anthropic/claude-opus-4-6');
-      expect(ids).toContain('anthropic/claude-haiku-4-5');
+      expect(ids).toContain('opus');
+      expect(ids).toContain('sonnet');
+      expect(ids).toContain('haiku');
     });
   });
 });

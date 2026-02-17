@@ -1,5 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import {
   OrchestratorProvider,
   OrchestratorConventions,
@@ -11,7 +13,8 @@ import {
 } from './types';
 import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary } from './shared';
 
-// OpenCode (anomalyco/opencode) uses lowercase tool names
+const execFileAsync = promisify(execFile);
+
 const TOOL_VERBS: Record<string, string> = {
   bash: 'Running command',
   edit: 'Editing file',
@@ -39,6 +42,28 @@ function findOpenCodeBinary(): string {
     '/usr/local/bin/opencode',
     '/opt/homebrew/bin/opencode',
   ]);
+}
+
+function humanizeModelId(raw: string): string {
+  // Strip provider prefix (e.g. "github-copilot/gpt-5" → "gpt-5")
+  const id = raw.includes('/') ? raw.split('/').slice(1).join('/') : raw;
+  return id
+    .split('-')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+/** Parse output of `opencode models` into options */
+function parseOpenCodeModels(stdout: string): Array<{ id: string; label: string }> | null {
+  const lines = stdout.trim().split('\n').filter((l) => l.trim() && !l.includes('migration'));
+  if (lines.length === 0) return null;
+  return [
+    { id: 'default', label: 'Default' },
+    ...lines.map((line) => {
+      const id = line.trim();
+      return { id, label: humanizeModelId(id) };
+    }),
+  ];
 }
 
 export class OpenCodeProvider implements OrchestratorProvider {
@@ -146,7 +171,17 @@ export class OpenCodeProvider implements OrchestratorProvider {
     return { binary, args, outputKind: 'text' };
   }
 
-  getModelOptions() { return MODEL_OPTIONS; }
+  async getModelOptions() {
+    try {
+      const binary = findOpenCodeBinary();
+      const { stdout } = await execFileAsync(binary, ['models'], { timeout: 15000 });
+      const parsed = parseOpenCodeModels(stdout);
+      if (parsed) return parsed;
+    } catch {
+      // Fall back to default only
+    }
+    return [{ id: 'default', label: 'Default' }];
+  }
   getDefaultPermissions(kind: 'durable' | 'quick') {
     return kind === 'durable' ? [...DEFAULT_DURABLE_PERMISSIONS] : [...DEFAULT_QUICK_PERMISSIONS];
   }

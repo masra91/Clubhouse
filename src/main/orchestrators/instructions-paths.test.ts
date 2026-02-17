@@ -10,6 +10,10 @@ vi.mock('fs', () => ({
 
 vi.mock('child_process', () => ({
   execSync: vi.fn(() => { throw new Error('not found'); }),
+  execFile: vi.fn((_cmd: string, _args: string[], _opts: unknown, cb?: (err: Error | null, result: { stdout: string; stderr: string }) => void) => {
+    if (cb) cb(new Error('not found'), { stdout: '', stderr: '' });
+    return { stdout: '', stderr: '' };
+  }),
 }));
 
 vi.mock('../util/shell', () => ({
