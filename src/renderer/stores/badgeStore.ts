@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useBadgeSettingsStore } from './badgeSettingsStore';
 
 // ── Badge types ────────────────────────────────────────────────────────
 
@@ -129,20 +130,34 @@ export const useBadgeStore = create<BadgeState>((set, get) => ({
   },
 
   getTabBadge(projectId, tabId) {
-    const badges = Object.values(get().badges).filter(
+    const settings = useBadgeSettingsStore.getState().getProjectSettings(projectId);
+    if (!settings.enabled) return null;
+    let badges = Object.values(get().badges).filter(
       (b) => b.target.kind === 'explorer-tab' && b.target.projectId === projectId && b.target.tabId === tabId,
     );
+    if (!settings.pluginBadges) {
+      badges = badges.filter((b) => !b.source.startsWith('plugin:'));
+    }
     return aggregateBadges(badges);
   },
 
   getProjectBadge(projectId) {
-    const badges = Object.values(get().badges).filter(
+    const settings = useBadgeSettingsStore.getState().getProjectSettings(projectId);
+    if (!settings.enabled) return null;
+    if (!settings.projectRailBadges) return null;
+    let badges = Object.values(get().badges).filter(
       (b) => b.target.kind === 'explorer-tab' && b.target.projectId === projectId,
     );
+    if (!settings.pluginBadges) {
+      badges = badges.filter((b) => !b.source.startsWith('plugin:'));
+    }
     return aggregateBadges(badges);
   },
 
   getAppPluginBadge(pluginId) {
+    const { enabled, pluginBadges } = useBadgeSettingsStore.getState();
+    if (!enabled) return null;
+    if (!pluginBadges) return null;
     const badges = Object.values(get().badges).filter(
       (b) => b.target.kind === 'app-plugin' && b.target.pluginId === pluginId,
     );
@@ -150,8 +165,11 @@ export const useBadgeStore = create<BadgeState>((set, get) => ({
   },
 
   getDockCount() {
+    const { enabled, pluginBadges } = useBadgeSettingsStore.getState();
+    if (!enabled) return 0;
     let total = 0;
     for (const badge of Object.values(get().badges)) {
+      if (!pluginBadges && badge.source.startsWith('plugin:')) continue;
       if (badge.type === 'count') total += badge.value;
     }
     return total;

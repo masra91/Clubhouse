@@ -287,6 +287,10 @@ const api = {
       ipcRenderer.invoke(IPC.APP.SAVE_HEADLESS_SETTINGS, settings),
     setDockBadge: (count: number) =>
       ipcRenderer.invoke(IPC.APP.SET_DOCK_BADGE, count),
+    getBadgeSettings: () =>
+      ipcRenderer.invoke(IPC.APP.GET_BADGE_SETTINGS),
+    saveBadgeSettings: (settings: any) =>
+      ipcRenderer.invoke(IPC.APP.SAVE_BADGE_SETTINGS, settings),
   },
 };
 
