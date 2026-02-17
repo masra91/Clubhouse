@@ -36,7 +36,7 @@ function SettingsCategoryNav() {
       <nav className="py-1 flex-1 flex flex-col">
         {isApp ? (
           <>
-            {navButton('Orchestrators', 'orchestrators')}
+            {navButton('Agents', 'orchestrators')}
             {navButton('Display & UI', 'display')}
             {navButton('Notifications', 'notifications')}
             {navButton('Logging', 'logging')}
