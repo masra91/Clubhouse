@@ -274,7 +274,7 @@ export function App() {
             costUsd,
             durationMs,
             toolsUsed,
-            orchestrator: agent.orchestrator,
+            orchestrator: agent.orchestrator || 'claude-code',
             model: agent.model,
           });
 
