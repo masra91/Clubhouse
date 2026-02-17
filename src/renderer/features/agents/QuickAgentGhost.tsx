@@ -82,6 +82,16 @@ export function QuickAgentGhost({ completed, onDismiss, onDelete }: Props) {
                 Headless
               </span>
             )}
+            {completed.orchestrator && completed.orchestrator !== 'claude-code' && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-ctp-surface0 text-ctp-subtext1">
+                {completed.orchestrator}
+              </span>
+            )}
+            {completed.model && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-ctp-surface0 text-ctp-subtext0 font-mono">
+                {completed.model}
+              </span>
+            )}
           </div>
           <span className="text-xs text-ctp-subtext0">{relativeTime(completed.completedAt)}</span>
         </div>

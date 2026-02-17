@@ -274,6 +274,8 @@ export function App() {
             costUsd,
             durationMs,
             toolsUsed,
+            orchestrator: agent.orchestrator,
+            model: agent.model,
           });
 
           removeAgent(agentId);

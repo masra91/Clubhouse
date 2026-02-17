@@ -11,6 +11,7 @@ export interface ProviderCapabilities {
 export interface OrchestratorInfo {
   id: string;
   displayName: string;
+  shortName: string;
   badge?: string;
   capabilities: ProviderCapabilities;
 }
@@ -61,6 +62,8 @@ export interface CompletedQuickAgent {
   costUsd?: number;
   durationMs?: number;
   toolsUsed?: string[];
+  orchestrator?: string;
+  model?: string;
 }
 
 // --- Config inheritance types ---
