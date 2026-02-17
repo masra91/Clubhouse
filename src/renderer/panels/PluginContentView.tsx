@@ -112,7 +112,7 @@ export function PluginContentView({ pluginId, mode }: { pluginId: string; mode?:
   return (
     <PluginErrorBoundary key={pluginId} pluginId={pluginId}>
       <PluginAPIProvider api={api}>
-        <div className="h-full bg-ctp-base overflow-auto">
+        <div className="h-full bg-ctp-base overflow-hidden">
           <MainPanel api={api} />
         </div>
       </PluginAPIProvider>
