@@ -40,6 +40,7 @@ interface AgentState {
   handleHookEvent: (agentId: string, event: AgentHookEvent) => void;
   clearStaleStatuses: () => void;
   recordActivity: (id: string) => void;
+  reorderAgents: (projectPath: string, orderedIds: string[]) => Promise<void>;
   isAgentActive: (id: string) => boolean;
 }
 
@@ -507,6 +508,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     set((s) => ({
       agentActivity: { ...s.agentActivity, [id]: Date.now() },
     }));
+  },
+
+  reorderAgents: async (projectPath, orderedIds) => {
+    await window.clubhouse.agent.reorderDurable(projectPath, orderedIds);
   },
 
   isAgentActive: (id) => {
