@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useBadgeStore, BadgeTarget } from './badgeStore';
+import { useBadgeSettingsStore } from './badgeSettingsStore';
 
 function getState() {
   return useBadgeStore.getState();
@@ -7,6 +8,13 @@ function getState() {
 
 function reset() {
   useBadgeStore.setState({ badges: {} });
+  // Reset badge settings to defaults (all enabled)
+  useBadgeSettingsStore.setState({
+    enabled: true,
+    pluginBadges: true,
+    projectRailBadges: true,
+    projectOverrides: {},
+  });
 }
 
 describe('badgeStore', () => {
@@ -222,6 +230,118 @@ describe('badgeStore', () => {
       getState().setBadge('core:agents', 'dot', 1, { kind: 'explorer-tab', projectId: 'p1', tabId: 'agents' });
       getState().setBadge('plugin:hub', 'count', 5, { kind: 'app-plugin', pluginId: 'hub' });
       expect(getState().getDockCount()).toBe(5);
+    });
+  });
+
+  // ── Badge settings filtering tests ──────────────────────────────────
+
+  describe('settings filtering', () => {
+    describe('enabled = false (master kill switch)', () => {
+      beforeEach(() => {
+        useBadgeSettingsStore.setState({ enabled: false });
+        getState().setBadge('core:agents', 'count', 3, { kind: 'explorer-tab', projectId: 'p1', tabId: 'agents' });
+        getState().setBadge('plugin:hub', 'count', 5, { kind: 'app-plugin', pluginId: 'hub' });
+      });
+
+      it('getTabBadge returns null', () => {
+        expect(getState().getTabBadge('p1', 'agents')).toBeNull();
+      });
+
+      it('getProjectBadge returns null', () => {
+        expect(getState().getProjectBadge('p1')).toBeNull();
+      });
+
+      it('getAppPluginBadge returns null', () => {
+        expect(getState().getAppPluginBadge('hub')).toBeNull();
+      });
+
+      it('getDockCount returns 0', () => {
+        expect(getState().getDockCount()).toBe(0);
+      });
+
+      it('badges are still stored (toggle back on shows them)', () => {
+        expect(Object.keys(getState().badges)).toHaveLength(2);
+        useBadgeSettingsStore.setState({ enabled: true });
+        expect(getState().getTabBadge('p1', 'agents')).toEqual({ type: 'count', value: 3 });
+      });
+    });
+
+    describe('pluginBadges = false', () => {
+      beforeEach(() => {
+        useBadgeSettingsStore.setState({ pluginBadges: false });
+        getState().setBadge('core:agents', 'count', 3, { kind: 'explorer-tab', projectId: 'p1', tabId: 'agents' });
+        getState().setBadge('plugin:issues', 'count', 2, { kind: 'explorer-tab', projectId: 'p1', tabId: 'agents' });
+        getState().setBadge('plugin:hub', 'count', 5, { kind: 'app-plugin', pluginId: 'hub' });
+      });
+
+      it('getTabBadge filters out plugin badges, keeps core', () => {
+        expect(getState().getTabBadge('p1', 'agents')).toEqual({ type: 'count', value: 3 });
+      });
+
+      it('getProjectBadge filters out plugin badges', () => {
+        expect(getState().getProjectBadge('p1')).toEqual({ type: 'count', value: 3 });
+      });
+
+      it('getAppPluginBadge returns null for plugin badges', () => {
+        expect(getState().getAppPluginBadge('hub')).toBeNull();
+      });
+
+      it('getDockCount excludes plugin badge counts', () => {
+        expect(getState().getDockCount()).toBe(3);
+      });
+    });
+
+    describe('projectRailBadges = false', () => {
+      beforeEach(() => {
+        useBadgeSettingsStore.setState({ projectRailBadges: false });
+        getState().setBadge('core:agents', 'count', 3, { kind: 'explorer-tab', projectId: 'p1', tabId: 'agents' });
+      });
+
+      it('getProjectBadge returns null', () => {
+        expect(getState().getProjectBadge('p1')).toBeNull();
+      });
+
+      it('getTabBadge still works', () => {
+        expect(getState().getTabBadge('p1', 'agents')).toEqual({ type: 'count', value: 3 });
+      });
+
+      it('getDockCount still counts (dock counts regardless of rail visibility)', () => {
+        expect(getState().getDockCount()).toBe(3);
+      });
+    });
+
+    describe('project-level overrides', () => {
+      it('uses project override when set', () => {
+        useBadgeSettingsStore.setState({
+          enabled: true,
+          pluginBadges: true,
+          projectOverrides: { p1: { pluginBadges: false } },
+        });
+        getState().setBadge('plugin:issues', 'count', 2, { kind: 'explorer-tab', projectId: 'p1', tabId: 'issues' });
+        getState().setBadge('plugin:issues', 'count', 4, { kind: 'explorer-tab', projectId: 'p2', tabId: 'issues' });
+        // p1 has plugin badges disabled
+        expect(getState().getTabBadge('p1', 'issues')).toBeNull();
+        // p2 uses app defaults (plugin badges enabled)
+        expect(getState().getTabBadge('p2', 'issues')).toEqual({ type: 'count', value: 4 });
+      });
+
+      it('project override can enable when app-level disables', () => {
+        useBadgeSettingsStore.setState({
+          enabled: false,
+          projectOverrides: { p1: { enabled: true } },
+        });
+        getState().setBadge('core:agents', 'count', 3, { kind: 'explorer-tab', projectId: 'p1', tabId: 'agents' });
+        expect(getState().getTabBadge('p1', 'agents')).toEqual({ type: 'count', value: 3 });
+      });
+
+      it('project override for projectRailBadges = false hides project badge', () => {
+        useBadgeSettingsStore.setState({
+          projectRailBadges: true,
+          projectOverrides: { p1: { projectRailBadges: false } },
+        });
+        getState().setBadge('core:agents', 'count', 3, { kind: 'explorer-tab', projectId: 'p1', tabId: 'agents' });
+        expect(getState().getProjectBadge('p1')).toBeNull();
+      });
     });
   });
 });

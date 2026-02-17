@@ -48,6 +48,7 @@ function SettingsCategoryNav() {
           <>
             {navButton('Project Settings', 'project')}
             {navButton('Agents', 'orchestrators')}
+            {navButton('Notifications', 'notifications')}
             {navButton('Plugins', 'plugins')}
           </>
         )}
