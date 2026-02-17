@@ -119,6 +119,13 @@ export interface FileNode {
 export type ExplorerTab = string;
 
 
+export interface BadgeSettings {
+  enabled: boolean;
+  pluginBadges: boolean;
+  projectRailBadges: boolean;
+  projectOverrides?: Record<string, Partial<Pick<BadgeSettings, 'enabled' | 'pluginBadges' | 'projectRailBadges'>>>;
+}
+
 export interface NotificationSettings {
   enabled: boolean;
   permissionNeeded: boolean;

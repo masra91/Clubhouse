@@ -1,10 +1,11 @@
 import { app, ipcMain, shell } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
-import { LogEntry, LoggingSettings, NotificationSettings } from '../../shared/types';
+import { BadgeSettings, LogEntry, LoggingSettings, NotificationSettings } from '../../shared/types';
 import * as notificationService from '../services/notification-service';
 import * as themeService from '../services/theme-service';
 import * as orchestratorSettings from '../services/orchestrator-settings';
 import * as headlessSettings from '../services/headless-settings';
+import * as badgeSettings from '../services/badge-settings';
 import * as logService from '../services/log-service';
 import * as logSettings from '../services/log-settings';
 
@@ -51,6 +52,22 @@ export function registerAppHandlers(): void {
 
   ipcMain.handle(IPC.APP.SAVE_HEADLESS_SETTINGS, (_event, settings: headlessSettings.HeadlessSettings) => {
     headlessSettings.saveSettings(settings);
+  });
+
+  ipcMain.handle(IPC.APP.GET_BADGE_SETTINGS, () => {
+    return badgeSettings.getSettings();
+  });
+
+  ipcMain.handle(IPC.APP.SAVE_BADGE_SETTINGS, (_event, settings: BadgeSettings) => {
+    badgeSettings.saveSettings(settings);
+  });
+
+  ipcMain.handle(IPC.APP.SET_DOCK_BADGE, (_event, count: number) => {
+    if (process.platform === 'darwin') {
+      app.dock.setBadge(count > 0 ? String(count) : '');
+    } else {
+      app.setBadgeCount(count);
+    }
   });
 
   // --- Logging ---

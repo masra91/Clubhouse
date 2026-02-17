@@ -136,6 +136,11 @@ export function createMockAPI(overrides?: Partial<PluginAPI>): PluginAPI {
     process: {
       exec: async () => ({ stdout: '', stderr: '', exitCode: 0 }),
     },
+    badges: {
+      set: noop,
+      clear: noop,
+      clearAll: noop,
+    },
     context: {
       mode: 'project',
       projectId: 'test-project',

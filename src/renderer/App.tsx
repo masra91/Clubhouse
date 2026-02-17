@@ -14,6 +14,8 @@ import { useThemeStore } from './stores/themeStore';
 import { useOrchestratorStore } from './stores/orchestratorStore';
 import { useLoggingStore } from './stores/loggingStore';
 import { useHeadlessStore } from './stores/headlessStore';
+import { useBadgeSettingsStore } from './stores/badgeSettingsStore';
+import { initBadgeSideEffects } from './stores/badgeStore';
 import { usePluginStore } from './plugins/plugin-store';
 import { initializePluginSystem, handleProjectSwitch, getBuiltinProjectPluginIds } from './plugins/plugin-loader';
 import { pluginEventBus } from './plugins/plugin-events';
@@ -48,6 +50,7 @@ export function App() {
   const loadOrchestratorSettings = useOrchestratorStore((s) => s.loadSettings);
   const loadLoggingSettings = useLoggingStore((s) => s.loadSettings);
   const loadHeadlessSettings = useHeadlessStore((s) => s.loadSettings);
+  const loadBadgeSettings = useBadgeSettingsStore((s) => s.loadSettings);
 
   useEffect(() => {
     loadProjects();
@@ -56,10 +59,12 @@ export function App() {
     loadOrchestratorSettings();
     loadLoggingSettings();
     loadHeadlessSettings();
+    loadBadgeSettings();
+    initBadgeSideEffects();
     initializePluginSystem().catch((err) => {
       console.error('[Plugins] Failed to initialize plugin system:', err);
     });
-  }, [loadProjects, loadNotificationSettings, loadTheme, loadOrchestratorSettings, loadLoggingSettings, loadHeadlessSettings]);
+  }, [loadProjects, loadNotificationSettings, loadTheme, loadOrchestratorSettings, loadLoggingSettings, loadHeadlessSettings, loadBadgeSettings]);
 
   useEffect(() => {
     const remove = window.clubhouse.app.onOpenSettings(() => {

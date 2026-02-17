@@ -101,6 +101,9 @@ export const IPC = {
     GET_VERSION: 'app:get-version',
     GET_HEADLESS_SETTINGS: 'app:get-headless-settings',
     SAVE_HEADLESS_SETTINGS: 'app:save-headless-settings',
+    SET_DOCK_BADGE: 'app:set-dock-badge',
+    GET_BADGE_SETTINGS: 'app:get-badge-settings',
+    SAVE_BADGE_SETTINGS: 'app:save-badge-settings',
   },
   PLUGIN: {
     DISCOVER_COMMUNITY: 'plugin:discover-community',

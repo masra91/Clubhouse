@@ -39,7 +39,8 @@ export type PluginPermission =
   | 'events'
   | 'widgets'
   | 'logging'
-  | 'process';
+  | 'process'
+  | 'badges';
 
 export const ALL_PLUGIN_PERMISSIONS: readonly PluginPermission[] = [
   'files',
@@ -56,6 +57,7 @@ export const ALL_PLUGIN_PERMISSIONS: readonly PluginPermission[] = [
   'widgets',
   'logging',
   'process',
+  'badges',
 ] as const;
 
 export interface PluginExternalRoot {
@@ -78,6 +80,7 @@ export const PERMISSION_DESCRIPTIONS: Record<PluginPermission, string> = {
   widgets: 'Use shared UI widget components',
   logging: 'Write to the application log',
   process: 'Execute allowed CLI commands',
+  badges: 'Display badge indicators on tabs and rail items',
 };
 
 export interface PluginHelpTopic {
@@ -398,6 +401,25 @@ export interface FilesAPI {
   forRoot(rootName: string): FilesAPI;
 }
 
+// ── Badges API ────────────────────────────────────────────────────────
+export interface BadgesAPI {
+  /** Set or update a badge. Key is unique within this plugin + target combo. */
+  set(options: {
+    key: string;
+    type: 'count' | 'dot';
+    value?: number;
+    target:
+      | { tab: string }
+      | { appPlugin: true };
+  }): void;
+
+  /** Clear a specific badge by key. */
+  clear(key: string): void;
+
+  /** Clear all badges set by this plugin. */
+  clearAll(): void;
+}
+
 // ── Process API ───────────────────────────────────────────────────────
 export interface ProcessExecOptions {
   timeout?: number;
@@ -431,6 +453,7 @@ export interface PluginAPI {
   logging: LoggingAPI;
   files: FilesAPI;
   process: ProcessAPI;
+  badges: BadgesAPI;
   context: PluginContextInfo;
 }
 
