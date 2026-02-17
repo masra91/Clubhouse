@@ -172,10 +172,19 @@ export function ProjectRail() {
   );
 
   const [expanded, setExpanded] = useState(false);
+  const [overlaying, setOverlaying] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMouseEnter = useCallback(() => {
-    hoverTimerRef.current = setTimeout(() => setExpanded(true), 600);
+    if (overlayTimerRef.current) {
+      clearTimeout(overlayTimerRef.current);
+      overlayTimerRef.current = null;
+    }
+    hoverTimerRef.current = setTimeout(() => {
+      setExpanded(true);
+      setOverlaying(true);
+    }, 600);
   }, []);
 
   const handleMouseLeave = useCallback(() => {
@@ -184,11 +193,14 @@ export function ProjectRail() {
       hoverTimerRef.current = null;
     }
     setExpanded(false);
+    // Keep overlay styling (absolute + z-30) during the 200ms close transition
+    overlayTimerRef.current = setTimeout(() => setOverlaying(false), 200);
   }, []);
 
   useEffect(() => {
     return () => {
       if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
     };
   }, []);
 
@@ -255,10 +267,10 @@ export function ProjectRail() {
       <div
         className={`
           flex flex-col py-3 gap-2 bg-ctp-mantle border-r border-surface-0 h-full
-          transition-[width] duration-200 ease-in-out overflow-hidden pl-[10px] pr-[10px]
-          ${expanded ? 'absolute inset-y-0 left-0 z-30 shadow-xl shadow-black/20' : ''}
+          transition-[width] duration-200 ease-in-out overflow-hidden pl-[14px] pr-[14px]
+          ${overlaying ? 'absolute inset-y-0 left-0 z-30 shadow-xl shadow-black/20' : ''}
         `}
-        style={{ width: expanded ? 200 : 60 }}
+        style={{ width: expanded ? 200 : 68 }}
       >
         {/* Home button */}
         {showHome && (
