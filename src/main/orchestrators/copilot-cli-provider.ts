@@ -26,10 +26,11 @@ const TOOL_VERBS: Record<string, string> = {
 
 const FALLBACK_MODEL_OPTIONS = [
   { id: 'default', label: 'Default' },
-  { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
-  { id: 'claude-sonnet-4', label: 'Claude Sonnet 4' },
-  { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
-  { id: 'o4-mini', label: 'o4-mini' },
+  { id: 'claude-sonnet-4.5', label: 'Claude Sonnet 4.5' },
+  { id: 'claude-opus-4.6', label: 'Claude Opus 4.6' },
+  { id: 'claude-haiku-4.5', label: 'Claude Haiku 4.5' },
+  { id: 'gpt-5', label: 'GPT 5' },
+  { id: 'gpt-5-mini', label: 'GPT 5 Mini' },
 ];
 
 function humanizeModelId(id: string): string {
@@ -80,8 +81,6 @@ export class CopilotCliProvider implements OrchestratorProvider {
       headless: true,
       structuredOutput: false,
       hooks: true,
-      maxTurns: false,
-      maxBudget: false,
       sessionResume: true,
       permissions: true,
     };
@@ -140,7 +139,7 @@ export class CopilotCliProvider implements OrchestratorProvider {
   async writeHooksConfig(cwd: string, hookUrl: string): Promise<void> {
     const curlBase = `cat | curl -s -X POST ${hookUrl}/\${CLUBHOUSE_AGENT_ID} -H 'Content-Type: application/json' -H "X-Clubhouse-Nonce: \${CLUBHOUSE_HOOK_NONCE}" --data-binary @- || true`;
 
-    const hookEntry = { type: 'command', bash: curlBase, timeoutSec: 5 };
+    const hookEntry = { bash: curlBase, timeoutSec: 5 };
 
     const ourHooks: Record<string, unknown[]> = {
       preToolUse: [hookEntry],

@@ -104,8 +104,6 @@ describe('Provider integration tests', () => {
         systemPrompt: 'Be thorough',
         outputFormat: 'stream-json',
         permissionMode: 'auto',
-        maxTurns: 10,
-        maxBudgetUsd: 0.5,
         noSessionPersistence: true,
       });
 
@@ -121,10 +119,8 @@ describe('Provider integration tests', () => {
       expect(result!.env).toBeUndefined();
       expect(args).toContain('--model');
       expect(args[args.indexOf('--model') + 1]).toBe('sonnet');
-      expect(args).toContain('--max-turns');
-      expect(args[args.indexOf('--max-turns') + 1]).toBe('10');
-      expect(args).toContain('--max-budget-usd');
-      expect(args[args.indexOf('--max-budget-usd') + 1]).toBe('0.5');
+      expect(args).not.toContain('--max-turns');
+      expect(args).not.toContain('--max-budget-usd');
       expect(args).toContain('--no-session-persistence');
       expect(args).toContain('--append-system-prompt');
       expect(args[args.indexOf('--append-system-prompt') + 1]).toBe('Be thorough');
@@ -454,37 +450,31 @@ describe('Provider integration tests', () => {
         headless: true,
         structuredOutput: true,
         hooks: true,
-        maxTurns: true,
-        maxBudget: true,
         sessionResume: true,
         permissions: true,
       });
     });
 
-    it('CopilotCli: no structuredOutput, maxTurns, or maxBudget', () => {
+    it('CopilotCli: no structuredOutput', () => {
       const caps = new CopilotCliProvider().getCapabilities();
       expect(caps.headless).toBe(true);
       expect(caps.structuredOutput).toBe(false);
       expect(caps.hooks).toBe(true);
-      expect(caps.maxTurns).toBe(false);
-      expect(caps.maxBudget).toBe(false);
       expect(caps.sessionResume).toBe(true);
       expect(caps.permissions).toBe(true);
     });
 
-    it('OpenCode: no hooks, maxTurns, maxBudget, or permissions', () => {
+    it('OpenCode: no hooks or permissions', () => {
       const caps = new OpenCodeProvider().getCapabilities();
       expect(caps.headless).toBe(true);
       expect(caps.structuredOutput).toBe(false);
       expect(caps.hooks).toBe(false);
-      expect(caps.maxTurns).toBe(false);
-      expect(caps.maxBudget).toBe(false);
       expect(caps.sessionResume).toBe(true);
       expect(caps.permissions).toBe(false);
     });
 
     it('all providers return an object with all required keys', () => {
-      const requiredKeys = ['headless', 'structuredOutput', 'hooks', 'maxTurns', 'maxBudget', 'sessionResume', 'permissions'];
+      const requiredKeys = ['headless', 'structuredOutput', 'hooks', 'sessionResume', 'permissions'];
       const providers = [new ClaudeCodeProvider(), new CopilotCliProvider(), new OpenCodeProvider()];
       for (const p of providers) {
         const caps = p.getCapabilities();
@@ -600,8 +590,8 @@ describe('Provider integration tests', () => {
       const options = await provider.getModelOptions();
       const ids = options.map(o => o.id);
       expect(ids).toContain('default');
-      expect(ids).toContain('claude-sonnet-4-5');
-      expect(ids).toContain('o4-mini');
+      expect(ids).toContain('claude-sonnet-4.5');
+      expect(ids).toContain('gpt-5');
     });
 
     it('OpenCode: falls back to default when binary not found', async () => {

@@ -72,7 +72,7 @@ const providerWithoutHeadless = {
   readQuickSummary: vi.fn(() => Promise.resolve(null)),
   getCapabilities: vi.fn(() => ({
     headless: true, structuredOutput: false, hooks: true,
-    maxTurns: false, maxBudget: false, sessionResume: true, permissions: true,
+    sessionResume: true, permissions: true,
   })),
 };
 

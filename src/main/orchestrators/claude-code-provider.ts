@@ -105,8 +105,6 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
       headless: true,
       structuredOutput: true,
       hooks: true,
-      maxTurns: true,
-      maxBudget: true,
       sessionResume: true,
       permissions: true,
     };
@@ -287,14 +285,6 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
 
     if (opts.systemPrompt) {
       args.push('--append-system-prompt', opts.systemPrompt);
-    }
-
-    if (opts.maxTurns != null) {
-      args.push('--max-turns', String(opts.maxTurns));
-    }
-
-    if (opts.maxBudgetUsd != null) {
-      args.push('--max-budget-usd', String(opts.maxBudgetUsd));
     }
 
     if (opts.noSessionPersistence) {

@@ -155,7 +155,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     }
 
     // Fetch quick agent defaults from parent durable agent
-    let quickDefaults: { systemPrompt?: string; allowedTools?: string[]; defaultModel?: string; maxTurns?: number; maxBudgetUsd?: number } | undefined;
+    let quickDefaults: { systemPrompt?: string; allowedTools?: string[]; defaultModel?: string } | undefined;
     if (parentAgentId) {
       try {
         const parentConfig = await window.clubhouse.agent.getDurableConfig(projectPath, parentAgentId);
@@ -227,8 +227,6 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         systemPrompt,
         allowedTools: quickDefaults?.allowedTools,
         orchestrator: resolvedOrchestrator,
-        maxTurns: quickDefaults?.maxTurns,
-        maxBudgetUsd: quickDefaults?.maxBudgetUsd,
       });
     } catch (err) {
       set((s) => ({

@@ -87,8 +87,6 @@ const api = {
       systemPrompt?: string;
       allowedTools?: string[];
       orchestrator?: string;
-      maxTurns?: number;
-      maxBudgetUsd?: number;
     }) => ipcRenderer.invoke(IPC.AGENT.SPAWN_AGENT, params),
 
     killAgent: (agentId: string, projectPath: string, orchestrator?: string) =>

@@ -149,7 +149,7 @@ describe('orchestratorStore', () => {
 
   describe('getCapabilities', () => {
     it('returns capabilities for a known orchestrator', () => {
-      const caps = { headless: true, structuredOutput: true, hooks: true, maxTurns: true, maxBudget: true, sessionResume: true, permissions: true };
+      const caps = { headless: true, structuredOutput: true, hooks: true, sessionResume: true, permissions: true };
       useOrchestratorStore.setState({
         allOrchestrators: [
           { id: 'claude-code', displayName: 'Claude Code', capabilities: caps },
@@ -162,7 +162,7 @@ describe('orchestratorStore', () => {
     it('returns undefined for unknown orchestrator', () => {
       useOrchestratorStore.setState({
         allOrchestrators: [
-          { id: 'claude-code', displayName: 'Claude Code', capabilities: { headless: true, structuredOutput: true, hooks: true, maxTurns: true, maxBudget: true, sessionResume: true, permissions: true } },
+          { id: 'claude-code', displayName: 'Claude Code', capabilities: { headless: true, structuredOutput: true, hooks: true, sessionResume: true, permissions: true } },
         ],
       });
 

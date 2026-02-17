@@ -4,8 +4,6 @@ export interface ProviderCapabilities {
   headless: boolean;
   structuredOutput: boolean;
   hooks: boolean;
-  maxTurns: boolean;
-  maxBudget: boolean;
   sessionResume: boolean;
   permissions: boolean;
 }
@@ -88,8 +86,6 @@ export interface QuickAgentDefaults {
   systemPrompt?: string;
   allowedTools?: string[];
   defaultModel?: string;
-  maxTurns?: number;
-  maxBudgetUsd?: number;
 }
 
 export interface DurableAgentConfig {
@@ -319,8 +315,6 @@ export interface SpawnAgentParams {
   systemPrompt?: string;
   allowedTools?: string[];
   orchestrator?: OrchestratorId;
-  maxTurns?: number;
-  maxBudgetUsd?: number;
 }
 
 export type AgentDetailedState = 'idle' | 'working' | 'needs_permission' | 'tool_error';

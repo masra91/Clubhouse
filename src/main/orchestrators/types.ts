@@ -12,8 +12,6 @@ export interface SpawnOpts {
 
 export interface HeadlessOpts extends SpawnOpts {
   outputFormat?: string;
-  maxTurns?: number;
-  maxBudgetUsd?: number;
   permissionMode?: string;
   noSessionPersistence?: boolean;
   disallowedTools?: string[];
@@ -56,8 +54,6 @@ export interface ProviderCapabilities {
   headless: boolean;
   structuredOutput: boolean;
   hooks: boolean;
-  maxTurns: boolean;
-  maxBudget: boolean;
   sessionResume: boolean;
   permissions: boolean;
 }

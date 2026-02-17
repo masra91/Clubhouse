@@ -113,8 +113,6 @@ export async function spawnAgent(params: SpawnAgentParams): Promise<void> {
       systemPrompt: params.systemPrompt,
       allowedTools,
       agentId: params.agentId,
-      maxTurns: params.maxTurns || 50,
-      maxBudgetUsd: params.maxBudgetUsd || 1.0,
       noSessionPersistence: true,
     });
 
@@ -172,8 +170,11 @@ async function spawnPtyAgent(
       agentId: params.agentId,
       orchestrator: provider.id,
       binary,
+      args: args.join(' '),
       cwd: params.cwd,
       model: params.model,
+      hookConfigPath: hookConfigPath || 'none',
+      allowedTools: allowedTools?.join(',') || 'none',
     },
   });
 

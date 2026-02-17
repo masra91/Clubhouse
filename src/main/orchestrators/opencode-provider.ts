@@ -76,8 +76,6 @@ export class OpenCodeProvider implements OrchestratorProvider {
       headless: true,
       structuredOutput: false,
       hooks: false,
-      maxTurns: false,
-      maxBudget: false,
       sessionResume: true,
       permissions: false,
     };

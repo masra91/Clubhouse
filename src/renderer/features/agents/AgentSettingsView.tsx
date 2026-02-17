@@ -93,8 +93,6 @@ export function AgentSettingsView({ agent }: Props) {
   const [qadSystemPrompt, setQadSystemPrompt] = useState('');
   const [qadAllowedTools, setQadAllowedTools] = useState('');
   const [qadDefaultModel, setQadDefaultModel] = useState('');
-  const [qadMaxTurns, setQadMaxTurns] = useState('');
-  const [qadMaxBudgetUsd, setQadMaxBudgetUsd] = useState('');
   const [qadDirty, setQadDirty] = useState(false);
   const [qadSaving, setQadSaving] = useState(false);
   const [qadLoaded, setQadLoaded] = useState(false);
@@ -110,8 +108,6 @@ export function AgentSettingsView({ agent }: Props) {
           setQadSystemPrompt(defaults.systemPrompt || '');
           setQadAllowedTools((defaults.allowedTools || []).join('\n'));
           setQadDefaultModel(defaults.defaultModel || '');
-          setQadMaxTurns(defaults.maxTurns != null ? String(defaults.maxTurns) : '');
-          setQadMaxBudgetUsd(defaults.maxBudgetUsd != null ? String(defaults.maxBudgetUsd) : '');
         }
         setQadLoaded(true);
       } catch {
@@ -128,10 +124,6 @@ export function AgentSettingsView({ agent }: Props) {
     const tools = qadAllowedTools.split('\n').map((l) => l.trim()).filter(Boolean);
     if (tools.length > 0) defaults.allowedTools = tools;
     if (qadDefaultModel && qadDefaultModel !== 'default') defaults.defaultModel = qadDefaultModel;
-    const parsedMaxTurns = parseInt(qadMaxTurns, 10);
-    if (!isNaN(parsedMaxTurns) && parsedMaxTurns > 0) defaults.maxTurns = parsedMaxTurns;
-    const parsedMaxBudget = parseFloat(qadMaxBudgetUsd);
-    if (!isNaN(parsedMaxBudget) && parsedMaxBudget > 0) defaults.maxBudgetUsd = parsedMaxBudget;
     await window.clubhouse.agent.updateDurableConfig(projectPath, agent.id, { quickAgentDefaults: defaults });
     setQadDirty(false);
     setQadSaving(false);
@@ -332,37 +324,6 @@ export function AgentSettingsView({ agent }: Props) {
                   ))}
                 </select>
               </div>
-              {capabilities?.maxTurns && (
-                <div>
-                  <label className="block text-xs text-ctp-subtext0 mb-1">Max turns</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={500}
-                    value={qadMaxTurns}
-                    onChange={(e) => { setQadMaxTurns(e.target.value); setQadDirty(true); }}
-                    placeholder="50"
-                    className="w-full bg-surface-0 text-ctp-text text-sm rounded-lg px-3 py-2 border border-surface-1 focus:border-ctp-blue focus:outline-none"
-                  />
-                  <p className="text-xs text-ctp-subtext0 mt-0.5">Limit agentic turns per quick agent (default: 50)</p>
-                </div>
-              )}
-              {capabilities?.maxBudget && (
-                <div>
-                  <label className="block text-xs text-ctp-subtext0 mb-1">Max budget (USD)</label>
-                  <input
-                    type="number"
-                    min={0.01}
-                    max={100}
-                    step={0.1}
-                    value={qadMaxBudgetUsd}
-                    onChange={(e) => { setQadMaxBudgetUsd(e.target.value); setQadDirty(true); }}
-                    placeholder="1.00"
-                    className="w-full bg-surface-0 text-ctp-text text-sm rounded-lg px-3 py-2 border border-surface-1 focus:border-ctp-blue focus:outline-none"
-                  />
-                  <p className="text-xs text-ctp-subtext0 mt-0.5">Cost limit per quick agent (default: $1.00)</p>
-                </div>
-              )}
             </div>
           </section>
         )}
