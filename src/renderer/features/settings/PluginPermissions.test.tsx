@@ -120,6 +120,16 @@ describe('PluginListSettings — PermissionInfoPopup', () => {
     render(<PluginListSettings />);
     expect(screen.getByText('API 0.5')).toBeInTheDocument();
   });
+
+  it('popup uses fixed positioning to escape overflow clipping', () => {
+    render(<PluginListSettings />);
+    const infoButton = screen.getAllByTitle('View permissions')[0];
+    fireEvent.click(infoButton);
+
+    const popup = screen.getByTestId('permission-popup');
+    const style = window.getComputedStyle(popup);
+    expect(style.position).toBe('fixed');
+  });
 });
 
 describe('PluginDetailSettings — permissions section', () => {
