@@ -512,6 +512,19 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
   reorderAgents: async (projectPath, orderedIds) => {
     await window.clubhouse.agent.reorderDurable(projectPath, orderedIds);
+    // Update local store order so UI reflects the change immediately
+    set((s) => {
+      const newAgents: Record<string, Agent> = {};
+      // Insert reordered durable agents first
+      for (const id of orderedIds) {
+        if (s.agents[id]) newAgents[id] = s.agents[id];
+      }
+      // Then all remaining agents (quick agents, other projects, etc.)
+      for (const [id, agent] of Object.entries(s.agents)) {
+        if (!newAgents[id]) newAgents[id] = agent;
+      }
+      return { agents: newAgents };
+    });
   },
 
   isAgentActive: (id) => {

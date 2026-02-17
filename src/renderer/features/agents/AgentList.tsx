@@ -324,7 +324,7 @@ export function AgentList() {
         <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
       )}
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {/* ALL section — durables with their nested children */}
         {durableAgents.length > 0 && (
           <div>
@@ -407,57 +407,55 @@ export function AgentList() {
           </div>
         )}
 
-        {/* Orphan completed section — collapsible */}
-        {orphanCompleted.length > 0 && (
-          <div>
-            <div className="px-3 py-1.5 text-xs font-semibold text-ctp-subtext0 uppercase tracking-wider border-b border-surface-0/50 flex items-center justify-between">
-              <button
-                onClick={toggleCompletedCollapsed}
-                className="flex items-center gap-1 cursor-pointer hover:text-ctp-text transition-colors"
-              >
-                <svg
-                  width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                  className={`transition-transform duration-200 ${completedCollapsed ? '' : 'rotate-90'}`}
-                >
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-                <span>Completed ({orphanCompleted.length})</span>
-              </button>
-              {!completedCollapsed && (
-                <button
-                  onClick={() => activeProjectId && clearCompleted(activeProjectId)}
-                  className="text-[10px] normal-case tracking-normal text-ctp-overlay0 hover:text-ctp-text cursor-pointer font-normal"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-            <div
-              className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
-              style={{ maxHeight: completedCollapsed ? 0 : '33vh' }}
-            >
-              <div className="overflow-y-auto" style={{ maxHeight: '33vh' }}>
-                {orphanCompleted.map((completed) => (
-                  <QuickAgentGhostCompact
-                    key={completed.id}
-                    completed={completed}
-                    onDismiss={() => activeProjectId && dismissCompleted(activeProjectId, completed.id)}
-                    onDelete={() => activeProjectId && dismissCompleted(activeProjectId, completed.id)}
-                    onSelect={() => { setActiveAgent(null, activeProjectId ?? undefined); selectCompleted(completed.id); }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
         {durableAgents.length === 0 && quickAgents.length === 0 && completedAgents.length === 0 && (
           <div className="p-4 text-ctp-subtext0 text-xs text-center">
             <p className="mb-2">No agents yet</p>
             <p>Click <span className="text-indigo-300">+ Agent</span> to create a durable agent, or use the dropdown for a quick session.</p>
           </div>
         )}
+      </div>
+
+      {/* Completed footer — pinned to bottom, expands upward */}
+      <div className="flex-shrink-0 border-t border-surface-0">
+        <div className="px-3 py-1.5 text-xs font-semibold text-ctp-subtext0 uppercase tracking-wider flex items-center justify-between">
+          <button
+            onClick={toggleCompletedCollapsed}
+            className="flex items-center gap-1 cursor-pointer hover:text-ctp-text transition-colors"
+          >
+            <svg
+              width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              className={`transition-transform duration-200 ${completedCollapsed ? '' : 'rotate-90'}`}
+            >
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+            <span>Completed ({orphanCompleted.length})</span>
+          </button>
+          {!completedCollapsed && orphanCompleted.length > 0 && (
+            <button
+              onClick={() => activeProjectId && clearCompleted(activeProjectId)}
+              className="text-[10px] normal-case tracking-normal text-ctp-overlay0 hover:text-ctp-text cursor-pointer font-normal"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+        <div
+          className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
+          style={{ maxHeight: completedCollapsed ? 0 : '33vh' }}
+        >
+          <div className="overflow-y-auto" style={{ maxHeight: '33vh' }}>
+            {orphanCompleted.map((completed) => (
+              <QuickAgentGhostCompact
+                key={completed.id}
+                completed={completed}
+                onDismiss={() => activeProjectId && dismissCompleted(activeProjectId, completed.id)}
+                onDelete={() => activeProjectId && dismissCompleted(activeProjectId, completed.id)}
+                onSelect={() => { setActiveAgent(null, activeProjectId ?? undefined); selectCompleted(completed.id); }}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Dialogs */}
