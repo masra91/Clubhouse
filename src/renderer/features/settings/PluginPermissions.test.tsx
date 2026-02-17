@@ -127,8 +127,8 @@ describe('PluginListSettings — PermissionInfoPopup', () => {
     fireEvent.click(infoButton);
 
     const popup = screen.getByTestId('permission-popup');
-    const style = window.getComputedStyle(popup);
-    expect(style.position).toBe('fixed');
+    expect(popup.className).toContain('fixed');
+    expect(popup.className).not.toContain('absolute');
   });
 });
 
