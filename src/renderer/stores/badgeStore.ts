@@ -63,7 +63,7 @@ interface BadgeState {
 
 // ── Aggregation logic ──────────────────────────────────────────────────
 
-function aggregateBadges(badges: Badge[]): BadgeAggregate | null {
+export function aggregateBadges(badges: Badge[]): BadgeAggregate | null {
   if (badges.length === 0) return null;
 
   const countBadges = badges.filter((b) => b.type === 'count');
