@@ -67,7 +67,9 @@ const config: ForgeConfig = {
     new MakerZIP({}, ['darwin']),
     new MakerSquirrel({
       iconUrl: 'https://raw.githubusercontent.com/masonallen/Clubhouse/main/assets/icon.ico',
-      setupIcon: path.resolve(__dirname, 'assets', 'icon.ico'),
+      ...(fs.existsSync(path.resolve(__dirname, 'assets', 'icon.ico'))
+        ? { setupIcon: path.resolve(__dirname, 'assets', 'icon.ico') }
+        : {}),
     }),
     new MakerDeb({
       options: {

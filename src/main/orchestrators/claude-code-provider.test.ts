@@ -14,11 +14,17 @@ vi.mock('child_process', () => ({
 }));
 
 vi.mock('../util/shell', () => ({
-  getShellEnvironment: vi.fn(() => ({ PATH: '/usr/local/bin:/usr/bin' })),
+  getShellEnvironment: vi.fn(() => ({ PATH: `/usr/local/bin${path.delimiter}/usr/bin` })),
 }));
 
 import * as fs from 'fs';
 import { ClaudeCodeProvider } from './claude-code-provider';
+
+/** Match any path whose basename is 'claude' (with or without .exe/.cmd) */
+function isClaudePath(p: string | Buffer | URL): boolean {
+  const base = path.basename(String(p));
+  return base === 'claude' || base === 'claude.exe' || base === 'claude.cmd';
+}
 
 describe('ClaudeCodeProvider', () => {
   let provider: ClaudeCodeProvider;
@@ -27,7 +33,7 @@ describe('ClaudeCodeProvider', () => {
     provider = new ClaudeCodeProvider();
     vi.clearAllMocks();
     // Default: binary found at standard path
-    vi.mocked(fs.existsSync).mockImplementation((p) => String(p).endsWith('/claude'));
+    vi.mocked(fs.existsSync).mockImplementation((p) => isClaudePath(p as string));
   });
 
   describe('identity', () => {
@@ -67,6 +73,21 @@ describe('ClaudeCodeProvider', () => {
       const result = await provider.checkAvailability();
       expect(result.available).toBe(false);
       expect(result.error).toMatch(/Could not find/);
+    });
+
+    it('passes shell option to execFile on Windows for .cmd compatibility', async () => {
+      const { execFile } = await import('child_process');
+      vi.mocked(execFile).mockImplementation(
+        (_cmd: any, _args: any, opts: any, cb: any) => {
+          // Verify shell option matches platform
+          if (process.platform === 'win32') {
+            expect(opts.shell).toBe(true);
+          }
+          cb(null, '{}', '');
+          return {} as any;
+        }
+      );
+      await provider.checkAvailability();
     });
   });
 
@@ -254,7 +275,7 @@ describe('ClaudeCodeProvider', () => {
   describe('writeHooksConfig', () => {
     it('creates .claude dir and writes settings.local.json', async () => {
       vi.mocked(fs.existsSync).mockImplementation((p) => {
-        if (String(p).endsWith('/claude')) return true;
+        if (isClaudePath(p as string)) return true;
         return false;
       });
 
@@ -273,7 +294,7 @@ describe('ClaudeCodeProvider', () => {
 
     it('curl command uses env var references for agent ID and nonce', async () => {
       vi.mocked(fs.existsSync).mockImplementation((p) => {
-        if (String(p).endsWith('/claude')) return true;
+        if (isClaudePath(p as string)) return true;
         return false;
       });
 
@@ -281,8 +302,13 @@ describe('ClaudeCodeProvider', () => {
 
       const written = JSON.parse(vi.mocked(fs.writeFileSync).mock.calls[0][1] as string);
       const command = written.hooks.PreToolUse[0].hooks[0].command as string;
-      expect(command).toContain('${CLUBHOUSE_AGENT_ID}');
-      expect(command).toContain('${CLUBHOUSE_HOOK_NONCE}');
+      if (process.platform === 'win32') {
+        expect(command).toContain('%CLUBHOUSE_AGENT_ID%');
+        expect(command).toContain('%CLUBHOUSE_HOOK_NONCE%');
+      } else {
+        expect(command).toContain('${CLUBHOUSE_AGENT_ID}');
+        expect(command).toContain('${CLUBHOUSE_HOOK_NONCE}');
+      }
       expect(command).not.toContain('/hook/agent-');
     });
 

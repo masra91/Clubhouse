@@ -36,12 +36,19 @@ const DEFAULT_DURABLE_PERMISSIONS = ['bash(git:*)', 'bash(npm:*)', 'bash(npx:*)'
 const DEFAULT_QUICK_PERMISSIONS = [...DEFAULT_DURABLE_PERMISSIONS, 'read', 'edit', 'glob', 'grep'];
 
 function findOpenCodeBinary(): string {
-  return findBinaryInPath(['opencode'], [
-    homePath('.local/bin/opencode'),
-    homePath('.bun/bin/opencode'),
-    '/usr/local/bin/opencode',
-    '/opt/homebrew/bin/opencode',
-  ]);
+  const paths = [
+    homePath('.local', 'bin', 'opencode'),
+    homePath('.bun', 'bin', 'opencode'),
+  ];
+  if (process.platform === 'win32') {
+    paths.push(
+      homePath('AppData', 'Roaming', 'npm', 'opencode.cmd'),
+      homePath('AppData', 'Roaming', 'npm', 'opencode'),
+    );
+  } else {
+    paths.push('/usr/local/bin/opencode', '/opt/homebrew/bin/opencode');
+  }
+  return findBinaryInPath(['opencode'], paths);
 }
 
 function humanizeModelId(raw: string): string {
@@ -173,7 +180,10 @@ export class OpenCodeProvider implements OrchestratorProvider {
   async getModelOptions() {
     try {
       const binary = findOpenCodeBinary();
-      const { stdout } = await execFileAsync(binary, ['models'], { timeout: 15000 });
+      const { stdout } = await execFileAsync(binary, ['models'], {
+        timeout: 15000,
+        shell: process.platform === 'win32',
+      });
       const parsed = parseOpenCodeModels(stdout);
       if (parsed) return parsed;
     } catch {

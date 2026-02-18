@@ -52,13 +52,21 @@ const EVENT_NAME_MAP: Record<string, NormalizedHookEvent['kind']> = {
 };
 
 function findClaudeBinary(): string {
-  return findBinaryInPath(['claude'], [
-    homePath('.local/bin/claude'),
-    homePath('.claude/local/claude'),
-    homePath('.npm-global/bin/claude'),
-    '/usr/local/bin/claude',
-    '/opt/homebrew/bin/claude',
-  ]);
+  const paths = [
+    homePath('.local', 'bin', 'claude'),
+    homePath('.claude', 'local', 'claude'),
+    homePath('.npm-global', 'bin', 'claude'),
+  ];
+  if (process.platform === 'win32') {
+    paths.push(
+      homePath('AppData', 'Roaming', 'npm', 'claude.cmd'),
+      homePath('AppData', 'Roaming', 'npm', 'claude'),
+      homePath('.claude', 'local', 'claude.exe'),
+    );
+  } else {
+    paths.push('/usr/local/bin/claude', '/opt/homebrew/bin/claude');
+  }
+  return findBinaryInPath(['claude'], paths);
 }
 
 export class ClaudeCodeProvider implements OrchestratorProvider {
@@ -99,7 +107,10 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
 
     // Binary found — verify authentication with a quick no-op call
     try {
-      const { stdout } = await execFileAsync(binary, ['-p', '', '--output-format', 'json'], { timeout: 10000 });
+      const { stdout } = await execFileAsync(binary, ['-p', '', '--output-format', 'json'], {
+        timeout: 10000,
+        shell: process.platform === 'win32', // .cmd shims need shell on Windows
+      });
       const result = JSON.parse(stdout);
       if (result.is_error && typeof result.result === 'string') {
         const msg = result.result as string;
@@ -144,7 +155,9 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
   }
 
   async writeHooksConfig(cwd: string, hookUrl: string): Promise<void> {
-    const curlBase = `cat | curl -s -X POST ${hookUrl}/\${CLUBHOUSE_AGENT_ID} -H 'Content-Type: application/json' -H "X-Clubhouse-Nonce: \${CLUBHOUSE_HOOK_NONCE}" --data-binary @- || true`;
+    const curlBase = process.platform === 'win32'
+      ? `curl -s -X POST ${hookUrl}/%CLUBHOUSE_AGENT_ID% -H "Content-Type: application/json" -H "X-Clubhouse-Nonce: %CLUBHOUSE_HOOK_NONCE%" -d @- || (exit /b 0)`
+      : `cat | curl -s -X POST ${hookUrl}/\${CLUBHOUSE_AGENT_ID} -H 'Content-Type: application/json' -H "X-Clubhouse-Nonce: \${CLUBHOUSE_HOOK_NONCE}" --data-binary @- || true`;
 
     const hooks: Record<string, unknown[]> = {
       PreToolUse: [{ hooks: [{ type: 'command', command: curlBase, async: true, timeout: 5 }] }],

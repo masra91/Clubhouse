@@ -17,7 +17,7 @@ vi.mock('child_process', () => ({
 }));
 
 vi.mock('../util/shell', () => ({
-  getShellEnvironment: vi.fn(() => ({ PATH: '/usr/local/bin:/usr/bin' })),
+  getShellEnvironment: vi.fn(() => ({ PATH: `/usr/local/bin${path.delimiter}/usr/bin` })),
 }));
 
 import * as fs from 'fs';
@@ -25,13 +25,18 @@ import { ClaudeCodeProvider } from './claude-code-provider';
 import { CopilotCliProvider } from './copilot-cli-provider';
 import { OpenCodeProvider } from './opencode-provider';
 
+/** Check if path's basename matches a known binary name (with or without Windows extensions) */
+function isKnownBinary(p: string | Buffer | URL): boolean {
+  const base = path.basename(String(p));
+  const names = ['claude', 'copilot', 'opencode'];
+  const exts = ['', '.exe', '.cmd'];
+  return names.some(n => exts.some(e => base === n + e));
+}
+
 describe('Provider integration tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(fs.existsSync).mockImplementation((p) => {
-      const s = String(p);
-      return s.endsWith('/claude') || s.endsWith('/copilot') || s.endsWith('/opencode');
-    });
+    vi.mocked(fs.existsSync).mockImplementation((p) => isKnownBinary(p as string));
   });
 
   describe('buildSpawnCommand flag generation', () => {
@@ -225,7 +230,7 @@ describe('Provider integration tests', () => {
   describe('writeHooksConfig format', () => {
     it('ClaudeCode: writes hooks in Claude Code format', async () => {
       const provider = new ClaudeCodeProvider();
-      vi.mocked(fs.existsSync).mockImplementation((p) => String(p).endsWith('/claude'));
+      vi.mocked(fs.existsSync).mockImplementation((p) => isKnownBinary(p as string));
 
       await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
 
@@ -241,7 +246,7 @@ describe('Provider integration tests', () => {
 
     it('ClaudeCode: writes to .claude/settings.local.json', async () => {
       const provider = new ClaudeCodeProvider();
-      vi.mocked(fs.existsSync).mockImplementation((p) => String(p).endsWith('/claude'));
+      vi.mocked(fs.existsSync).mockImplementation((p) => isKnownBinary(p as string));
 
       await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
 
@@ -256,7 +261,7 @@ describe('Provider integration tests', () => {
       const provider = new CopilotCliProvider();
       vi.mocked(fs.existsSync).mockImplementation((p) => {
         const s = String(p);
-        return s.endsWith('/copilot') || s.includes('.github');
+        return isKnownBinary(s) || s.includes('.github');
       });
 
       await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
@@ -289,7 +294,7 @@ describe('Provider integration tests', () => {
       const provider = new CopilotCliProvider();
       vi.mocked(fs.existsSync).mockImplementation((p) => {
         const s = String(p);
-        return s.endsWith('/copilot') || s.includes('.github');
+        return isKnownBinary(s) || s.includes('.github');
       });
 
       await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
@@ -495,7 +500,7 @@ describe('Provider integration tests', () => {
   describe('writeHooksConfig merge behavior', () => {
     it('ClaudeCode: preserves existing user hooks alongside Clubhouse hooks', async () => {
       const provider = new ClaudeCodeProvider();
-      vi.mocked(fs.existsSync).mockImplementation((p) => String(p).endsWith('/claude'));
+      vi.mocked(fs.existsSync).mockImplementation((p) => isKnownBinary(p as string));
 
       // Simulate existing user hooks
       const existingConfig = {
@@ -522,7 +527,7 @@ describe('Provider integration tests', () => {
 
     it('ClaudeCode: replaces stale Clubhouse entries (idempotent)', async () => {
       const provider = new ClaudeCodeProvider();
-      vi.mocked(fs.existsSync).mockImplementation((p) => String(p).endsWith('/claude'));
+      vi.mocked(fs.existsSync).mockImplementation((p) => isKnownBinary(p as string));
 
       // Simulate existing config with old Clubhouse entries
       const existingConfig = {
@@ -548,7 +553,7 @@ describe('Provider integration tests', () => {
       const provider = new CopilotCliProvider();
       vi.mocked(fs.existsSync).mockImplementation((p) => {
         const s = String(p);
-        return s.endsWith('/copilot') || s.includes('.github');
+        return isKnownBinary(s) || s.includes('.github');
       });
 
       // Simulate existing user hooks
@@ -577,7 +582,7 @@ describe('Provider integration tests', () => {
       const provider = new CopilotCliProvider();
       vi.mocked(fs.existsSync).mockImplementation((p) => {
         const s = String(p);
-        return s.endsWith('/copilot') || s.includes('.github');
+        return isKnownBinary(s) || s.includes('.github');
       });
       // readFileSync throws (no existing file)
       vi.mocked(fs.readFileSync).mockImplementation(() => { throw new Error('ENOENT'); });
