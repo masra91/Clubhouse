@@ -2,27 +2,27 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AboutSettingsView } from './AboutSettingsView';
 
-// Mock window.clubhouse
-Object.defineProperty(globalThis, 'window', {
-  value: {
-    clubhouse: {
-      app: {
-        getVersion: vi.fn().mockResolvedValue('1.2.3'),
-        getArchInfo: vi.fn().mockResolvedValue({ arch: 'arm64', platform: 'darwin', rosetta: false }),
-      },
-    },
-  },
-  writable: true,
-});
-
 // Mock the manifest-validator module
 vi.mock('../../plugins/manifest-validator', () => ({
   SUPPORTED_API_VERSIONS: ['0.5'],
 }));
 
+// Set up window.clubhouse mock
+const mockGetVersion = vi.fn().mockResolvedValue('1.2.3');
+const mockGetArchInfo = vi.fn().mockResolvedValue({ arch: 'arm64', platform: 'darwin', rosetta: false });
+
+(window as any).clubhouse = {
+  app: {
+    getVersion: mockGetVersion,
+    getArchInfo: mockGetArchInfo,
+  },
+};
+
 describe('AboutSettingsView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetVersion.mockResolvedValue('1.2.3');
+    mockGetArchInfo.mockResolvedValue({ arch: 'arm64', platform: 'darwin', rosetta: false });
   });
 
   it('renders version', async () => {
@@ -36,7 +36,7 @@ describe('AboutSettingsView', () => {
   });
 
   it('renders Rosetta warning when running under translation', async () => {
-    (window.clubhouse.app.getArchInfo as ReturnType<typeof vi.fn>).mockResolvedValue({
+    mockGetArchInfo.mockResolvedValue({
       arch: 'x64',
       platform: 'darwin',
       rosetta: true,
@@ -47,7 +47,7 @@ describe('AboutSettingsView', () => {
   });
 
   it('does not show Rosetta warning for native x64', async () => {
-    (window.clubhouse.app.getArchInfo as ReturnType<typeof vi.fn>).mockResolvedValue({
+    mockGetArchInfo.mockResolvedValue({
       arch: 'x64',
       platform: 'darwin',
       rosetta: false,
