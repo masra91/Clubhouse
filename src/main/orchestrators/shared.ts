@@ -75,6 +75,15 @@ export function findBinaryInPath(names: string[], extraPaths: string[]): string 
   );
 }
 
+/**
+ * Whether `execFile` / `spawn` needs `shell: true` for a given binary path
+ * on Windows.  Only `.cmd` and `.bat` shims require a shell wrapper —
+ * passing a full `.exe` path through `cmd.exe` corrupts backslashes.
+ */
+export function needsWindowsShell(binaryPath: string): boolean {
+  return process.platform === 'win32' && /\.(cmd|bat)$/i.test(binaryPath);
+}
+
 /** Common home-relative path builder */
 export function homePath(...segments: string[]): string {
   return path.join(app.getPath('home'), ...segments);

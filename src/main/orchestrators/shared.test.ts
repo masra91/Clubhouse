@@ -21,7 +21,7 @@ vi.mock('../util/shell', () => ({
 
 import * as fs from 'fs';
 import { execSync } from 'child_process';
-import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary } from './shared';
+import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary, needsWindowsShell } from './shared';
 
 describe('shared orchestrator utilities', () => {
   beforeEach(() => {
@@ -113,6 +113,26 @@ describe('shared orchestrator utilities', () => {
       vi.mocked(fs.existsSync).mockImplementation((p) => p === '/fallback/claude');
       const result = findBinaryInPath(['claude'], ['/fallback/claude']);
       expect(result).toBe('/fallback/claude');
+    });
+  });
+
+  describe('needsWindowsShell', () => {
+    it('returns true for .cmd files on Windows', () => {
+      const result = needsWindowsShell('C:\\npm\\claude.cmd');
+      expect(result).toBe(process.platform === 'win32');
+    });
+
+    it('returns true for .bat files on Windows', () => {
+      const result = needsWindowsShell('C:\\bin\\setup.bat');
+      expect(result).toBe(process.platform === 'win32');
+    });
+
+    it('returns false for .exe files', () => {
+      expect(needsWindowsShell('C:\\bin\\opencode.exe')).toBe(false);
+    });
+
+    it('returns false for extensionless binaries', () => {
+      expect(needsWindowsShell('/usr/local/bin/claude')).toBe(false);
     });
   });
 

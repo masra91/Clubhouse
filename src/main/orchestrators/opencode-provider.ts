@@ -11,7 +11,7 @@ import {
   HeadlessCommandResult,
   NormalizedHookEvent,
 } from './types';
-import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary } from './shared';
+import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary, needsWindowsShell } from './shared';
 
 const execFileAsync = promisify(execFile);
 
@@ -182,7 +182,7 @@ export class OpenCodeProvider implements OrchestratorProvider {
       const binary = findOpenCodeBinary();
       const { stdout } = await execFileAsync(binary, ['models'], {
         timeout: 15000,
-        shell: process.platform === 'win32',
+        shell: needsWindowsShell(binary),
       });
       const parsed = parseOpenCodeModels(stdout);
       if (parsed) return parsed;

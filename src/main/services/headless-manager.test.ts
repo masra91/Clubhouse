@@ -549,25 +549,30 @@ describe('headless-manager', () => {
   // Windows shell wrapping
   // ============================================================
   describe('Windows spawn options', () => {
-    it('sets shell: true on Windows for .cmd shim compatibility', () => {
+    it('sets shell: true for .cmd binaries on Windows', () => {
       spawnHeadless('test-agent', '/project', 'C:\\npm\\claude.cmd', ['-p', 'test']);
 
       const spawnOpts = (mockCpSpawn.mock.calls[0] as any[])[2];
       if (process.platform === 'win32') {
         expect(spawnOpts.shell).toBe(true);
       } else {
-        expect(spawnOpts.shell).toBeFalsy();
+        // needsWindowsShell always returns false on non-Windows
+        expect(spawnOpts.shell).toBe(false);
       }
     });
 
-    it('shell option does not break non-Windows platforms', () => {
+    it('sets shell: false for .exe binaries even on Windows', () => {
+      spawnHeadless('test-agent', '/project', 'C:\\bin\\claude.exe', ['-p', 'test']);
+
+      const spawnOpts = (mockCpSpawn.mock.calls[0] as any[])[2];
+      expect(spawnOpts.shell).toBe(false);
+    });
+
+    it('sets shell: false for extensionless binaries', () => {
       spawnHeadless('test-agent', '/project', '/usr/local/bin/claude', ['-p', 'test']);
 
       const spawnOpts = (mockCpSpawn.mock.calls[0] as any[])[2];
-      // On non-Windows, shell should be false (not undefined or true)
-      if (process.platform !== 'win32') {
-        expect(spawnOpts.shell).toBe(false);
-      }
+      expect(spawnOpts.shell).toBe(false);
     });
   });
 });

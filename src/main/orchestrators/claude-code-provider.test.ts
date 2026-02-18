@@ -75,19 +75,47 @@ describe('ClaudeCodeProvider', () => {
       expect(result.error).toMatch(/Could not find/);
     });
 
-    it('passes shell option to execFile on Windows for .cmd compatibility', async () => {
-      const { execFile } = await import('child_process');
+    it('sets shell: true only for .cmd/.bat binaries (not .exe)', async () => {
+      const { execFile, execSync } = await import('child_process');
+      // Simulate `where` finding a .cmd shim
+      vi.mocked(execSync).mockReturnValue('C:\\npm\\claude.cmd\r\n');
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        const s = String(p);
+        return s === 'C:\\npm\\claude.cmd' || isClaudePath(s);
+      });
+      let capturedShell: boolean | undefined;
       vi.mocked(execFile).mockImplementation(
         (_cmd: any, _args: any, opts: any, cb: any) => {
-          // Verify shell option matches platform
-          if (process.platform === 'win32') {
-            expect(opts.shell).toBe(true);
-          }
+          capturedShell = opts.shell;
           cb(null, '{}', '');
           return {} as any;
         }
       );
       await provider.checkAvailability();
+      if (process.platform === 'win32') {
+        expect(capturedShell).toBe(true);
+      } else {
+        expect(capturedShell).toBeFalsy();
+      }
+    });
+
+    it('sets shell: false for .exe binaries on Windows', async () => {
+      const { execFile, execSync } = await import('child_process');
+      vi.mocked(execSync).mockReturnValue('C:\\bin\\claude.exe\r\n');
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        const s = String(p);
+        return s === 'C:\\bin\\claude.exe' || isClaudePath(s);
+      });
+      let capturedShell: boolean | undefined;
+      vi.mocked(execFile).mockImplementation(
+        (_cmd: any, _args: any, opts: any, cb: any) => {
+          capturedShell = opts.shell;
+          cb(null, '{}', '');
+          return {} as any;
+        }
+      );
+      await provider.checkAvailability();
+      expect(capturedShell).toBeFalsy();
     });
   });
 

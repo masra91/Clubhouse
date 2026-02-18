@@ -8,6 +8,7 @@ import { parseTranscript, TranscriptSummary } from './transcript-parser';
 import { getShellEnvironment } from '../util/shell';
 import { appLog } from './log-service';
 import { HeadlessOutputKind } from '../orchestrators/types';
+import { needsWindowsShell } from '../orchestrators/shared';
 
 interface HeadlessSession {
   process: ChildProcess;
@@ -69,7 +70,7 @@ export function spawnHeadless(
     cwd,
     env,
     stdio: ['pipe', 'pipe', 'pipe'],
-    shell: process.platform === 'win32', // .cmd/.ps1 shims need shell on Windows
+    shell: needsWindowsShell(binary),
   });
 
   // Close stdin immediately — `-p` mode uses the CLI argument, not stdin.

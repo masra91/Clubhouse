@@ -11,7 +11,7 @@ import {
   HeadlessCommandResult,
   NormalizedHookEvent,
 } from './types';
-import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary } from './shared';
+import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary, needsWindowsShell } from './shared';
 import { isClubhouseHookEntry } from '../services/config-pipeline';
 
 const execFileAsync = promisify(execFile);
@@ -242,7 +242,7 @@ export class CopilotCliProvider implements OrchestratorProvider {
       const binary = findCopilotBinary();
       const { stdout } = await execFileAsync(binary, ['--help'], {
         timeout: 5000,
-        shell: process.platform === 'win32',
+        shell: needsWindowsShell(binary),
       });
       const parsed = parseModelChoicesFromHelp(stdout);
       if (parsed) return parsed;

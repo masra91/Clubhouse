@@ -11,7 +11,7 @@ import {
   HeadlessCommandResult,
   NormalizedHookEvent,
 } from './types';
-import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary } from './shared';
+import { findBinaryInPath, homePath, buildSummaryInstruction, readQuickSummary, needsWindowsShell } from './shared';
 import { isClubhouseHookEntry } from '../services/config-pipeline';
 
 const execFileAsync = promisify(execFile);
@@ -109,7 +109,7 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
     try {
       const { stdout } = await execFileAsync(binary, ['-p', '', '--output-format', 'json'], {
         timeout: 10000,
-        shell: process.platform === 'win32', // .cmd shims need shell on Windows
+        shell: needsWindowsShell(binary),
       });
       const result = JSON.parse(stdout);
       if (result.is_error && typeof result.result === 'string') {
