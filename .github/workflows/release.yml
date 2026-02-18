@@ -48,6 +48,8 @@ jobs:
 
       - name: Extract version and release notes
         id: meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
@@ -59,8 +61,24 @@ jobs:
             exit 1
           fi
 
-          # Extract annotated tag message as release notes
-          NOTES=$(git tag -l --format='%(contents)' "${GITHUB_REF_NAME}" | head -50)
+          # Find the merge commit the tag points to, then find its PR
+          COMMIT_SHA=$(git rev-list -n 1 "${GITHUB_REF_NAME}")
+          PR_NUMBER=$(gh api "repos/${{ github.repository }}/commits/${COMMIT_SHA}/pulls" --jq '.[0].number // empty')
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::warning::No PR found for tagged commit — using tag message as fallback"
+            NOTES=$(git tag -l --format='%(subject)' "${GITHUB_REF_NAME}")
+          else
+            # Extract PR body, strip boilerplate noise
+            NOTES=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}" --jq '.body // ""' \
+              | sed '/^## Test [Pp]lan/,$d' \
+              | sed '/Co-[Aa]uthored-[Bb]y:/d' \
+              | sed '/Generated with \[Claude Code\]/d' \
+              | sed '/^🤖/d' \
+              | sed -e :a -e '/^[[:space:]]*$/{ $d; N; ba; }' \
+            )
+          fi
+
           {
             echo "release_notes<<RELEASE_NOTES_EOF"
             echo "$NOTES"
