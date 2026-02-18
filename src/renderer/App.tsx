@@ -415,7 +415,7 @@ export function App() {
         </div>
         <PermissionViolationBanner />
         <UpdateBanner />
-        <div className="flex-1 min-h-0 grid grid-cols-[60px_1fr] grid-rows-[1fr]">
+        <div className="flex-1 min-h-0 grid grid-rows-[1fr]" style={{ gridTemplateColumns: 'var(--rail-width, 68px) 1fr' }}>
           <ProjectRail />
           <Dashboard />
         </div>
@@ -433,7 +433,7 @@ export function App() {
         </div>
         <PermissionViolationBanner />
         <UpdateBanner />
-        <div className="flex-1 min-h-0 grid grid-cols-[60px_1fr] grid-rows-[1fr]">
+        <div className="flex-1 min-h-0 grid grid-rows-[1fr]" style={{ gridTemplateColumns: 'var(--rail-width, 68px) 1fr' }}>
           <ProjectRail />
           <PluginContentView pluginId={appPluginId} mode="app" />
         </div>
@@ -450,7 +450,7 @@ export function App() {
         </div>
         <PermissionViolationBanner />
         <UpdateBanner />
-        <div className="flex-1 min-h-0 grid grid-cols-[60px_1fr] grid-rows-[1fr]">
+        <div className="flex-1 min-h-0 grid grid-rows-[1fr]" style={{ gridTemplateColumns: 'var(--rail-width, 68px) 1fr' }}>
           <ProjectRail />
           <HelpView />
         </div>
@@ -472,7 +472,7 @@ export function App() {
       {/* Git banner */}
       <GitBanner />
       {/* Main content grid */}
-      <div className={`flex-1 min-h-0 grid grid-rows-[1fr] ${isFullWidth ? 'grid-cols-[60px_200px_1fr]' : 'grid-cols-[60px_200px_280px_1fr]'}`}>
+      <div className="flex-1 min-h-0 grid grid-rows-[1fr]" style={{ gridTemplateColumns: isFullWidth ? 'var(--rail-width, 68px) 200px 1fr' : 'var(--rail-width, 68px) 200px 280px 1fr' }}>
         <ProjectRail />
         <ExplorerRail />
         {!isFullWidth && <AccessoryPanel />}
