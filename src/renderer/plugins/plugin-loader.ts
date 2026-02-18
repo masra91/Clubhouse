@@ -5,6 +5,7 @@ import { createPluginAPI } from './plugin-api-factory';
 import { injectStyles, removeStyles } from './plugin-styles';
 import { getBuiltinPlugins, getDefaultEnabledIds } from './builtin';
 import { rendererLog } from './renderer-logger';
+import { dynamicImportModule } from './dynamic-import';
 
 const activeContexts = new Map<string, PluginContext>();
 
@@ -189,9 +190,7 @@ export async function activatePlugin(
       const cacheBustedUrl = `${moduleUrl}?v=${Date.now()}`;
 
       try {
-        // Use indirect eval to prevent webpack from analyzing the expression
-        const dynamicImport = new Function('path', 'return import(path)') as (path: string) => Promise<PluginModule>;
-        mod = await dynamicImport(cacheBustedUrl);
+        mod = await dynamicImportModule(cacheBustedUrl);
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         const errStack = err instanceof Error ? err.stack : undefined;
