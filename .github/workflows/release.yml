@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.meta.outputs.version }}
+      release_message: ${{ steps.meta.outputs.release_message }}
       release_notes: ${{ steps.meta.outputs.release_notes }}
     steps:
       - uses: actions/checkout@v4
@@ -67,10 +68,10 @@ jobs:
 
           if [ -z "$PR_NUMBER" ]; then
             echo "::warning::No PR found for tagged commit — using tag message as fallback"
-            NOTES=$(git tag -l --format='%(subject)' "${GITHUB_REF_NAME}")
+            BODY=$(git tag -l --format='%(subject)' "${GITHUB_REF_NAME}")
           else
             # Extract PR body, strip boilerplate noise
-            NOTES=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}" --jq '.body // ""' \
+            BODY=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}" --jq '.body // ""' \
               | sed '/^## Test [Pp]lan/,$d' \
               | sed '/Co-[Aa]uthored-[Bb]y:/d' \
               | sed '/Generated with \[Claude Code\]/d' \
@@ -79,9 +80,14 @@ jobs:
             )
           fi
 
+          # First line = release message (tagline), rest = release notes
+          RELEASE_MESSAGE=$(echo "$BODY" | head -1)
+          RELEASE_NOTES=$(echo "$BODY" | tail -n +2 | sed '/./,$!d')
+
+          echo "release_message=${RELEASE_MESSAGE}" >> "$GITHUB_OUTPUT"
           {
             echo "release_notes<<RELEASE_NOTES_EOF"
-            echo "$NOTES"
+            echo "$RELEASE_NOTES"
             echo "RELEASE_NOTES_EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -193,6 +199,10 @@ jobs:
       - name: Generate latest.json
         run: |
           VERSION="${{ needs.verify-tag.outputs.version }}"
+          MESSAGE=$(cat <<'MESSAGE_EOF'
+          ${{ needs.verify-tag.outputs.release_message }}
+          MESSAGE_EOF
+          )
           NOTES=$(cat <<'NOTES_EOF'
           ${{ needs.verify-tag.outputs.release_notes }}
           NOTES_EOF
@@ -202,6 +212,7 @@ jobs:
           jq -n \
             --arg version "$VERSION" \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg message "$MESSAGE" \
             --arg notes "$NOTES" \
             --arg min_version "0.1.0" \
             --arg url_arm64 "${BASE_URL}/Clubhouse-${VERSION}-darwin-arm64.zip" \
@@ -213,6 +224,7 @@ jobs:
             '{
               version: $version,
               releaseDate: $date,
+              releaseMessage: $message,
               releaseNotes: $notes,
               minVersion: $min_version,
               artifacts: {
@@ -304,10 +316,16 @@ jobs:
         run: |
           VERSION="${{ needs.verify-tag.outputs.version }}"
 
+          RELEASE_TITLE="v${VERSION} — ${{ needs.verify-tag.outputs.release_message }}"
+          RELEASE_BODY=$(cat <<'BODY_EOF'
+          ${{ needs.verify-tag.outputs.release_notes }}
+          BODY_EOF
+          )
+
           gh release create "v${VERSION}" \
             --repo "${{ github.repository }}" \
-            --title "v${VERSION}" \
-            --notes "${{ needs.verify-tag.outputs.release_notes }}" \
+            --title "${RELEASE_TITLE}" \
+            --notes "${RELEASE_BODY}" \
             artifacts/Clubhouse-*.zip \
             artifacts/Clubhouse-*.dmg \
             artifacts/latest.json
