@@ -13,7 +13,7 @@ import { appLog } from './log-service';
 // Config
 // ---------------------------------------------------------------------------
 
-const UPDATE_URL = 'https://clubhouse-releases.blob.core.windows.net/updates/latest.json';
+const UPDATE_URL = 'https://stclubhousereleases.blob.core.windows.net/releases/updates/latest.json';
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
 // ---------------------------------------------------------------------------
