@@ -18,6 +18,7 @@ Object.defineProperty(globalThis, 'window', {
         getNotificationSettings: vi.fn().mockResolvedValue({}),
         saveNotificationSettings: vi.fn().mockResolvedValue(undefined),
         sendNotification: vi.fn().mockResolvedValue(undefined),
+        closeNotification: vi.fn().mockResolvedValue(undefined),
         onNotificationClicked: vi.fn().mockReturnValue(vi.fn()),
         onOpenSettings: vi.fn().mockReturnValue(vi.fn()),
         getTheme: vi.fn().mockResolvedValue({}),

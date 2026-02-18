@@ -46,6 +46,10 @@ export function registerAppHandlers(): void {
     notificationService.sendNotification(title, body, silent, agentId, projectId);
   });
 
+  ipcMain.handle(IPC.APP.CLOSE_NOTIFICATION, (_event, agentId: string, projectId: string) => {
+    notificationService.closeNotification(agentId, projectId);
+  });
+
   ipcMain.handle(IPC.APP.GET_THEME, () => {
     return themeService.getSettings();
   });
