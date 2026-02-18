@@ -1,7 +1,7 @@
 {
   "name": "clubhouse",
   "productName": "Clubhouse",
-  "version": "0.25.0",
+  "version": "0.26.0",
   "description": "A place to hangout with your agent BFFs",
   "main": ".webpack/main",
   "private": true,
@@ -17,7 +17,8 @@
     "test:components": "vitest run --project renderer",
     "test:e2e": "npx playwright test",
     "typecheck": "tsc --noEmit",
-    "validate": "npm run typecheck && npm test && npm run make && npm run test:e2e"
+    "validate": "npm run typecheck && npm test && npm run make && npm run test:e2e",
+    "postinstall": "node scripts/fix-node-pty-win.js"
   },
   "keywords": [],
   "author": {
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@electron-forge/cli": "^7.11.1",
     "@electron-forge/maker-deb": "^7.11.1",
+    "@electron-forge/maker-dmg": "^7.11.1",
     "@electron-forge/maker-rpm": "^7.11.1",
     "@electron-forge/maker-squirrel": "^7.11.1",
     "@electron-forge/maker-zip": "^7.11.1",

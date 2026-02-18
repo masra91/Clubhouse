@@ -1,8 +1,9 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useProjectStore } from '../stores/projectStore';
 import { useUIStore } from '../stores/uiStore';
 import { usePluginStore } from '../plugins/plugin-store';
-import { useBadgeStore } from '../stores/badgeStore';
+import { useBadgeStore, aggregateBadges } from '../stores/badgeStore';
+import { useBadgeSettingsStore } from '../stores/badgeSettingsStore';
 import { Badge } from '../components/Badge';
 import { Project } from '../../shared/types';
 import { PluginRegistryEntry } from '../../shared/plugin-types';
@@ -25,7 +26,18 @@ function ProjectIcon({ project, isActive, onClick, expanded }: {
   const label = project.displayName || project.name;
   const letter = label.charAt(0).toUpperCase();
   const hasImage = !!project.icon && !!iconDataUrl;
-  const projectBadge = useBadgeStore((s) => s.getProjectBadge(project.id));
+  const badges = useBadgeStore((s) => s.badges);
+  const projectBadge = useMemo(() => {
+    const settings = useBadgeSettingsStore.getState().getProjectSettings(project.id);
+    if (!settings.enabled || !settings.projectRailBadges) return null;
+    let filtered = Object.values(badges).filter(
+      (b) => b.target.kind === 'explorer-tab' && b.target.projectId === project.id,
+    );
+    if (!settings.pluginBadges) {
+      filtered = filtered.filter((b) => !b.source.startsWith('plugin:'));
+    }
+    return aggregateBadges(filtered);
+  }, [badges, project.id]);
 
   return (
     <button
@@ -85,7 +97,15 @@ function PluginRailButton({ entry, isActive, onClick, expanded }: {
 }) {
   const label = entry.manifest.contributes!.railItem!.label;
   const customIcon = entry.manifest.contributes!.railItem!.icon;
-  const pluginBadge = useBadgeStore((s) => s.getAppPluginBadge(entry.manifest.id));
+  const pluginBadges = useBadgeStore((s) => s.badges);
+  const pluginBadge = useMemo(() => {
+    const { enabled, pluginBadges: pluginBadgesEnabled } = useBadgeSettingsStore.getState();
+    if (!enabled || !pluginBadgesEnabled) return null;
+    const filtered = Object.values(pluginBadges).filter(
+      (b) => b.target.kind === 'app-plugin' && b.target.pluginId === entry.manifest.id,
+    );
+    return aggregateBadges(filtered);
+  }, [pluginBadges, entry.manifest.id]);
 
   return (
     <button
@@ -279,7 +299,7 @@ export function ProjectRail() {
 
   return (
     <div
-      className="relative h-full"
+      className="relative h-full min-h-0 overflow-hidden"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >

@@ -2,7 +2,8 @@ import { ReactNode, useState, useRef, useCallback, useMemo } from 'react';
 import { useUIStore } from '../stores/uiStore';
 import { useProjectStore } from '../stores/projectStore';
 import { usePluginStore } from '../plugins/plugin-store';
-import { useBadgeStore } from '../stores/badgeStore';
+import { useBadgeStore, aggregateBadges } from '../stores/badgeStore';
+import { useBadgeSettingsStore } from '../stores/badgeSettingsStore';
 import { Badge } from '../components/Badge';
 
 interface TabEntry { id: string; label: string; icon: ReactNode }
@@ -104,7 +105,19 @@ const PLUGIN_FALLBACK_ICON = (
 );
 
 function TabButton({ tab, isActive, projectId, onClick }: { tab: TabEntry; isActive: boolean; projectId: string | null; onClick: () => void }) {
-  const tabBadge = useBadgeStore((s) => projectId ? s.getTabBadge(projectId, tab.id) : null);
+  const badges = useBadgeStore((s) => s.badges);
+  const tabBadge = useMemo(() => {
+    if (!projectId) return null;
+    const settings = useBadgeSettingsStore.getState().getProjectSettings(projectId);
+    if (!settings.enabled) return null;
+    let filtered = Object.values(badges).filter(
+      (b) => b.target.kind === 'explorer-tab' && b.target.projectId === projectId && b.target.tabId === tab.id,
+    );
+    if (!settings.pluginBadges) {
+      filtered = filtered.filter((b) => !b.source.startsWith('plugin:'));
+    }
+    return aggregateBadges(filtered);
+  }, [badges, projectId, tab.id]);
 
   return (
     <button
@@ -235,7 +248,7 @@ export function ExplorerRail() {
   }
 
   return (
-    <div className="flex flex-col bg-ctp-mantle border-r border-surface-0 h-full">
+    <div className="flex flex-col bg-ctp-mantle border-r border-surface-0 h-full min-h-0">
       <div className="px-3 py-3 border-b border-surface-0">
         <h2 className="text-xs font-semibold text-ctp-subtext0 uppercase tracking-wider truncate">
           {activeProject?.displayName || activeProject?.name || 'No Project'}

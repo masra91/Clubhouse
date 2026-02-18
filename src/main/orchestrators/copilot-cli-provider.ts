@@ -64,11 +64,18 @@ const EVENT_NAME_MAP: Record<string, NormalizedHookEvent['kind']> = {
 };
 
 function findCopilotBinary(): string {
-  return findBinaryInPath(['copilot'], [
-    homePath('.local/bin/copilot'),
-    '/usr/local/bin/copilot',
-    '/opt/homebrew/bin/copilot',
-  ]);
+  const paths = [
+    homePath('.local', 'bin', 'copilot'),
+  ];
+  if (process.platform === 'win32') {
+    paths.push(
+      homePath('AppData', 'Roaming', 'npm', 'copilot.cmd'),
+      homePath('AppData', 'Roaming', 'npm', 'copilot'),
+    );
+  } else {
+    paths.push('/usr/local/bin/copilot', '/opt/homebrew/bin/copilot');
+  }
+  return findBinaryInPath(['copilot'], paths);
 }
 
 export class CopilotCliProvider implements OrchestratorProvider {
@@ -139,7 +146,9 @@ export class CopilotCliProvider implements OrchestratorProvider {
 
   async writeHooksConfig(cwd: string, hookUrl: string): Promise<void> {
     const makeCurl = (event: string) =>
-      `cat | curl -s -X POST ${hookUrl}/\${CLUBHOUSE_AGENT_ID}/${event} -H 'Content-Type: application/json' -H "X-Clubhouse-Nonce: \${CLUBHOUSE_HOOK_NONCE}" --data-binary @- || true`;
+      process.platform === 'win32'
+        ? `curl -s -X POST ${hookUrl}/%CLUBHOUSE_AGENT_ID%/${event} -H "Content-Type: application/json" -H "X-Clubhouse-Nonce: %CLUBHOUSE_HOOK_NONCE%" -d @- || (exit /b 0)`
+        : `cat | curl -s -X POST ${hookUrl}/\${CLUBHOUSE_AGENT_ID}/${event} -H 'Content-Type: application/json' -H "X-Clubhouse-Nonce: \${CLUBHOUSE_HOOK_NONCE}" --data-binary @- || true`;
 
     const ourHooks: Record<string, unknown[]> = {
       preToolUse: [{ type: 'command', bash: makeCurl('preToolUse'), timeoutSec: 5 }],
@@ -231,7 +240,10 @@ export class CopilotCliProvider implements OrchestratorProvider {
   async getModelOptions() {
     try {
       const binary = findCopilotBinary();
-      const { stdout } = await execFileAsync(binary, ['--help'], { timeout: 5000 });
+      const { stdout } = await execFileAsync(binary, ['--help'], {
+        timeout: 5000,
+        shell: process.platform === 'win32',
+      });
       const parsed = parseModelChoicesFromHelp(stdout);
       if (parsed) return parsed;
     } catch {
