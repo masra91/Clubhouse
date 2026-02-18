@@ -41,6 +41,7 @@ function SettingsCategoryNav() {
             {navButton('Notifications', 'notifications')}
             {navButton('Logging', 'logging')}
             {navButton('Plugins', 'plugins')}
+            {navButton('Updates', 'updates')}
             <div className="flex-1" />
             {navButton('About', 'about')}
           </>
