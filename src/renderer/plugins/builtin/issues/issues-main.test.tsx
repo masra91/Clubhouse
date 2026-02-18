@@ -91,13 +91,17 @@ describe('MainPanel agent assignment', () => {
     // Open agent dialog
     fireEvent.click(screen.getByText('Assign to Agent'));
 
-    // Dialog should show title, issue reference, instructions textarea, checkbox, and agent
+    // Dialog should show title, issue reference, instructions textarea, and agent
     expect(screen.getByText('Assign to Agent', { selector: 'div' })).toBeTruthy();
     expect(screen.getByText('#42 Fix login bug')).toBeTruthy();
     expect(screen.getByPlaceholderText('Additional instructions (optional)')).toBeTruthy();
-    expect(screen.getByText('Set as default prompt')).toBeTruthy();
     expect(screen.getByText('Worker Bee')).toBeTruthy();
     expect(screen.getByText('Cancel')).toBeTruthy();
+
+    // Wait for default to load (async), then checkbox should appear
+    await waitFor(() => {
+      expect(screen.getByText('Set as default prompt')).toBeTruthy();
+    });
   });
 
   it('sleeping agent → click agent → resume with mission', async () => {
