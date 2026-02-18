@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { validateManifest, SUPPORTED_API_VERSIONS } from './manifest-validator';
 
 describe('manifest-validator', () => {
@@ -19,6 +21,12 @@ describe('manifest-validator', () => {
 
     it('does not include version 0.4', () => {
       expect(SUPPORTED_API_VERSIONS).not.toContain(0.4);
+    });
+
+    it('matches the about panel copyright string in main/index.ts', () => {
+      const indexSrc = readFileSync(join(__dirname, '../../main/index.ts'), 'utf-8');
+      const expected = `Supported Plugin API Versions: ${SUPPORTED_API_VERSIONS.join(', ')}`;
+      expect(indexSrc).toContain(expected);
     });
   });
 
