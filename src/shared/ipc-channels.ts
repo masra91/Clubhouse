@@ -90,6 +90,7 @@ export const IPC = {
   APP: {
     OPEN_EXTERNAL_URL: 'app:open-external-url',
     OPEN_SETTINGS: 'app:open-settings',
+    OPEN_ABOUT: 'app:open-about',
     GET_NOTIFICATION_SETTINGS: 'app:get-notification-settings',
     SAVE_NOTIFICATION_SETTINGS: 'app:save-notification-settings',
     SEND_NOTIFICATION: 'app:send-notification',
@@ -104,6 +105,14 @@ export const IPC = {
     SET_DOCK_BADGE: 'app:set-dock-badge',
     GET_BADGE_SETTINGS: 'app:get-badge-settings',
     SAVE_BADGE_SETTINGS: 'app:save-badge-settings',
+    GET_UPDATE_SETTINGS: 'app:get-update-settings',
+    SAVE_UPDATE_SETTINGS: 'app:save-update-settings',
+    CHECK_FOR_UPDATES: 'app:check-for-updates',
+    GET_UPDATE_STATUS: 'app:get-update-status',
+    APPLY_UPDATE: 'app:apply-update',
+    UPDATE_STATUS_CHANGED: 'app:update-status-changed',
+    GET_PENDING_RELEASE_NOTES: 'app:get-pending-release-notes',
+    CLEAR_PENDING_RELEASE_NOTES: 'app:clear-pending-release-notes',
   },
   PLUGIN: {
     DISCOVER_COMMUNITY: 'plugin:discover-community',
