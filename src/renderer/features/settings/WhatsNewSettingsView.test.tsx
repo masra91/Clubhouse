@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useUpdateStore } from '../../stores/updateStore';
 import { WhatsNewSettingsView } from './WhatsNewSettingsView';
@@ -26,7 +26,10 @@ Object.defineProperty(globalThis, 'window', {
   writable: true,
 });
 
-function resetStore() {
+// No-op to prevent useEffect from overwriting pre-set state
+const noopLoad = vi.fn();
+
+function resetStore(overrides?: Partial<ReturnType<typeof useUpdateStore.getState>>) {
   useUpdateStore.setState({
     status: {
       state: 'idle',
@@ -50,11 +53,14 @@ function resetStore() {
     versionHistoryEntries: [],
     versionHistoryLoading: false,
     versionHistoryError: null,
+    // Override loadVersionHistory to prevent useEffect from resetting state
+    loadVersionHistory: noopLoad,
+    ...overrides,
   });
 }
 
 describe('WhatsNewSettingsView', () => {
-  beforeEach(resetStore);
+  beforeEach(() => resetStore());
 
   it('renders the page header', () => {
     render(<WhatsNewSettingsView />);
@@ -63,14 +69,14 @@ describe('WhatsNewSettingsView', () => {
   });
 
   it('shows loading state', () => {
-    useUpdateStore.setState({ versionHistoryLoading: true });
+    resetStore({ versionHistoryLoading: true });
     render(<WhatsNewSettingsView />);
     expect(screen.getByTestId('whats-new-loading')).toBeInTheDocument();
     expect(screen.getByText('Loading version history...')).toBeInTheDocument();
   });
 
   it('shows error state', () => {
-    useUpdateStore.setState({
+    resetStore({
       versionHistoryError: 'Network error',
       versionHistoryLoading: false,
     });
@@ -80,7 +86,7 @@ describe('WhatsNewSettingsView', () => {
   });
 
   it('shows empty state when no history available', () => {
-    useUpdateStore.setState({
+    resetStore({
       versionHistoryMarkdown: null,
       versionHistoryLoading: false,
       versionHistoryError: null,
@@ -91,7 +97,7 @@ describe('WhatsNewSettingsView', () => {
   });
 
   it('renders markdown content when history is loaded', () => {
-    useUpdateStore.setState({
+    resetStore({
       versionHistoryMarkdown: '# Great Release\n\n## New Features\n\n- Added widget',
       versionHistoryEntries: [{
         version: '0.29.0',
@@ -108,7 +114,7 @@ describe('WhatsNewSettingsView', () => {
   });
 
   it('does not show loading or error when content is present', () => {
-    useUpdateStore.setState({
+    resetStore({
       versionHistoryMarkdown: '# Release\n\nContent',
       versionHistoryLoading: false,
       versionHistoryError: null,
@@ -117,5 +123,10 @@ describe('WhatsNewSettingsView', () => {
     expect(screen.queryByTestId('whats-new-loading')).not.toBeInTheDocument();
     expect(screen.queryByTestId('whats-new-error')).not.toBeInTheDocument();
     expect(screen.queryByTestId('whats-new-empty')).not.toBeInTheDocument();
+  });
+
+  it('calls loadVersionHistory on mount', () => {
+    render(<WhatsNewSettingsView />);
+    expect(noopLoad).toHaveBeenCalled();
   });
 });
