@@ -36,6 +36,7 @@ interface NotificationState {
   loadSettings: () => Promise<void>;
   saveSettings: (partial: Partial<NotificationSettings>) => Promise<void>;
   checkAndNotify: (agentName: string, eventKind: string, detail?: string, agentId?: string, projectId?: string) => void;
+  clearNotification: (agentId: string, projectId: string) => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -82,5 +83,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     }
 
     window.clubhouse.app.sendNotification(title, body, silent, agentId, projectId);
+  },
+
+  clearNotification: (agentId, projectId) => {
+    window.clubhouse.app.closeNotification(agentId, projectId);
   },
 }));

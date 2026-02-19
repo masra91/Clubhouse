@@ -47,6 +47,8 @@ export function App() {
   const loadNotificationSettings = useNotificationStore((s) => s.loadSettings);
   const loadTheme = useThemeStore((s) => s.loadTheme);
   const checkAndNotify = useNotificationStore((s) => s.checkAndNotify);
+  const clearNotification = useNotificationStore((s) => s.clearNotification);
+  const activeAgentId = useAgentStore((s) => s.activeAgentId);
   const addCompleted = useQuickAgentStore((s) => s.addCompleted);
   const loadCompleted = useQuickAgentStore((s) => s.loadCompleted);
   const removeAgent = useAgentStore((s) => s.removeAgent);
@@ -118,6 +120,13 @@ export function App() {
     });
     return () => remove();
   }, []);
+
+  // Clear any active OS notification when the user navigates to the agent's view
+  useEffect(() => {
+    if (activeAgentId && activeProjectId && explorerTab === 'agents') {
+      clearNotification(activeAgentId, activeProjectId);
+    }
+  }, [activeAgentId, activeProjectId, explorerTab, clearNotification]);
 
   // Cmd+1-9: switch to Nth project
   useEffect(() => {

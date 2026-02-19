@@ -8,6 +8,7 @@ import { useProjectStore } from './projectStore';
 const mockGetNotificationSettings = vi.fn();
 const mockSaveNotificationSettings = vi.fn();
 const mockSendNotification = vi.fn();
+const mockCloseNotification = vi.fn();
 
 Object.defineProperty(globalThis, 'window', {
   value: {
@@ -16,6 +17,7 @@ Object.defineProperty(globalThis, 'window', {
         getNotificationSettings: mockGetNotificationSettings,
         saveNotificationSettings: mockSaveNotificationSettings,
         sendNotification: mockSendNotification,
+        closeNotification: mockCloseNotification,
       },
     },
   },
@@ -303,6 +305,21 @@ describe('notificationStore', () => {
           'proj-1',
         );
       });
+    });
+  });
+
+  describe('clearNotification', () => {
+    it('calls closeNotification IPC with agentId and projectId', () => {
+      useNotificationStore.getState().clearNotification('agent-1', 'proj-1');
+
+      expect(mockCloseNotification).toHaveBeenCalledWith('agent-1', 'proj-1');
+    });
+
+    it('can be called multiple times safely', () => {
+      useNotificationStore.getState().clearNotification('agent-1', 'proj-1');
+      useNotificationStore.getState().clearNotification('agent-1', 'proj-1');
+
+      expect(mockCloseNotification).toHaveBeenCalledTimes(2);
     });
   });
 });
