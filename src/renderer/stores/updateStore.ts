@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { UpdateStatus, UpdateSettings, PendingReleaseNotes } from '../../shared/types';
+import type { UpdateStatus, UpdateSettings, PendingReleaseNotes, VersionHistoryEntry } from '../../shared/types';
 
 interface UpdateStoreState {
   status: UpdateStatus;
@@ -7,6 +7,10 @@ interface UpdateStoreState {
   dismissed: boolean;
   whatsNew: PendingReleaseNotes | null;
   showWhatsNew: boolean;
+  versionHistoryMarkdown: string | null;
+  versionHistoryEntries: VersionHistoryEntry[];
+  versionHistoryLoading: boolean;
+  versionHistoryError: string | null;
   loadSettings: () => Promise<void>;
   saveSettings: (settings: UpdateSettings) => Promise<void>;
   checkForUpdates: () => Promise<void>;
@@ -14,6 +18,7 @@ interface UpdateStoreState {
   dismiss: () => void;
   checkWhatsNew: () => Promise<void>;
   dismissWhatsNew: () => Promise<void>;
+  loadVersionHistory: () => Promise<void>;
 }
 
 const DEFAULT_STATUS: UpdateStatus = {
@@ -39,6 +44,10 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
   dismissed: false,
   whatsNew: null,
   showWhatsNew: false,
+  versionHistoryMarkdown: null,
+  versionHistoryEntries: [],
+  versionHistoryLoading: false,
+  versionHistoryError: null,
 
   loadSettings: async () => {
     try {
@@ -116,6 +125,23 @@ export const useUpdateStore = create<UpdateStoreState>((set, get) => ({
       await window.clubhouse.app.saveUpdateSettings(updated);
     } catch {
       // Non-critical
+    }
+  },
+
+  loadVersionHistory: async () => {
+    set({ versionHistoryLoading: true, versionHistoryError: null });
+    try {
+      const result = await window.clubhouse.app.getVersionHistory();
+      set({
+        versionHistoryMarkdown: result.markdown,
+        versionHistoryEntries: result.entries,
+        versionHistoryLoading: false,
+      });
+    } catch (err) {
+      set({
+        versionHistoryLoading: false,
+        versionHistoryError: err instanceof Error ? err.message : String(err),
+      });
     }
   },
 }));
