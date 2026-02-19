@@ -101,9 +101,9 @@ function PluginRow({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-ctp-text">{entry.manifest.name}</span>
           <span className="text-xs text-ctp-subtext0">v{entry.manifest.version}</span>
+          <SourceBadge entry={entry} />
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-1 text-ctp-overlay1">API {entry.manifest.engine.api}</span>
           <PermissionInfoPopup entry={entry} />
-          <SourceBadge entry={entry} />
           {isIncompatible && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400">Incompatible</span>
           )}
