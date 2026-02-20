@@ -150,6 +150,8 @@ export interface FileNode {
   path: string;
   isDirectory: boolean;
   children?: FileNode[];
+  /** In ADO mode, path to the sibling .md index page for this folder */
+  indexPath?: string;
 }
 
 export type ExplorerTab = string;
