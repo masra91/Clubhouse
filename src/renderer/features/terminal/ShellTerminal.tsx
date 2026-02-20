@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { useThemeStore } from '../../stores/themeStore';
+import { useClipboardSettingsStore } from '../../stores/clipboardSettingsStore';
 import { attachClipboardHandlers } from './clipboard';
 
 interface Props {
@@ -14,6 +15,10 @@ export function ShellTerminal({ sessionId, focused }: Props) {
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const terminalColors = useThemeStore((s) => s.theme.terminal);
+  const clipboardCompat = useClipboardSettingsStore((s) => s.clipboardCompat);
+  const loadClipboard = useClipboardSettingsStore((s) => s.loadSettings);
+
+  useEffect(() => { loadClipboard(); }, [loadClipboard]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -50,12 +55,6 @@ export function ShellTerminal({ sessionId, focused }: Props) {
       window.clubhouse.pty.write(sessionId, data);
     });
 
-    const removeClipboardHandlers = attachClipboardHandlers(
-      term,
-      containerRef.current,
-      (data) => window.clubhouse.pty.write(sessionId, data)
-    );
-
     const removeDataListener = window.clubhouse.pty.onData(
       (id: string, data: string) => {
         if (id === sessionId) {
@@ -81,7 +80,6 @@ export function ShellTerminal({ sessionId, focused }: Props) {
     resizeObserver.observe(containerRef.current);
 
     return () => {
-      removeClipboardHandlers();
       inputDisposable.dispose();
       removeDataListener();
       resizeObserver.disconnect();
@@ -90,6 +88,17 @@ export function ShellTerminal({ sessionId, focused }: Props) {
       fitAddonRef.current = null;
     };
   }, [sessionId]);
+
+  // Attach clipboard handlers only when clipboard compatibility is enabled
+  useEffect(() => {
+    if (!clipboardCompat || !terminalRef.current || !containerRef.current) return;
+    const cleanup = attachClipboardHandlers(
+      terminalRef.current,
+      containerRef.current,
+      (data) => window.clubhouse.pty.write(sessionId, data)
+    );
+    return cleanup;
+  }, [clipboardCompat, sessionId]);
 
   useEffect(() => {
     if (terminalRef.current) {

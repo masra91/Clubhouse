@@ -8,10 +8,11 @@ import * as orchestratorSettings from '../services/orchestrator-settings';
 import * as headlessSettings from '../services/headless-settings';
 import * as clubhouseModeSettings from '../services/clubhouse-mode-settings';
 import * as badgeSettings from '../services/badge-settings';
+import * as clipboardSettings from '../services/clipboard-settings';
 import * as autoUpdateService from '../services/auto-update-service';
 import * as logService from '../services/log-service';
 import * as logSettings from '../services/log-settings';
-import { ClubhouseModeSettings, UpdateSettings } from '../../shared/types';
+import { ClipboardSettings, ClubhouseModeSettings, UpdateSettings } from '../../shared/types';
 import { ensureDefaultTemplates, enableExclusions, disableExclusions } from '../services/materialization-service';
 import { resolveOrchestrator } from '../services/agent-system';
 
@@ -95,6 +96,14 @@ export function registerAppHandlers(): void {
 
   ipcMain.handle(IPC.APP.SAVE_BADGE_SETTINGS, (_event, settings: BadgeSettings) => {
     badgeSettings.saveSettings(settings);
+  });
+
+  ipcMain.handle(IPC.APP.GET_CLIPBOARD_SETTINGS, () => {
+    return clipboardSettings.getSettings();
+  });
+
+  ipcMain.handle(IPC.APP.SAVE_CLIPBOARD_SETTINGS, (_event, settings: ClipboardSettings) => {
+    clipboardSettings.saveSettings(settings);
   });
 
   ipcMain.handle(IPC.APP.SET_DOCK_BADGE, (_event, count: number) => {

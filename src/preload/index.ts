@@ -390,6 +390,10 @@ const api = {
       ipcRenderer.invoke(IPC.APP.CLEAR_PENDING_RELEASE_NOTES),
     getVersionHistory: () =>
       ipcRenderer.invoke(IPC.APP.GET_VERSION_HISTORY),
+    getClipboardSettings: () =>
+      ipcRenderer.invoke(IPC.APP.GET_CLIPBOARD_SETTINGS),
+    saveClipboardSettings: (settings: { clipboardCompat: boolean }) =>
+      ipcRenderer.invoke(IPC.APP.SAVE_CLIPBOARD_SETTINGS, settings),
     getClubhouseModeSettings: () =>
       ipcRenderer.invoke(IPC.APP.GET_CLUBHOUSE_MODE_SETTINGS),
     saveClubhouseModeSettings: (settings: { enabled: boolean; projectOverrides?: Record<string, boolean> }, projectPath?: string) =>

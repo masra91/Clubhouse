@@ -100,6 +100,8 @@ vi.stubGlobal('clubhouse', {
     previewMaterialization: async () => null,
   },
   app: {
+    getClipboardSettings: async () => ({ clipboardCompat: false }),
+    saveClipboardSettings: asyncNoop,
     getClubhouseModeSettings: async () => ({ enabled: false }),
     saveClubhouseModeSettings: asyncNoop,
     getHeadlessSettings: async () => ({ enabled: true }),

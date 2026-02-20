@@ -157,6 +157,10 @@ export interface FileNode {
 export type ExplorerTab = string;
 
 
+export interface ClipboardSettings {
+  clipboardCompat: boolean;
+}
+
 export interface BadgeSettings {
   enabled: boolean;
   pluginBadges: boolean;
