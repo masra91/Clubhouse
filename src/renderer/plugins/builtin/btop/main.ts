@@ -33,7 +33,7 @@ function InstallView({ api, onInstalled }: { api: PluginAPI; onInstalled: () => 
   const handleBrewInstall = useCallback(async () => {
     setInstalling(true);
     try {
-      await api.terminal.spawn(installSessionId);
+      await api.terminal.spawn(installSessionId, '/');
       api.terminal.write(installSessionId, 'brew install btop\n');
     } catch {
       setInstalling(false);
@@ -108,7 +108,7 @@ export function MainPanel({ api }: { api: PluginAPI }) {
     setExitCode(null);
     spawnedRef.current = false;
     try {
-      await api.terminal.spawn(SESSION_ID);
+      await api.terminal.spawn(SESSION_ID, '/');
       setStatus('running');
       spawnedRef.current = true;
       api.terminal.write(SESSION_ID, 'btop\n');
