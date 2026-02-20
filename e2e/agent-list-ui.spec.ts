@@ -322,3 +322,159 @@ test.describe('Completed Footer Position', () => {
     expect(mh).toBe('33vh');
   });
 });
+
+// ---------------------------------------------------------------------------
+// 7. Window Frame Integrity — Completed Footer
+// ---------------------------------------------------------------------------
+// These tests guard against the completed footer (especially with minHeight)
+// pushing content outside the visible window frame or breaking sibling layout.
+
+test.describe('Window Frame Integrity — Completed Footer', () => {
+  test('no document-level overflow exists (root is not scrollable)', async () => {
+    const { scrollHeight, clientHeight } = await window.evaluate(() => ({
+      scrollHeight: document.documentElement.scrollHeight,
+      clientHeight: document.documentElement.clientHeight,
+    }));
+    // The root element should never be scrollable — all scroll is in child containers
+    expect(scrollHeight).toBeLessThanOrEqual(clientHeight);
+  });
+
+  test('agent-list container fits entirely within the viewport', async () => {
+    const agentList = window.locator('[data-testid="agent-list"]');
+    await expect(agentList).toBeVisible();
+
+    const box = await agentList.boundingBox();
+    expect(box).not.toBeNull();
+
+    const viewport = await window.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }));
+
+    // Top edge within viewport
+    expect(box!.y).toBeGreaterThanOrEqual(0);
+    // Bottom edge within viewport
+    expect(box!.y + box!.height).toBeLessThanOrEqual(viewport.height + 1);
+  });
+
+  test('footer stays within agent-list bounds when expanded', async () => {
+    // Ensure expanded
+    const items = window.locator('[data-testid="completed-items"]');
+    const mh = await items.evaluate((el) => el.style.maxHeight);
+    if (mh === '0px' || mh === '0') {
+      await window.locator('[data-testid="completed-toggle"]').click();
+      await window.waitForTimeout(400);
+    }
+
+    const agentList = window.locator('[data-testid="agent-list"]');
+    const footer = window.locator('[data-testid="completed-footer"]');
+
+    const agentListBox = await agentList.boundingBox();
+    const footerBox = await footer.boundingBox();
+
+    expect(agentListBox).not.toBeNull();
+    expect(footerBox).not.toBeNull();
+
+    // Footer top must be within agent-list bounds
+    expect(footerBox!.y).toBeGreaterThanOrEqual(agentListBox!.y);
+    // Footer bottom must not exceed agent-list bottom
+    const agentListBottom = agentListBox!.y + agentListBox!.height;
+    const footerBottom = footerBox!.y + footerBox!.height;
+    expect(footerBottom).toBeLessThanOrEqual(agentListBottom + 1);
+  });
+
+  test('scrollable content area retains positive height when footer is expanded', async () => {
+    // Ensure expanded
+    const items = window.locator('[data-testid="completed-items"]');
+    const mh = await items.evaluate((el) => el.style.maxHeight);
+    if (mh === '0px' || mh === '0') {
+      await window.locator('[data-testid="completed-toggle"]').click();
+      await window.waitForTimeout(400);
+    }
+
+    const content = window.locator('[data-testid="agent-list-content"]');
+    await expect(content).toBeVisible();
+    const contentBox = await content.boundingBox();
+    expect(contentBox).not.toBeNull();
+    // Must still have usable height (at least 30px) so agents remain accessible
+    expect(contentBox!.height).toBeGreaterThanOrEqual(30);
+  });
+
+  test('toggle expand/collapse/expand cycle preserves frame layout', async () => {
+    const agentList = window.locator('[data-testid="agent-list"]');
+    const footer = window.locator('[data-testid="completed-footer"]');
+
+    // Capture baseline (expanded)
+    const items = window.locator('[data-testid="completed-items"]');
+    const mh = await items.evaluate((el) => el.style.maxHeight);
+    if (mh === '0px' || mh === '0') {
+      await window.locator('[data-testid="completed-toggle"]').click();
+      await window.waitForTimeout(400);
+    }
+
+    const baselineAgentListBox = await agentList.boundingBox();
+    expect(baselineAgentListBox).not.toBeNull();
+
+    // Collapse
+    await window.locator('[data-testid="completed-toggle"]').click();
+    await window.waitForTimeout(400);
+
+    // Expand again
+    await window.locator('[data-testid="completed-toggle"]').click();
+    await window.waitForTimeout(400);
+
+    // Agent-list bounding box should be stable (same height/position within 2px)
+    const afterCycleBox = await agentList.boundingBox();
+    expect(afterCycleBox).not.toBeNull();
+    expect(afterCycleBox!.height).toBeCloseTo(baselineAgentListBox!.height, 0);
+    expect(afterCycleBox!.y).toBeCloseTo(baselineAgentListBox!.y, 0);
+
+    // Footer should still be pinned to the bottom
+    const footerBox = await footer.boundingBox();
+    expect(footerBox).not.toBeNull();
+    const agentListBottom = afterCycleBox!.y + afterCycleBox!.height;
+    const footerBottom = footerBox!.y + footerBox!.height;
+    expect(footerBottom).toBeCloseTo(agentListBottom, -1);
+  });
+
+  test('completed items section never renders taller than 33vh', async () => {
+    // Ensure expanded
+    const items = window.locator('[data-testid="completed-items"]');
+    const mh = await items.evaluate((el) => el.style.maxHeight);
+    if (mh === '0px' || mh === '0') {
+      await window.locator('[data-testid="completed-toggle"]').click();
+      await window.waitForTimeout(400);
+    }
+
+    const itemsBox = await items.boundingBox();
+    expect(itemsBox).not.toBeNull();
+
+    const viewportHeight = await window.evaluate(() => window.innerHeight);
+    const maxAllowed = viewportHeight * 0.33 + 1; // 33vh + 1px tolerance
+
+    expect(itemsBox!.height).toBeLessThanOrEqual(maxAllowed);
+  });
+
+  test('footer does not overlap the scrollable content area', async () => {
+    // Ensure expanded
+    const items = window.locator('[data-testid="completed-items"]');
+    const mh = await items.evaluate((el) => el.style.maxHeight);
+    if (mh === '0px' || mh === '0') {
+      await window.locator('[data-testid="completed-toggle"]').click();
+      await window.waitForTimeout(400);
+    }
+
+    const content = window.locator('[data-testid="agent-list-content"]');
+    const footer = window.locator('[data-testid="completed-footer"]');
+
+    const contentBox = await content.boundingBox();
+    const footerBox = await footer.boundingBox();
+
+    expect(contentBox).not.toBeNull();
+    expect(footerBox).not.toBeNull();
+
+    // Footer top should be at or below content bottom (no overlap)
+    const contentBottom = contentBox!.y + contentBox!.height;
+    expect(footerBox!.y).toBeGreaterThanOrEqual(contentBottom - 1);
+  });
+});

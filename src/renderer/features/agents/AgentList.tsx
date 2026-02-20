@@ -324,7 +324,7 @@ export function AgentList() {
         <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
       )}
 
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-y-auto min-h-0" data-testid="agent-list-content">
         {/* ALL section — durables with their nested children */}
         {durableAgents.length > 0 && (
           <div>
