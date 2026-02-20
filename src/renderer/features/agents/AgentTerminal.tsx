@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { useThemeStore } from '../../stores/themeStore';
+import { useClipboardSettingsStore } from '../../stores/clipboardSettingsStore';
 import { attachClipboardHandlers } from '../terminal/clipboard';
 
 interface Props {
@@ -14,6 +15,10 @@ export function AgentTerminal({ agentId, focused }: Props) {
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const terminalColors = useThemeStore((s) => s.theme.terminal);
+  const clipboardCompat = useClipboardSettingsStore((s) => s.clipboardCompat);
+  const loadClipboard = useClipboardSettingsStore((s) => s.loadSettings);
+
+  useEffect(() => { loadClipboard(); }, [loadClipboard]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -53,13 +58,6 @@ export function AgentTerminal({ agentId, focused }: Props) {
       window.clubhouse.pty.write(agentId, data);
     });
 
-    // Clipboard: Ctrl+V paste, Ctrl+C copy-on-selection, right-click
-    const removeClipboardHandlers = attachClipboardHandlers(
-      term,
-      containerRef.current,
-      (data) => window.clubhouse.pty.write(agentId, data)
-    );
-
     // Receive PTY output
     const removeDataListener = window.clubhouse.pty.onData(
       (id: string, data: string) => {
@@ -87,7 +85,6 @@ export function AgentTerminal({ agentId, focused }: Props) {
     resizeObserver.observe(containerRef.current);
 
     return () => {
-      removeClipboardHandlers();
       inputDisposable.dispose();
       removeDataListener();
       resizeObserver.disconnect();
@@ -96,6 +93,17 @@ export function AgentTerminal({ agentId, focused }: Props) {
       fitAddonRef.current = null;
     };
   }, [agentId]);
+
+  // Attach clipboard handlers only when clipboard compatibility is enabled
+  useEffect(() => {
+    if (!clipboardCompat || !terminalRef.current || !containerRef.current) return;
+    const cleanup = attachClipboardHandlers(
+      terminalRef.current,
+      containerRef.current,
+      (data) => window.clubhouse.pty.write(agentId, data)
+    );
+    return cleanup;
+  }, [clipboardCompat, agentId]);
 
   // Live-update theme on existing terminal instances
   useEffect(() => {
