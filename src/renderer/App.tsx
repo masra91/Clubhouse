@@ -24,6 +24,8 @@ import { HelpView } from './features/help/HelpView';
 import { PermissionViolationBanner } from './features/plugins/PermissionViolationBanner';
 import { UpdateBanner } from './features/app/UpdateBanner';
 import { WhatsNewDialog } from './features/app/WhatsNewDialog';
+import { OnboardingModal } from './features/onboarding/OnboardingModal';
+import { useOnboardingStore } from './stores/onboardingStore';
 import { useUpdateStore } from './stores/updateStore';
 import { initUpdateListener } from './stores/updateStore';
 
@@ -59,6 +61,8 @@ export function App() {
   const loadBadgeSettings = useBadgeSettingsStore((s) => s.loadSettings);
   const loadUpdateSettings = useUpdateStore((s) => s.loadSettings);
   const checkWhatsNew = useUpdateStore((s) => s.checkWhatsNew);
+  const onboardingCompleted = useOnboardingStore((s) => s.completed);
+  const startOnboarding = useOnboardingStore((s) => s.startOnboarding);
 
   useEffect(() => {
     loadProjects();
@@ -88,6 +92,16 @@ export function App() {
     }, 1000);
     return () => clearTimeout(timer);
   }, [checkWhatsNew]);
+
+  // Show onboarding on first launch
+  useEffect(() => {
+    if (!onboardingCompleted) {
+      const timer = setTimeout(() => {
+        startOnboarding();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const remove = window.clubhouse.app.onOpenSettings(() => {
@@ -432,6 +446,7 @@ export function App() {
           <Dashboard />
         </div>
         <WhatsNewDialog />
+        <OnboardingModal />
       </div>
     );
   }
@@ -450,6 +465,7 @@ export function App() {
           <PluginContentView pluginId={appPluginId} mode="app" />
         </div>
         <WhatsNewDialog />
+        <OnboardingModal />
       </div>
     );
   }
@@ -467,6 +483,7 @@ export function App() {
           <HelpView />
         </div>
         <WhatsNewDialog />
+        <OnboardingModal />
       </div>
     );
   }
@@ -491,6 +508,7 @@ export function App() {
         <MainContentView />
       </div>
       <WhatsNewDialog />
+      <OnboardingModal />
     </div>
   );
 }

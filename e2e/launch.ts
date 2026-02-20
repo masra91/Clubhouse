@@ -19,6 +19,19 @@ export async function launchApp() {
   const rendererWindow = await findRendererWindow(electronApp);
   await rendererWindow.waitForLoadState('load');
 
+  // Mark onboarding as completed so it doesn't appear during E2E tests.
+  await rendererWindow.evaluate(() => {
+    localStorage.setItem('clubhouse_onboarding', JSON.stringify({ completed: true, cohort: null }));
+  });
+
+  // Dismiss the onboarding modal if it already appeared before localStorage was set.
+  const onboardingBackdrop = rendererWindow.locator('[data-testid="onboarding-backdrop"]');
+  const isVisible = await onboardingBackdrop.isVisible({ timeout: 1_000 }).catch(() => false);
+  if (isVisible) {
+    await rendererWindow.locator('[data-testid="onboarding-skip"]').click();
+    await rendererWindow.waitForTimeout(300);
+  }
+
   return { electronApp, window: rendererWindow };
 }
 
