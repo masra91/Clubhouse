@@ -156,11 +156,11 @@ export function GitWorktreeIllustration({ className }: { className?: string }) {
       <line x1="100" y1="120" x2="140" y2="150" stroke="rgb(var(--ctp-accent))" strokeWidth="2" opacity="0.4" />
 
       {/* Worktrees */}
-      <rect x="140" y="20" width="70" height="60" rx="8" fill="rgb(var(--ctp-accent))" opacity="0.15" stroke="rgb(var(--ctp-accent))" strokeWidth="1" opacity="0.3" />
+      <rect x="140" y="20" width="70" height="60" rx="8" fill="rgb(var(--ctp-accent))" opacity="0.2" stroke="rgb(var(--ctp-accent))" strokeWidth="1" />
       <text x="175" y="45" textAnchor="middle" fontSize="9" fill="rgb(var(--ctp-text))">Worktree A</text>
       <text x="175" y="60" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">feature-1</text>
 
-      <rect x="140" y="90" width="70" height="60" rx="8" fill="rgb(var(--ctp-accent))" opacity="0.15" stroke="rgb(var(--ctp-accent))" strokeWidth="1" opacity="0.3" />
+      <rect x="140" y="90" width="70" height="60" rx="8" fill="rgb(var(--ctp-accent))" opacity="0.2" stroke="rgb(var(--ctp-accent))" strokeWidth="1" />
       <text x="175" y="115" textAnchor="middle" fontSize="9" fill="rgb(var(--ctp-text))">Worktree B</text>
       <text x="175" y="130" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">bugfix-2</text>
 
@@ -241,7 +241,7 @@ export function MultiAgentHubIllustration({ className }: { className?: string })
   return (
     <svg {...SVG_DEFAULTS} viewBox="0 0 320 200" className={className}>
       {/* Hub center */}
-      <circle cx="160" cy="100" r="35" fill="rgb(var(--ctp-accent))" opacity="0.15" stroke="rgb(var(--ctp-accent))" strokeWidth="2" opacity="0.3" />
+      <circle cx="160" cy="100" r="35" fill="rgb(var(--ctp-accent))" opacity="0.2" stroke="rgb(var(--ctp-accent))" strokeWidth="2" />
       <text x="160" y="96" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Agent</text>
       <text x="160" y="112" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Hub</text>
 

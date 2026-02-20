@@ -17,8 +17,8 @@ export function GettingStartedSettingsView() {
             <p className="text-sm font-medium text-ctp-text">Onboarding Walkthrough</p>
             <p className="text-xs text-ctp-subtext0 mt-1">
               {completed
-                ? 'You've completed the onboarding flow. Show it again to revisit the highlights.'
-                : 'Walk through Clubhouse's key features and get set up.'}
+                ? "You've completed the onboarding flow. Show it again to revisit the highlights."
+                : "Walk through Clubhouse's key features and get set up."}
             </p>
           </div>
           <button
