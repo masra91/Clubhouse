@@ -114,26 +114,42 @@ async function applyAdoOrdering(scoped: FilesAPI, dirPath: string, nodes: FileNo
 }
 
 export function filterMarkdownTree(nodes: FileNode[], wikiStyle: string = 'github'): FileNode[] {
-  // In ADO mode, build a set of folder names so we can hide same-named .md files
-  // (the folder acts as the page; the .md file is its index content)
+  // In ADO mode, build a map of folder names to their sibling .md paths
+  // so we can hide same-named .md files and annotate folders with indexPath
   const folderNames = wikiStyle === 'ado'
     ? new Set(nodes.filter((n) => n.isDirectory).map((n) => n.name.toLowerCase()))
     : null;
+
+  // Build a map from folder name to the sibling .md file's path
+  const siblingPageMap = new Map<string, string>();
+  if (wikiStyle === 'ado') {
+    for (const node of nodes) {
+      if (!node.isDirectory && getExtension(node.name) === 'md') {
+        const baseName = node.name.replace(/\.md$/i, '').toLowerCase();
+        if (folderNames && folderNames.has(baseName)) {
+          siblingPageMap.set(baseName, node.path);
+        }
+      }
+    }
+  }
 
   const result: FileNode[] = [];
   for (const node of nodes) {
     // In ADO mode, hide .order files from the tree
     if (wikiStyle === 'ado' && node.name === '.order') continue;
     if (node.isDirectory) {
+      // In ADO mode, annotate folder with its sibling index page path
+      const indexPath = siblingPageMap.get(node.name.toLowerCase());
+
       // If children haven't been loaded yet (lazy loading), show the directory
       // so users can expand it. Only filter out directories when children ARE
       // loaded and contain no markdown files.
       if (!node.children || node.children.length === 0) {
-        result.push(node);
+        result.push(indexPath ? { ...node, indexPath } : node);
       } else {
         const filteredChildren = filterMarkdownTree(node.children, wikiStyle);
         if (filteredChildren.length > 0) {
-          result.push({ ...node, children: filteredChildren });
+          result.push(indexPath ? { ...node, children: filteredChildren, indexPath } : { ...node, children: filteredChildren });
         }
       }
     } else if (getExtension(node.name) === 'md') {
@@ -210,7 +226,9 @@ interface TreeNodeProps {
 
 function TreeNode({ node, depth, expanded, onToggle, onSelect, selected, focused, viewMode, wikiStyle, onContextMenu }: TreeNodeProps) {
   const isExpanded = expanded.has(node.path);
-  const isSelected = selected === node.path;
+  const hasIndexPage = !!(node as FileNode).indexPath;
+  const indexPath = (node as FileNode).indexPath;
+  const isSelected = selected === node.path || (hasIndexPage && selected === indexPath);
   const isFocused = focused === node.path;
   const ext = getExtension(node.name);
 
@@ -218,11 +236,24 @@ function TreeNode({ node, depth, expanded, onToggle, onSelect, selected, focused
 
   const handleClick = () => {
     if (node.isDirectory) {
-      onToggle(node.path);
-      // ADO index page auto-selection is handled in toggleExpand after children are loaded
+      if (hasIndexPage) {
+        // ADO folder with sibling page: clicking name selects the page
+        onSelect(indexPath!);
+      } else {
+        onToggle(node.path);
+      }
     } else {
       onSelect(node.path);
     }
+  };
+
+  const handleChevronClick = (e: React.MouseEvent) => {
+    if (node.isDirectory && hasIndexPage) {
+      // Only the chevron toggles expand/collapse for ADO folders with index pages
+      e.stopPropagation();
+      onToggle(node.path);
+    }
+    // For non-ADO folders, the whole row click handles toggle via handleClick
   };
 
   const icon = node.isDirectory
@@ -248,7 +279,10 @@ function TreeNode({ node, depth, expanded, onToggle, onSelect, selected, focused
       onContextMenu: viewMode === 'edit' ? (e: React.MouseEvent) => onContextMenu(e, node) : undefined,
       'data-path': node.path,
     },
-      chevron,
+      React.createElement('span', {
+        onClick: handleChevronClick,
+        className: 'flex items-center',
+      }, chevron),
       icon,
       React.createElement('span', {
         className: 'truncate text-ctp-text',
@@ -544,7 +578,15 @@ export function WikiTree({ api }: { api: PluginAPI }) {
           const node = visible.find((n) => n.path === focusedPath);
           if (node) {
             if (node.isDirectory) {
-              toggleExpand(node.path);
+              // ADO folders with index pages: Enter selects the page and expands
+              if ((node as FileNode).indexPath) {
+                selectFile((node as FileNode).indexPath!);
+                if (!expandedRef.current.has(node.path)) {
+                  toggleExpand(node.path);
+                }
+              } else {
+                toggleExpand(node.path);
+              }
             } else {
               selectFile(node.path);
             }
