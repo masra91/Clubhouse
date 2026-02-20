@@ -108,6 +108,9 @@ PLAN.md
 # Claude Code hooks (local dev only)
 .github/hooks/
 
+# Internal planning docs
+clubhouse/
+
 # Local scratch / research folders
 .clubhouse/plugin-data-local/
 
