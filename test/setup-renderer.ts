@@ -96,6 +96,14 @@ vi.stubGlobal('clubhouse', {
     readProjectAgentDefaults: async () => ({}),
     writeProjectAgentDefaults: asyncNoop,
     getConventions: async () => null,
+    materializeAgent: asyncNoop,
+    previewMaterialization: async () => null,
+  },
+  app: {
+    getClubhouseModeSettings: async () => ({ enabled: false }),
+    saveClubhouseModeSettings: asyncNoop,
+    getHeadlessSettings: async () => ({ enabled: true }),
+    saveHeadlessSettings: asyncNoop,
   },
   log: {
     write: noop,
