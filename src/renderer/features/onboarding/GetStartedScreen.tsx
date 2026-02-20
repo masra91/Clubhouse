@@ -49,6 +49,10 @@ export function GetStartedScreen({ onGetStarted, onOpenHelp, onOpenExtensibility
       >
         Get Started
       </button>
+
+      <p className="text-xs text-ctp-subtext0/60 text-center" data-testid="onboarding-help-footnote">
+        You can learn more about these and other topics in the Help menu in the bottom left corner.
+      </p>
     </div>
   );
 }

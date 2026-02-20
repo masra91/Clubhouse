@@ -1,12 +1,12 @@
 import { Cohort } from '../../stores/onboardingStore';
 import {
   ClubhouseStructureIllustration,
-  GitBasicsIllustration,
+  AgentBranchesIllustration,
   AgentsHandleTasksIllustration,
   GitWorktreeIllustration,
-  AgentCustomizationIllustration,
-  DurableWorktreeIllustration,
-  MultiAgentHubIllustration,
+  ProjectToolsIllustration,
+  ParallelAgentsIllustration,
+  PerAgentSettingsIllustration,
 } from './illustrations';
 
 interface HighlightSlide {
@@ -27,10 +27,10 @@ function getSlidesForCohort(cohort: Cohort): HighlightSlide[] {
     return [
       slide1,
       {
-        illustration: <GitBasicsIllustration className="w-full h-full" />,
-        title: 'Git: Your Code Safety Net',
+        illustration: <AgentBranchesIllustration className="w-full h-full" />,
+        title: 'How Agents Work Under the Hood',
         description:
-          'Git tracks every change you make. Think of it as unlimited undo for your code. Branches let you experiment without risking your working code.',
+          'When an agent works on your code it creates a branch — a separate copy that won\'t affect your main project. When you\'re happy with the result, it gets merged back in. Your code is always safe.',
       },
       {
         illustration: <AgentsHandleTasksIllustration className="w-full h-full" />,
@@ -51,10 +51,10 @@ function getSlidesForCohort(cohort: Cohort): HighlightSlide[] {
           'Each durable agent gets its own worktree — a separate checkout of the same repo. No more stashing or branch switching; agents work in parallel without conflicts.',
       },
       {
-        illustration: <AgentCustomizationIllustration className="w-full h-full" />,
-        title: 'Customize Your Agents',
+        illustration: <ProjectToolsIllustration className="w-full h-full" />,
+        title: 'Built-in Project Tools',
         description:
-          'Fine-tune agent behavior with permissions, skills, and system prompts. Control which tools agents can use and teach them domain-specific workflows.',
+          'Track work with Issues, document knowledge in the Wiki, and set up Automations — all without leaving Clubhouse. Your whole workflow lives in one place.',
       },
     ];
   }
@@ -63,16 +63,16 @@ function getSlidesForCohort(cohort: Cohort): HighlightSlide[] {
   return [
     slide1,
     {
-      illustration: <DurableWorktreeIllustration className="w-full h-full" />,
-      title: 'Durable Agents & Worktrees',
+      illustration: <ParallelAgentsIllustration className="w-full h-full" />,
+      title: 'Parallel Agents, Isolated Worktrees',
       description:
-        'Durable agents operate in isolated worktrees with their own branches. They persist across sessions, handle complex multi-step missions, and produce commits and PRs autonomously.',
+        'Spin up multiple agents at once, each in its own worktree with a dedicated branch. They work in parallel without conflicts — no stashing, no branch switching, no waiting.',
     },
     {
-      illustration: <MultiAgentHubIllustration className="w-full h-full" />,
-      title: 'The Multi-Agent Hub',
+      illustration: <PerAgentSettingsIllustration className="w-full h-full" />,
+      title: 'Per-Agent Settings',
       description:
-        'Monitor and coordinate multiple agents from the hub view. See status, progress, and output across all running agents in one place. Orchestrate complex workflows with agent delegation.',
+        'Give each agent its own permissions, system prompts, and tool constraints. Scope instructions per worktree so agents stay focused on their mission without overstepping.',
     },
   ];
 }

@@ -71,34 +71,42 @@ export function ClubhouseStructureIllustration({ className }: { className?: stri
   );
 }
 
-export function GitBasicsIllustration({ className }: { className?: string }) {
+export function AgentBranchesIllustration({ className }: { className?: string }) {
   return (
     <svg {...SVG_DEFAULTS} viewBox="0 0 320 200" className={className}>
-      {/* Branch lines */}
+      {/* Main branch line */}
       <line x1="60" y1="40" x2="60" y2="160" stroke="rgb(var(--ctp-accent))" strokeWidth="3" opacity="0.6" />
-      <line x1="60" y1="80" x2="160" y2="80" stroke="rgb(var(--ctp-accent))" strokeWidth="2" opacity="0.4" />
-      <line x1="160" y1="80" x2="160" y2="130" stroke="rgb(var(--ctp-accent))" strokeWidth="3" opacity="0.4" />
-      <line x1="160" y1="130" x2="60" y2="140" stroke="rgb(var(--ctp-accent))" strokeWidth="2" opacity="0.4" strokeDasharray="4" />
 
-      {/* Commit dots */}
+      {/* Agent branch */}
+      <line x1="60" y1="70" x2="160" y2="70" stroke="rgb(var(--ctp-accent))" strokeWidth="2" opacity="0.4" />
+      <line x1="160" y1="70" x2="160" y2="120" stroke="rgb(var(--ctp-accent))" strokeWidth="3" opacity="0.4" />
+      <line x1="160" y1="120" x2="60" y2="135" stroke="rgb(var(--ctp-accent))" strokeWidth="2" opacity="0.4" strokeDasharray="4" />
+
+      {/* Main commits */}
       <circle cx="60" cy="40" r="8" fill="rgb(var(--ctp-accent))" />
-      <circle cx="60" cy="80" r="8" fill="rgb(var(--ctp-accent))" />
-      <circle cx="60" cy="120" r="8" fill="rgb(var(--ctp-accent))" />
+      <circle cx="60" cy="70" r="8" fill="rgb(var(--ctp-accent))" />
+      <circle cx="60" cy="135" r="8" fill="rgb(var(--ctp-accent))" />
       <circle cx="60" cy="160" r="8" fill="rgb(var(--ctp-accent))" />
-      <circle cx="160" cy="80" r="6" fill="rgb(var(--ctp-accent))" opacity="0.6" />
-      <circle cx="160" cy="105" r="6" fill="rgb(var(--ctp-accent))" opacity="0.6" />
-      <circle cx="160" cy="130" r="6" fill="rgb(var(--ctp-accent))" opacity="0.6" />
+
+      {/* Agent commits */}
+      <circle cx="160" cy="70" r="6" fill="rgb(var(--ctp-accent))" opacity="0.6" />
+      <circle cx="160" cy="95" r="6" fill="rgb(var(--ctp-accent))" opacity="0.6" />
+      <circle cx="160" cy="120" r="6" fill="rgb(var(--ctp-accent))" opacity="0.6" />
 
       {/* Labels */}
-      <text x="80" y="44" fontSize="11" fill="rgb(var(--ctp-text))">main</text>
-      <text x="175" y="84" fontSize="11" fill="rgb(var(--ctp-subtext0))">feature</text>
+      <text x="80" y="44" fontSize="11" fill="rgb(var(--ctp-text))">your project</text>
+      <text x="175" y="74" fontSize="11" fill="rgb(var(--ctp-subtext0))">agent's copy</text>
 
-      <rect x="200" y="30" width="100" height="140" rx="10" fill="rgb(var(--ctp-surface0))" />
-      <text x="250" y="55" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-subtext0))">Save points</text>
-      <text x="250" y="75" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-subtext0))">for your code</text>
-      <text x="250" y="110" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-subtext0))">Branches let</text>
-      <text x="250" y="130" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-subtext0))">you experiment</text>
-      <text x="250" y="150" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-subtext0))">safely</text>
+      {/* Agent icon on branch */}
+      <text x="185" y="100" fontSize="14">🤖</text>
+
+      {/* Explanation */}
+      <rect x="210" y="40" width="100" height="120" rx="10" fill="rgb(var(--ctp-surface0))" />
+      <text x="260" y="65" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-subtext0))">Agents work</text>
+      <text x="260" y="82" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-subtext0))">on a copy</text>
+      <text x="260" y="110" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-subtext0))">Your code</text>
+      <text x="260" y="127" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-subtext0))">stays safe</text>
+      <text x="260" y="148" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-subtext0))">until you merge</text>
     </svg>
   );
 }
@@ -177,96 +185,127 @@ export function GitWorktreeIllustration({ className }: { className?: string }) {
   );
 }
 
-export function AgentCustomizationIllustration({ className }: { className?: string }) {
+export function ProjectToolsIllustration({ className }: { className?: string }) {
   return (
     <svg {...SVG_DEFAULTS} viewBox="0 0 320 200" className={className}>
-      {/* Agent */}
-      <circle cx="60" cy="100" r="30" fill="rgb(var(--ctp-accent))" opacity="0.2" />
-      <text x="60" y="106" textAnchor="middle" fontSize="24">🤖</text>
+      {/* Issues */}
+      <rect x="20" y="30" width="85" height="140" rx="10" fill="rgb(var(--ctp-surface0))" />
+      <text x="62" y="58" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Issues</text>
+      <circle cx="40" cy="78" r="5" fill="rgb(var(--ctp-accent))" opacity="0.7" />
+      <rect x="50" y="74" width="44" height="6" rx="3" fill="rgb(var(--ctp-accent))" opacity="0.3" />
+      <circle cx="40" cy="96" r="5" fill="rgb(var(--ctp-accent))" opacity="0.5" />
+      <rect x="50" y="92" width="38" height="6" rx="3" fill="rgb(var(--ctp-accent))" opacity="0.2" />
+      <circle cx="40" cy="114" r="5" fill="rgb(var(--ctp-accent))" opacity="0.3" />
+      <rect x="50" y="110" width="42" height="6" rx="3" fill="rgb(var(--ctp-accent))" opacity="0.2" />
+      <rect x="32" y="132" width="60" height="6" rx="3" fill="rgb(var(--ctp-surface2))" />
+      <rect x="32" y="148" width="45" height="6" rx="3" fill="rgb(var(--ctp-surface2))" />
 
-      {/* Config items */}
-      <rect x="120" y="20" width="180" height="40" rx="8" fill="rgb(var(--ctp-surface0))" />
-      <text x="135" y="38" fontSize="10" fill="rgb(var(--ctp-accent))">⚙</text>
-      <text x="150" y="38" fontSize="10" fill="rgb(var(--ctp-text))">Permissions</text>
-      <text x="150" y="52" fontSize="8" fill="rgb(var(--ctp-subtext0))">Control what agents can do</text>
+      {/* Wiki */}
+      <rect x="118" y="30" width="85" height="140" rx="10" fill="rgb(var(--ctp-surface0))" />
+      <text x="160" y="58" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Wiki</text>
+      <rect x="130" y="72" width="62" height="5" rx="2" fill="rgb(var(--ctp-accent))" opacity="0.4" />
+      <rect x="130" y="83" width="55" height="4" rx="2" fill="rgb(var(--ctp-accent))" opacity="0.2" />
+      <rect x="130" y="93" width="60" height="4" rx="2" fill="rgb(var(--ctp-accent))" opacity="0.2" />
+      <rect x="130" y="103" width="48" height="4" rx="2" fill="rgb(var(--ctp-accent))" opacity="0.2" />
+      <rect x="130" y="118" width="62" height="5" rx="2" fill="rgb(var(--ctp-accent))" opacity="0.4" />
+      <rect x="130" y="129" width="52" height="4" rx="2" fill="rgb(var(--ctp-accent))" opacity="0.2" />
+      <rect x="130" y="139" width="58" height="4" rx="2" fill="rgb(var(--ctp-accent))" opacity="0.2" />
 
-      <rect x="120" y="75" width="180" height="40" rx="8" fill="rgb(var(--ctp-surface0))" />
-      <text x="135" y="93" fontSize="10" fill="rgb(var(--ctp-accent))">📋</text>
-      <text x="150" y="93" fontSize="10" fill="rgb(var(--ctp-text))">Skills</text>
-      <text x="150" y="107" fontSize="8" fill="rgb(var(--ctp-subtext0))">Teach agents new abilities</text>
-
-      <rect x="120" y="130" width="180" height="40" rx="8" fill="rgb(var(--ctp-surface0))" />
-      <text x="135" y="148" fontSize="10" fill="rgb(var(--ctp-accent))">💬</text>
-      <text x="150" y="148" fontSize="10" fill="rgb(var(--ctp-text))">Prompts</text>
-      <text x="150" y="162" fontSize="8" fill="rgb(var(--ctp-subtext0))">Guide behavior with system prompts</text>
-
-      {/* Connecting lines */}
-      <line x1="90" y1="85" x2="120" y2="40" stroke="rgb(var(--ctp-accent))" strokeWidth="1.5" opacity="0.3" />
-      <line x1="90" y1="100" x2="120" y2="95" stroke="rgb(var(--ctp-accent))" strokeWidth="1.5" opacity="0.3" />
-      <line x1="90" y1="115" x2="120" y2="150" stroke="rgb(var(--ctp-accent))" strokeWidth="1.5" opacity="0.3" />
+      {/* Automations */}
+      <rect x="216" y="30" width="85" height="140" rx="10" fill="rgb(var(--ctp-surface0))" />
+      <text x="258" y="58" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Automations</text>
+      <rect x="230" y="72" width="52" height="22" rx="6" fill="rgb(var(--ctp-accent))" opacity="0.15" stroke="rgb(var(--ctp-accent))" strokeWidth="1" />
+      <text x="256" y="87" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">Trigger</text>
+      <line x1="256" y1="94" x2="256" y2="108" stroke="rgb(var(--ctp-accent))" strokeWidth="1.5" opacity="0.4" />
+      <polygon points="252,106 260,106 256,112" fill="rgb(var(--ctp-accent))" opacity="0.4" />
+      <rect x="230" y="112" width="52" height="22" rx="6" fill="rgb(var(--ctp-accent))" opacity="0.15" stroke="rgb(var(--ctp-accent))" strokeWidth="1" />
+      <text x="256" y="127" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">Action</text>
+      <line x1="256" y1="134" x2="256" y2="148" stroke="rgb(var(--ctp-accent))" strokeWidth="1.5" opacity="0.4" />
+      <polygon points="252,146 260,146 256,152" fill="rgb(var(--ctp-accent))" opacity="0.4" />
+      <rect x="230" y="152" width="52" height="14" rx="6" fill="rgb(var(--ctp-accent))" opacity="0.1" />
+      <text x="256" y="162" textAnchor="middle" fontSize="7" fill="rgb(var(--ctp-subtext0))">...</text>
     </svg>
   );
 }
 
-export function DurableWorktreeIllustration({ className }: { className?: string }) {
+export function ParallelAgentsIllustration({ className }: { className?: string }) {
   return (
     <svg {...SVG_DEFAULTS} viewBox="0 0 320 200" className={className}>
-      {/* Durable agent */}
-      <rect x="20" y="40" width="80" height="120" rx="12" fill="rgb(var(--ctp-accent))" opacity="0.15" />
-      <text x="60" y="70" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Durable</text>
-      <text x="60" y="85" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Agent</text>
-      <text x="60" y="115" textAnchor="middle" fontSize="20">🏠</text>
-      <text x="60" y="145" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">Persistent</text>
+      {/* Main repo */}
+      <rect x="15" y="55" width="70" height="90" rx="10" fill="rgb(var(--ctp-surface0))" />
+      <text x="50" y="80" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Your</text>
+      <text x="50" y="93" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Repo</text>
+      <rect x="27" y="108" width="46" height="5" rx="2" fill="rgb(var(--ctp-accent))" opacity="0.4" />
+      <rect x="27" y="118" width="38" height="5" rx="2" fill="rgb(var(--ctp-accent))" opacity="0.3" />
+      <rect x="27" y="128" width="42" height="5" rx="2" fill="rgb(var(--ctp-accent))" opacity="0.2" />
 
-      {/* Arrow */}
-      <line x1="105" y1="100" x2="135" y2="100" stroke="rgb(var(--ctp-accent))" strokeWidth="2" opacity="0.5" />
-      <polygon points="135,95 145,100 135,105" fill="rgb(var(--ctp-accent))" opacity="0.5" />
+      {/* Fan-out lines */}
+      <line x1="85" y1="80" x2="130" y2="40" stroke="rgb(var(--ctp-accent))" strokeWidth="2" opacity="0.4" />
+      <line x1="85" y1="100" x2="130" y2="100" stroke="rgb(var(--ctp-accent))" strokeWidth="2" opacity="0.4" />
+      <line x1="85" y1="120" x2="130" y2="160" stroke="rgb(var(--ctp-accent))" strokeWidth="2" opacity="0.4" />
 
-      {/* Worktree */}
-      <rect x="150" y="20" width="150" height="70" rx="10" fill="rgb(var(--ctp-surface0))" />
-      <text x="225" y="45" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Own Worktree</text>
-      <text x="225" y="62" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">Isolated branch + directory</text>
-      <text x="225" y="78" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">Won't conflict with your work</text>
+      {/* Agent 1 + worktree */}
+      <rect x="130" y="15" width="170" height="50" rx="8" fill="rgb(var(--ctp-accent))" opacity="0.15" stroke="rgb(var(--ctp-accent))" strokeWidth="1" />
+      <text x="148" y="38" fontSize="14">🤖</text>
+      <text x="170" y="35" fontSize="9" fill="rgb(var(--ctp-text))">Agent 1</text>
+      <text x="170" y="50" fontSize="8" fill="rgb(var(--ctp-subtext0))">feature/auth</text>
+      <rect x="248" y="28" width="40" height="8" rx="3" fill="rgb(var(--ctp-accent))" opacity="0.3" />
+      <rect x="248" y="42" width="32" height="8" rx="3" fill="rgb(var(--ctp-accent))" opacity="0.2" />
 
-      {/* Mission */}
-      <rect x="150" y="110" width="150" height="70" rx="10" fill="rgb(var(--ctp-surface0))" />
-      <text x="225" y="135" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Long-Running Tasks</text>
-      <text x="225" y="152" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">Features, refactors, fixes</text>
-      <text x="225" y="168" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">Commits, branches, and PRs</text>
+      {/* Agent 2 + worktree */}
+      <rect x="130" y="75" width="170" height="50" rx="8" fill="rgb(var(--ctp-accent))" opacity="0.15" stroke="rgb(var(--ctp-accent))" strokeWidth="1" />
+      <text x="148" y="98" fontSize="14">🤖</text>
+      <text x="170" y="95" fontSize="9" fill="rgb(var(--ctp-text))">Agent 2</text>
+      <text x="170" y="110" fontSize="8" fill="rgb(var(--ctp-subtext0))">fix/perf-regression</text>
+      <rect x="248" y="88" width="36" height="8" rx="3" fill="rgb(var(--ctp-accent))" opacity="0.3" />
+      <rect x="248" y="102" width="44" height="8" rx="3" fill="rgb(var(--ctp-accent))" opacity="0.2" />
+
+      {/* Agent 3 + worktree */}
+      <rect x="130" y="135" width="170" height="50" rx="8" fill="rgb(var(--ctp-accent))" opacity="0.15" stroke="rgb(var(--ctp-accent))" strokeWidth="1" />
+      <text x="148" y="158" fontSize="14">🤖</text>
+      <text x="170" y="155" fontSize="9" fill="rgb(var(--ctp-text))">Agent 3</text>
+      <text x="170" y="170" fontSize="8" fill="rgb(var(--ctp-subtext0))">refactor/api-layer</text>
+      <rect x="248" y="148" width="42" height="8" rx="3" fill="rgb(var(--ctp-accent))" opacity="0.3" />
+      <rect x="248" y="162" width="30" height="8" rx="3" fill="rgb(var(--ctp-accent))" opacity="0.2" />
     </svg>
   );
 }
 
-export function MultiAgentHubIllustration({ className }: { className?: string }) {
+export function PerAgentSettingsIllustration({ className }: { className?: string }) {
   return (
     <svg {...SVG_DEFAULTS} viewBox="0 0 320 200" className={className}>
-      {/* Hub center */}
-      <circle cx="160" cy="100" r="35" fill="rgb(var(--ctp-accent))" opacity="0.2" stroke="rgb(var(--ctp-accent))" strokeWidth="2" />
-      <text x="160" y="96" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Agent</text>
-      <text x="160" y="112" textAnchor="middle" fontSize="10" fill="rgb(var(--ctp-text))">Hub</text>
+      {/* Agent A */}
+      <rect x="15" y="15" width="140" height="75" rx="10" fill="rgb(var(--ctp-surface0))" />
+      <text x="38" y="40" fontSize="14">🤖</text>
+      <text x="58" y="38" fontSize="9" fill="rgb(var(--ctp-text))">Agent A</text>
+      <rect x="28" y="50" width="115" height="14" rx="4" fill="rgb(var(--ctp-accent))" opacity="0.12" />
+      <text x="33" y="60" fontSize="7" fill="rgb(var(--ctp-accent))">⚙</text>
+      <text x="44" y="60" fontSize="7" fill="rgb(var(--ctp-subtext0))">Read-only, no deploy</text>
+      <rect x="28" y="68" width="115" height="14" rx="4" fill="rgb(var(--ctp-accent))" opacity="0.08" />
+      <text x="33" y="78" fontSize="7" fill="rgb(var(--ctp-accent))">💬</text>
+      <text x="44" y="78" fontSize="7" fill="rgb(var(--ctp-subtext0))">"Focus on tests only"</text>
 
-      {/* Surrounding agents */}
-      <circle cx="60" cy="50" r="20" fill="rgb(var(--ctp-surface0))" />
-      <text x="60" y="56" textAnchor="middle" fontSize="14">🤖</text>
-      <line x1="80" y1="60" x2="130" y2="80" stroke="rgb(var(--ctp-accent))" strokeWidth="1.5" opacity="0.3" />
+      {/* Agent B */}
+      <rect x="165" y="15" width="140" height="75" rx="10" fill="rgb(var(--ctp-surface0))" />
+      <text x="188" y="40" fontSize="14">🤖</text>
+      <text x="208" y="38" fontSize="9" fill="rgb(var(--ctp-text))">Agent B</text>
+      <rect x="178" y="50" width="115" height="14" rx="4" fill="rgb(var(--ctp-accent))" opacity="0.12" />
+      <text x="183" y="60" fontSize="7" fill="rgb(var(--ctp-accent))">⚙</text>
+      <text x="194" y="60" fontSize="7" fill="rgb(var(--ctp-subtext0))">Full write access</text>
+      <rect x="178" y="68" width="115" height="14" rx="4" fill="rgb(var(--ctp-accent))" opacity="0.08" />
+      <text x="183" y="78" fontSize="7" fill="rgb(var(--ctp-accent))">💬</text>
+      <text x="194" y="78" fontSize="7" fill="rgb(var(--ctp-subtext0))">"Implement feature X"</text>
 
-      <circle cx="260" cy="50" r="20" fill="rgb(var(--ctp-surface0))" />
-      <text x="260" y="56" textAnchor="middle" fontSize="14">🤖</text>
-      <line x1="240" y1="60" x2="190" y2="80" stroke="rgb(var(--ctp-accent))" strokeWidth="1.5" opacity="0.3" />
-
-      <circle cx="60" cy="150" r="20" fill="rgb(var(--ctp-surface0))" />
-      <text x="60" y="156" textAnchor="middle" fontSize="14">🤖</text>
-      <line x1="80" y1="140" x2="130" y2="120" stroke="rgb(var(--ctp-accent))" strokeWidth="1.5" opacity="0.3" />
-
-      <circle cx="260" cy="150" r="20" fill="rgb(var(--ctp-surface0))" />
-      <text x="260" y="156" textAnchor="middle" fontSize="14">🤖</text>
-      <line x1="240" y1="140" x2="190" y2="120" stroke="rgb(var(--ctp-accent))" strokeWidth="1.5" opacity="0.3" />
-
-      {/* Labels */}
-      <text x="60" y="25" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">Agent 1</text>
-      <text x="260" y="25" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">Agent 2</text>
-      <text x="60" y="185" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">Agent 3</text>
-      <text x="260" y="185" textAnchor="middle" fontSize="8" fill="rgb(var(--ctp-subtext0))">Agent 4</text>
+      {/* Agent C */}
+      <rect x="90" y="110" width="140" height="75" rx="10" fill="rgb(var(--ctp-surface0))" />
+      <text x="113" y="135" fontSize="14">🤖</text>
+      <text x="133" y="133" fontSize="9" fill="rgb(var(--ctp-text))">Agent C</text>
+      <rect x="103" y="145" width="115" height="14" rx="4" fill="rgb(var(--ctp-accent))" opacity="0.12" />
+      <text x="108" y="155" fontSize="7" fill="rgb(var(--ctp-accent))">⚙</text>
+      <text x="119" y="155" fontSize="7" fill="rgb(var(--ctp-subtext0))">Deploy allowed</text>
+      <rect x="103" y="163" width="115" height="14" rx="4" fill="rgb(var(--ctp-accent))" opacity="0.08" />
+      <text x="108" y="173" fontSize="7" fill="rgb(var(--ctp-accent))">💬</text>
+      <text x="119" y="173" fontSize="7" fill="rgb(var(--ctp-subtext0))">"Ship to staging"</text>
     </svg>
   );
 }
