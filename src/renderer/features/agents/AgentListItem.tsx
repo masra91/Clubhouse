@@ -85,7 +85,7 @@ export function AgentListItem({ agent, isActive, isThinking, onSelect, onSpawnQu
       `}
     >
       {/* Avatar with status ring */}
-      <div className={`relative flex-shrink-0 ${isWorking ? 'animate-pulse-ring' : ''}`}>
+      <div className={`relative flex-shrink-0 ${isWorking ? 'animate-pulse-ring' : ''} ${agent.headless && agent.status === 'running' ? 'animate-headless-orbit' : ''}`}>
         <div
           className="w-9 h-9 rounded-full flex items-center justify-center"
           style={{ border: `2px solid ${ringColor}` }}
@@ -111,6 +111,26 @@ export function AgentListItem({ agent, isActive, isThinking, onSelect, onSpawnQu
             </div>
           )}
         </div>
+        {/* Free Agent Mode badge */}
+        {agent.freeAgentMode && (
+          <div
+            className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center ring-2 ring-ctp-base"
+            title="Free Agent Mode — all permissions bypassed"
+          >
+            <span className="text-[9px] font-bold text-white leading-none">!</span>
+          </div>
+        )}
+        {/* Headless indicator */}
+        {agent.headless && agent.status === 'running' && (
+          <div
+            className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-ctp-blue flex items-center justify-center ring-2 ring-ctp-base"
+            title="Running headless"
+          >
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round">
+              <circle cx="12" cy="12" r="4" />
+            </svg>
+          </div>
+        )}
       </div>
 
       {/* Info */}
@@ -139,6 +159,12 @@ export function AgentListItem({ agent, isActive, isThinking, onSelect, onSpawnQu
               </span>
             );
           })()}
+          {agent.freeAgentMode && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded truncate"
+              style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
+              Free
+            </span>
+          )}
         </div>
         <span className={`text-xs truncate block mt-0.5 ${
           hasDetailed && detailed.state === 'needs_permission' ? 'text-orange-400' :
