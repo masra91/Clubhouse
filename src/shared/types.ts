@@ -129,6 +129,20 @@ export interface DurableAgentConfig {
   quickAgentDefaults?: QuickAgentDefaults;
   orchestrator?: OrchestratorId;
   freeAgentMode?: boolean;
+  clubhouseModeOverride?: boolean;
+}
+
+export interface ClubhouseModeSettings {
+  enabled: boolean;
+  projectOverrides?: Record<string, boolean>;
+}
+
+export interface MaterializationPreview {
+  instructions: string;
+  permissions: PermissionsConfig;
+  mcpJson: string | null;
+  skills: string[];
+  agentTemplates: string[];
 }
 
 export interface FileNode {

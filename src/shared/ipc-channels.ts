@@ -78,6 +78,8 @@ export const IPC = {
     READ_PROJECT_AGENT_DEFAULTS: 'agent:read-project-agent-defaults',
     WRITE_PROJECT_AGENT_DEFAULTS: 'agent:write-project-agent-defaults',
     GET_CONVENTIONS: 'agent:get-conventions',
+    MATERIALIZE_AGENT: 'agent:materialize-agent',
+    PREVIEW_MATERIALIZATION: 'agent:preview-materialization',
   },
   FILE: {
     READ_TREE: 'file:read-tree',
@@ -137,6 +139,8 @@ export const IPC = {
     GET_PENDING_RELEASE_NOTES: 'app:get-pending-release-notes',
     CLEAR_PENDING_RELEASE_NOTES: 'app:clear-pending-release-notes',
     GET_VERSION_HISTORY: 'app:get-version-history',
+    GET_CLUBHOUSE_MODE_SETTINGS: 'app:get-clubhouse-mode-settings',
+    SAVE_CLUBHOUSE_MODE_SETTINGS: 'app:save-clubhouse-mode-settings',
   },
   PLUGIN: {
     DISCOVER_COMMUNITY: 'plugin:discover-community',
