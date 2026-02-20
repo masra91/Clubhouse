@@ -7,6 +7,9 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useOrchestratorStore } from '../../stores/orchestratorStore';
 import { UtilityTerminal } from './UtilityTerminal';
 import { ImageCropDialog } from '../../components/ImageCropDialog';
+import { SkillsSection } from './SkillsSection';
+import { AgentTemplatesSection } from './AgentTemplatesSection';
+import { McpJsonSection } from './McpJsonSection';
 
 type SettingsTab = 'main' | 'quick';
 
@@ -529,6 +532,16 @@ export function AgentSettingsView({ agent }: Props) {
         {/* Main Agent Tab */}
         {activeTab === 'main' && (
           <div className="space-y-6">
+            {/* Shared settings note */}
+            <div className="text-[10px] text-ctp-subtext0/60 flex items-start gap-1.5 bg-ctp-mantle border border-surface-0 rounded-lg px-3 py-2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+              <span>Skills, agent definitions, and MCP settings are stored in the agent worktree. Agents sharing the same root directory will pick up and share these settings.</span>
+            </div>
+
             {/* Instructions Section */}
             {instructionsLoaded && (
               <section>
@@ -569,6 +582,27 @@ export function AgentSettingsView({ agent }: Props) {
                 />
               </section>
             )}
+
+            {/* Skills Section */}
+            <SkillsSection
+              worktreePath={worktreePath}
+              disabled={isRunning}
+              refreshKey={refreshKey}
+            />
+
+            {/* Agent Definitions Section */}
+            <AgentTemplatesSection
+              worktreePath={worktreePath}
+              disabled={isRunning}
+              refreshKey={refreshKey}
+            />
+
+            {/* MCP JSON Section */}
+            <McpJsonSection
+              worktreePath={worktreePath}
+              disabled={isRunning}
+              refreshKey={refreshKey}
+            />
 
             {/* Free Agent Mode Section */}
             <section>
