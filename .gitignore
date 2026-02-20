@@ -100,7 +100,18 @@ out/
 # Materialized MCP config
 .mcp.json
 
-# Local scratch / research folders // TODO REMOVE
+# Internal agent/worktree config
+CLAUDE.md
+PLAN.md
+.claude/
+
+# Claude Code hooks (local dev only)
+.github/hooks/
+
+# Internal planning docs
+clubhouse/
+
+# Local scratch / research folders
 .clubhouse/plugin-data-local/
 
 # Playwright
