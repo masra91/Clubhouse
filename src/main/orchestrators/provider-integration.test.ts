@@ -98,6 +98,69 @@ describe('Provider integration tests', () => {
     });
   });
 
+  describe('freeAgentMode flag generation', () => {
+    it('ClaudeCode: adds --dangerously-skip-permissions when freeAgentMode is true', async () => {
+      const provider = new ClaudeCodeProvider();
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+        freeAgentMode: true,
+      });
+      expect(args).toContain('--dangerously-skip-permissions');
+    });
+
+    it('ClaudeCode: no permission flag when freeAgentMode is false', async () => {
+      const provider = new ClaudeCodeProvider();
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+        freeAgentMode: false,
+      });
+      expect(args).not.toContain('--dangerously-skip-permissions');
+    });
+
+    it('CopilotCli: adds --yolo when freeAgentMode is true', async () => {
+      const provider = new CopilotCliProvider();
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+        freeAgentMode: true,
+      });
+      expect(args).toContain('--yolo');
+    });
+
+    it('CopilotCli: no --yolo when freeAgentMode is false', async () => {
+      const provider = new CopilotCliProvider();
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+        freeAgentMode: false,
+      });
+      expect(args).not.toContain('--yolo');
+    });
+
+    it('OpenCode: no permission-related flag regardless of freeAgentMode', async () => {
+      const provider = new OpenCodeProvider();
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+        freeAgentMode: true,
+      });
+      // OpenCode doesn't support permissions, so no flag should be added
+      expect(args).not.toContain('--dangerously-skip-permissions');
+      expect(args).not.toContain('--yolo');
+    });
+
+    it('freeAgentMode flag coexists with other options', async () => {
+      const provider = new ClaudeCodeProvider();
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+        freeAgentMode: true,
+        model: 'sonnet',
+        mission: 'Deploy',
+      });
+      expect(args).toContain('--dangerously-skip-permissions');
+      expect(args).toContain('--model');
+      expect(args).toContain('sonnet');
+      expect(args[args.length - 1]).toBe('Deploy');
+    });
+  });
+
   describe('buildHeadlessCommand', () => {
     it('ClaudeCode: generates valid -p invocation with all flags', async () => {
       const provider = new ClaudeCodeProvider();
