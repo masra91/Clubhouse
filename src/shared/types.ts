@@ -104,6 +104,14 @@ export interface QuickAgentDefaults {
   freeAgentMode?: boolean;
 }
 
+/** Project-level default settings applied as snapshots when creating new agents. */
+export interface ProjectAgentDefaults {
+  instructions?: string;
+  permissions?: PermissionsConfig;
+  mcpJson?: string;
+  freeAgentMode?: boolean;
+}
+
 export interface DurableAgentConfig {
   id: string;
   name: string;

@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { McpServerEntry, SkillEntry, AgentTemplateEntry, PermissionsConfig } from '../../shared/types';
+import { McpServerEntry, SkillEntry, AgentTemplateEntry, PermissionsConfig, ProjectAgentDefaults } from '../../shared/types';
 
 /** Local settings shape for .clubhouse/settings.json */
 interface ProjectSettings {
@@ -9,6 +9,7 @@ interface ProjectSettings {
   quickOverrides: Record<string, unknown>;
   defaultSkillsPath?: string;
   defaultAgentsPath?: string;
+  agentDefaults?: ProjectAgentDefaults;
 }
 
 export function readClaudeMd(worktreePath: string): string {
@@ -384,4 +385,49 @@ export function writePermissions(worktreePath: string, permissions: PermissionsC
   }
 
   fs.writeFileSync(settingsPath, JSON.stringify(merged, null, 2), 'utf-8');
+}
+
+/**
+ * Read project-level agent defaults from .clubhouse/settings.json.
+ */
+export function readProjectAgentDefaults(projectPath: string): ProjectAgentDefaults {
+  const settings = readSettings(projectPath);
+  return settings.agentDefaults || {};
+}
+
+/**
+ * Write project-level agent defaults to .clubhouse/settings.json.
+ */
+export function writeProjectAgentDefaults(projectPath: string, defaults: ProjectAgentDefaults): void {
+  const settings = readSettings(projectPath);
+  settings.agentDefaults = defaults;
+  writeSettings(projectPath, settings);
+}
+
+/**
+ * Apply project-level agent defaults as snapshots into an agent's worktree.
+ * Called during agent creation. Writes instructions, permissions, and MCP config
+ * into the worktree if defaults are set.
+ */
+export function applyAgentDefaults(worktreePath: string, projectPath: string): void {
+  const defaults = readProjectAgentDefaults(projectPath);
+  if (!defaults) return;
+
+  if (defaults.instructions) {
+    writeClaudeMd(worktreePath, defaults.instructions);
+  }
+
+  if (defaults.permissions) {
+    writePermissions(worktreePath, defaults.permissions);
+  }
+
+  if (defaults.mcpJson) {
+    const mcpPath = path.join(worktreePath, '.mcp.json');
+    try {
+      JSON.parse(defaults.mcpJson); // Validate before writing
+      fs.writeFileSync(mcpPath, defaults.mcpJson, 'utf-8');
+    } catch {
+      // Skip invalid JSON
+    }
+  }
 }

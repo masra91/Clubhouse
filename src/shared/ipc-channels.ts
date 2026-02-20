@@ -75,6 +75,8 @@ export const IPC = {
     LIST_AGENT_TEMPLATE_FILES: 'agent:list-agent-template-files',
     READ_MCP_RAW_JSON: 'agent:read-mcp-raw-json',
     WRITE_MCP_RAW_JSON: 'agent:write-mcp-raw-json',
+    READ_PROJECT_AGENT_DEFAULTS: 'agent:read-project-agent-defaults',
+    WRITE_PROJECT_AGENT_DEFAULTS: 'agent:write-project-agent-defaults',
   },
   FILE: {
     READ_TREE: 'file:read-tree',

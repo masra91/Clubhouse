@@ -98,4 +98,14 @@ export function registerAgentSettingsHandlers(): void {
   ipcMain.handle(IPC.AGENT.WRITE_MCP_RAW_JSON, (_event, worktreePath: string, content: string) => {
     return agentSettings.writeMcpRawJson(worktreePath, content);
   });
+
+  // --- Project-level agent defaults ---
+
+  ipcMain.handle(IPC.AGENT.READ_PROJECT_AGENT_DEFAULTS, (_event, projectPath: string) => {
+    return agentSettings.readProjectAgentDefaults(projectPath);
+  });
+
+  ipcMain.handle(IPC.AGENT.WRITE_PROJECT_AGENT_DEFAULTS, (_event, projectPath: string, defaults: any) => {
+    agentSettings.writeProjectAgentDefaults(projectPath, defaults);
+  });
 }

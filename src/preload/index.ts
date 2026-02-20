@@ -209,6 +209,20 @@ const api = {
       ipcRenderer.invoke(IPC.AGENT.READ_MCP_RAW_JSON, worktreePath),
     writeMcpRawJson: (worktreePath: string, content: string): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC.AGENT.WRITE_MCP_RAW_JSON, worktreePath, content),
+    readProjectAgentDefaults: (projectPath: string): Promise<{
+      instructions?: string;
+      permissions?: { allow?: string[]; deny?: string[] };
+      mcpJson?: string;
+      freeAgentMode?: boolean;
+    }> =>
+      ipcRenderer.invoke(IPC.AGENT.READ_PROJECT_AGENT_DEFAULTS, projectPath),
+    writeProjectAgentDefaults: (projectPath: string, defaults: {
+      instructions?: string;
+      permissions?: { allow?: string[]; deny?: string[] };
+      mcpJson?: string;
+      freeAgentMode?: boolean;
+    }) =>
+      ipcRenderer.invoke(IPC.AGENT.WRITE_PROJECT_AGENT_DEFAULTS, projectPath, defaults),
   },
   file: {
     readTree: (dirPath: string, options?: { includeHidden?: boolean; depth?: number }) => ipcRenderer.invoke(IPC.FILE.READ_TREE, dirPath, options),
