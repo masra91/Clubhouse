@@ -120,6 +120,10 @@ export class CopilotCliProvider implements OrchestratorProvider {
     const binary = findCopilotBinary();
     const args: string[] = [];
 
+    if (opts.freeAgentMode) {
+      args.push('--yolo');
+    }
+
     if (opts.model && opts.model !== 'default') {
       args.push('--model', opts.model);
     }

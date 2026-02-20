@@ -55,6 +55,7 @@ export interface Agent {
   parentAgentId?: string;
   orchestrator?: OrchestratorId;
   headless?: boolean;
+  freeAgentMode?: boolean;
 }
 
 export interface CompletedQuickAgent {
@@ -100,6 +101,7 @@ export interface QuickAgentDefaults {
   systemPrompt?: string;
   allowedTools?: string[];
   defaultModel?: string;
+  freeAgentMode?: boolean;
 }
 
 export interface DurableAgentConfig {
@@ -113,6 +115,7 @@ export interface DurableAgentConfig {
   model?: string;
   quickAgentDefaults?: QuickAgentDefaults;
   orchestrator?: OrchestratorId;
+  freeAgentMode?: boolean;
 }
 
 export interface FileNode {
@@ -386,6 +389,7 @@ export interface SpawnAgentParams {
   systemPrompt?: string;
   allowedTools?: string[];
   orchestrator?: OrchestratorId;
+  freeAgentMode?: boolean;
 }
 
 export type AgentDetailedState = 'idle' | 'working' | 'needs_permission' | 'tool_error';

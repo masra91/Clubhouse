@@ -129,6 +129,10 @@ export class ClaudeCodeProvider implements OrchestratorProvider {
     const binary = findClaudeBinary();
     const args: string[] = [];
 
+    if (opts.freeAgentMode) {
+      args.push('--dangerously-skip-permissions');
+    }
+
     if (opts.model && opts.model !== 'default') {
       args.push('--model', opts.model);
     }

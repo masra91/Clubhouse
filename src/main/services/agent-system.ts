@@ -86,6 +86,7 @@ export interface SpawnAgentParams {
   orchestrator?: OrchestratorId;
   maxTurns?: number;
   maxBudgetUsd?: number;
+  freeAgentMode?: boolean;
 }
 
 export function isHeadlessAgent(agentId: string): boolean {
@@ -114,6 +115,7 @@ export async function spawnAgent(params: SpawnAgentParams): Promise<void> {
       allowedTools,
       agentId: params.agentId,
       noSessionPersistence: true,
+      freeAgentMode: params.freeAgentMode,
     });
 
     if (headlessResult) {
@@ -163,6 +165,7 @@ async function spawnPtyAgent(
     systemPrompt: params.systemPrompt,
     allowedTools,
     agentId: params.agentId,
+    freeAgentMode: params.freeAgentMode,
   });
 
   appLog('core:agent', 'info', `Spawning ${params.kind} agent`, {

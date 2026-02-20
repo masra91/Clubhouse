@@ -86,7 +86,7 @@ export function getDurableConfig(projectPath: string, agentId: string): DurableA
 export function updateDurableConfig(
   projectPath: string,
   agentId: string,
-  updates: { quickAgentDefaults?: QuickAgentDefaults; orchestrator?: OrchestratorId; model?: string },
+  updates: { quickAgentDefaults?: QuickAgentDefaults; orchestrator?: OrchestratorId; model?: string; freeAgentMode?: boolean },
 ): void {
   const agents = readAgents(projectPath);
   const agent = agents.find((a) => a.id === agentId);
@@ -104,6 +104,13 @@ export function updateDurableConfig(
       delete agent.model;
     }
   }
+  if (updates.freeAgentMode !== undefined) {
+    if (updates.freeAgentMode) {
+      agent.freeAgentMode = true;
+    } else {
+      delete agent.freeAgentMode;
+    }
+  }
   writeAgents(projectPath, agents);
 }
 
@@ -114,6 +121,7 @@ export function createDurable(
   model?: string,
   useWorktree: boolean = true,
   orchestrator?: OrchestratorId,
+  freeAgentMode?: boolean,
 ): DurableAgentConfig {
   ensureDir(clubhouseDir(projectPath));
   ensureGitignore(projectPath);
@@ -197,6 +205,7 @@ export function createDurable(
     createdAt: new Date().toISOString(),
     ...(model && model !== 'default' ? { model } : {}),
     ...(orchestrator ? { orchestrator } : {}),
+    ...(freeAgentMode ? { freeAgentMode } : {}),
   };
 
   const agents = readAgents(projectPath);
