@@ -1,6 +1,8 @@
 import type { Terminal } from '@xterm/xterm';
 
-const isMac = window.clubhouse.platform === 'darwin';
+function platformIsMac(): boolean {
+  return window.clubhouse.platform === 'darwin';
+}
 
 /**
  * Read text from the system clipboard.
@@ -45,14 +47,14 @@ async function pasteIntoTerminal(
 function isPaste(e: KeyboardEvent): boolean {
   if (e.key !== 'v' && e.key !== 'V') return false;
   // Cmd+V on macOS, Ctrl+V or Ctrl+Shift+V on Windows/Linux
-  return isMac ? e.metaKey : e.ctrlKey;
+  return platformIsMac() ? e.metaKey : e.ctrlKey;
 }
 
 /** Return true if the key event is a copy shortcut for this platform. */
 function isCopy(e: KeyboardEvent): boolean {
   if (e.key !== 'c' && e.key !== 'C') return false;
   // Cmd+C on macOS, Ctrl+Shift+C on Windows/Linux (Ctrl+C without shift is SIGINT)
-  return isMac ? e.metaKey : (e.ctrlKey && e.shiftKey);
+  return platformIsMac() ? e.metaKey : (e.ctrlKey && e.shiftKey);
 }
 
 /**
@@ -94,7 +96,7 @@ export function attachClipboardHandlers(
     // Ctrl+C without shift on Windows/Linux: copy if there's a selection,
     // otherwise let it through as SIGINT
     if (
-      !isMac &&
+      !platformIsMac() &&
       e.ctrlKey &&
       !e.shiftKey &&
       (e.key === 'c' || e.key === 'C') &&
