@@ -324,7 +324,7 @@ export function AgentList() {
         <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
       )}
 
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-y-auto min-h-0" data-testid="agent-list-content">
         {/* ALL section — durables with their nested children */}
         {durableAgents.length > 0 && (
           <div>
@@ -446,10 +446,13 @@ export function AgentList() {
         </div>
         <div
           data-testid="completed-items"
-          className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
-          style={{ maxHeight: completedCollapsed ? 0 : '33vh' }}
+          className="overflow-hidden transition-[max-height,min-height] duration-300 ease-in-out"
+          style={{
+            maxHeight: completedCollapsed ? 0 : '33vh',
+            minHeight: completedCollapsed ? 0 : (orphanCompleted.length > 0 ? '120px' : 0),
+          }}
         >
-          <div className="overflow-y-auto" style={{ maxHeight: '33vh' }}>
+          <div className="overflow-y-auto pb-2" style={{ maxHeight: '33vh' }}>
             {orphanCompleted.map((completed) => (
               <QuickAgentGhostCompact
                 key={completed.id}
