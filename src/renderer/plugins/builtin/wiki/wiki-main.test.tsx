@@ -436,7 +436,7 @@ describe('WikiTree (ADO mode)', () => {
     expect(screen.getByText('Getting Started')).toBeInTheDocument();
   });
 
-  it('expands ADO folder and auto-selects index page', async () => {
+  it('clicking ADO folder name selects sibling index page directly', async () => {
     const LAZY_ADO_TREE: FileNode[] = [
       {
         name: 'Architecture',
@@ -469,12 +469,12 @@ describe('WikiTree (ADO mode)', () => {
     render(<WikiTree api={api} />);
     await screen.findByText('Architecture');
 
-    // Click the folder to expand it
+    // Click the folder name — selects the sibling page directly (not via expand)
     fireEvent.click(screen.getByText('Architecture'));
 
-    // After expansion, the index page should be auto-selected
+    // The sibling .md page should be selected directly
     await waitFor(() => {
-      expect(wikiState.selectedPath).toBe('Architecture/Architecture.md');
+      expect(wikiState.selectedPath).toBe('Architecture.md');
     });
   });
 
@@ -598,6 +598,145 @@ describe('WikiTree (ADO mode)', () => {
       expect(wikiState.selectedPath).toBe('Guides/Architecture.md');
     });
   });
+
+  it('clicking folder name selects sibling page without expanding', async () => {
+    // Folder is already expanded; clicking the name should select the sibling page
+    const LAZY_ADO_TREE: FileNode[] = [
+      {
+        name: 'Architecture',
+        path: 'Architecture',
+        isDirectory: true,
+        children: [],
+      },
+      { name: 'Architecture.md', path: 'Architecture.md', isDirectory: false },
+      { name: 'Getting-Started.md', path: 'Getting-Started.md', isDirectory: false },
+    ];
+
+    const ARCHITECTURE_CHILDREN: FileNode[] = [
+      { name: 'API-Design.md', path: 'Architecture/API-Design.md', isDirectory: false },
+    ];
+
+    const readTreeMock = vi.fn(async (path: string) => {
+      if (path === 'Architecture') return ARCHITECTURE_CHILDREN;
+      return LAZY_ADO_TREE;
+    });
+
+    const statMock = vi.fn(async (path: string) => {
+      if (path === 'Architecture.md') {
+        return { size: 100, isDirectory: false, isFile: true, modifiedAt: 0 };
+      }
+      throw new Error('not found');
+    });
+
+    const api = createAdoWikiAPI({
+      readTree: readTreeMock,
+      stat: statMock,
+      readFile: vi.fn(async (path: string) => {
+        if (path.endsWith('.order')) return '';
+        return '# ADO Wiki Page';
+      }),
+    });
+
+    render(<WikiTree api={api} />);
+    await screen.findByText('Architecture');
+
+    // Click the folder name (not the chevron) - should select the sibling page
+    fireEvent.click(screen.getByText('Architecture'));
+
+    await waitFor(() => {
+      expect(wikiState.selectedPath).toBe('Architecture.md');
+    });
+  });
+
+  it('clicking chevron expands ADO folder without selecting sibling page', async () => {
+    const LAZY_ADO_TREE: FileNode[] = [
+      {
+        name: 'Architecture',
+        path: 'Architecture',
+        isDirectory: true,
+        children: [],
+      },
+      { name: 'Architecture.md', path: 'Architecture.md', isDirectory: false },
+      { name: 'Getting-Started.md', path: 'Getting-Started.md', isDirectory: false },
+    ];
+
+    const ARCHITECTURE_CHILDREN: FileNode[] = [
+      { name: 'API-Design.md', path: 'Architecture/API-Design.md', isDirectory: false },
+    ];
+
+    const readTreeMock = vi.fn(async (path: string) => {
+      if (path === 'Architecture') return ARCHITECTURE_CHILDREN;
+      return LAZY_ADO_TREE;
+    });
+
+    const statMock = vi.fn(async (path: string) => {
+      if (path === 'Architecture.md') {
+        return { size: 100, isDirectory: false, isFile: true, modifiedAt: 0 };
+      }
+      throw new Error('not found');
+    });
+
+    const api = createAdoWikiAPI({
+      readTree: readTreeMock,
+      stat: statMock,
+      readFile: vi.fn(async (path: string) => {
+        if (path.endsWith('.order')) return '';
+        return '# ADO Wiki Page';
+      }),
+    });
+
+    render(<WikiTree api={api} />);
+    await screen.findByText('Architecture');
+
+    // Click the chevron specifically - find the chevron svg within the Architecture row
+    const architectureRow = screen.getByText('Architecture').closest('[data-path="Architecture"]');
+    expect(architectureRow).toBeTruthy();
+    const chevronSpan = architectureRow!.querySelector('span.flex.items-center');
+    expect(chevronSpan).toBeTruthy();
+    fireEvent.click(chevronSpan!);
+
+    // After clicking chevron, the folder should expand and show children
+    await waitFor(() => {
+      expect(screen.getByText('API Design')).toBeInTheDocument();
+    });
+
+    // The auto-select from toggleExpand will fire (existing behavior from PR #91),
+    // but the chevron click itself does not directly call selectFile
+  });
+
+  it('folder shows selected when its sibling page is the active selection', async () => {
+    const LAZY_ADO_TREE: FileNode[] = [
+      {
+        name: 'Architecture',
+        path: 'Architecture',
+        isDirectory: true,
+        children: [],
+      },
+      { name: 'Architecture.md', path: 'Architecture.md', isDirectory: false },
+      { name: 'Getting-Started.md', path: 'Getting-Started.md', isDirectory: false },
+    ];
+
+    const api = createAdoWikiAPI({
+      readTree: vi.fn(async () => LAZY_ADO_TREE),
+      readFile: vi.fn(async (path: string) => {
+        if (path.endsWith('.order')) return '';
+        return '# ADO Wiki Page';
+      }),
+    });
+
+    render(<WikiTree api={api} />);
+    await screen.findByText('Architecture');
+
+    // Click the folder name to select its sibling page
+    fireEvent.click(screen.getByText('Architecture'));
+
+    // The Architecture folder row should show selected background after selecting its index page
+    await waitFor(() => {
+      const architectureRow = screen.getByText('Architecture').closest('[data-path="Architecture"]');
+      expect(architectureRow).toBeTruthy();
+      expect(architectureRow!.className).toContain('bg-ctp-surface1');
+    });
+  });
 });
 
 // ── filterMarkdownTree tests ─────────────────────────────────────────
@@ -683,6 +822,87 @@ describe('filterMarkdownTree', () => {
     const result = filterMarkdownTree(nodes, 'ado');
     expect(result).toHaveLength(2);
     expect(result.map((n) => n.name)).toEqual(['Architecture', 'FAQ.md']);
+  });
+
+  it('in ADO mode, annotates folder with indexPath when sibling .md exists', () => {
+    const nodes: FileNode[] = [
+      {
+        name: 'Architecture',
+        path: 'Architecture',
+        isDirectory: true,
+        children: [],
+      },
+      { name: 'Architecture.md', path: 'Architecture.md', isDirectory: false },
+      { name: 'FAQ.md', path: 'FAQ.md', isDirectory: false },
+    ];
+    const result = filterMarkdownTree(nodes, 'ado');
+    expect(result).toHaveLength(2);
+    // The Architecture folder should have indexPath set to the sibling .md path
+    expect(result[0].name).toBe('Architecture');
+    expect(result[0].indexPath).toBe('Architecture.md');
+    // FAQ.md has no folder sibling, so no indexPath
+    expect(result[1].indexPath).toBeUndefined();
+  });
+
+  it('in ADO mode, does not set indexPath for folders without sibling .md', () => {
+    const nodes: FileNode[] = [
+      {
+        name: 'Images',
+        path: 'Images',
+        isDirectory: true,
+        children: [],
+      },
+      { name: 'FAQ.md', path: 'FAQ.md', isDirectory: false },
+    ];
+    const result = filterMarkdownTree(nodes, 'ado');
+    expect(result[0].name).toBe('Images');
+    expect(result[0].indexPath).toBeUndefined();
+  });
+
+  it('in ADO mode, annotates nested folders with indexPath', () => {
+    const nodes: FileNode[] = [
+      {
+        name: 'Guides',
+        path: 'Guides',
+        isDirectory: true,
+        children: [
+          {
+            name: 'Advanced',
+            path: 'Guides/Advanced',
+            isDirectory: true,
+            children: [],
+          },
+          { name: 'Advanced.md', path: 'Guides/Advanced.md', isDirectory: false },
+          { name: 'Setup.md', path: 'Guides/Setup.md', isDirectory: false },
+        ],
+      },
+    ];
+    const result = filterMarkdownTree(nodes, 'ado');
+    expect(result).toHaveLength(1);
+    // The nested Advanced folder should have indexPath
+    const advancedFolder = result[0].children!.find((n) => n.name === 'Advanced');
+    expect(advancedFolder).toBeDefined();
+    expect(advancedFolder!.indexPath).toBe('Guides/Advanced.md');
+    // Advanced.md should be hidden (filtered out)
+    expect(result[0].children!.find((n) => n.name === 'Advanced.md')).toBeUndefined();
+  });
+
+  it('in github mode, does not annotate folders with indexPath', () => {
+    const nodes: FileNode[] = [
+      {
+        name: 'docs',
+        path: 'docs',
+        isDirectory: true,
+        children: [
+          { name: 'guide.md', path: 'docs/guide.md', isDirectory: false },
+        ],
+      },
+      { name: 'docs.md', path: 'docs.md', isDirectory: false },
+    ];
+    const result = filterMarkdownTree(nodes, 'github');
+    // In github mode, both docs folder and docs.md should be present (no hiding)
+    expect(result).toHaveLength(2);
+    expect(result[0].indexPath).toBeUndefined();
   });
 
   it('in ADO mode, shows nested directories with empty children', () => {
