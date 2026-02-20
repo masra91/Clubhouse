@@ -68,7 +68,7 @@
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace !important;
   }
 
-  /* Scrollbar styling */
+  /* Scrollbar styling — auto-hide: invisible by default, visible on hover */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -79,11 +79,16 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgb(var(--ctp-surface1));
+    background: transparent;
     border-radius: 3px;
+    transition: background 0.2s ease;
   }
 
-  ::-webkit-scrollbar-thumb:hover {
+  :hover::-webkit-scrollbar-thumb {
+    background: rgb(var(--ctp-surface1));
+  }
+
+  :hover::-webkit-scrollbar-thumb:hover {
     background: rgb(var(--ctp-surface2));
   }
 }
