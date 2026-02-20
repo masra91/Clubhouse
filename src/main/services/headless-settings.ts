@@ -8,7 +8,7 @@ export interface HeadlessSettings {
 }
 
 const store = createSettingsStore<HeadlessSettings>('headless-settings.json', {
-  enabled: false,
+  enabled: true,
 });
 
 export const getSettings = store.get;

@@ -36,7 +36,7 @@ function AppAgentSettings() {
             <div>
               <div className="text-sm text-ctp-text">Headless Mode</div>
               <div className="text-xs text-ctp-subtext0 mt-0.5">
-                Run quick agents headless for faster completion, richer summaries, and no permission prompts
+                Quick agents run headless by default for faster completion, richer summaries, and no permission prompts
               </div>
             </div>
           </div>

@@ -44,28 +44,28 @@ Ghost cards remain until you dismiss them, so you can launch several quick agent
 
 ## Headless Mode
 
-By default, quick agents run in **interactive mode**: when the agent wants to perform a sensitive operation (such as editing a file or running a shell command), it pauses and asks for your permission. This is safe but requires you to stay attentive.
+By default, quick agents run in **headless mode**: the agent runs from start to finish without stopping for permission prompts, making it significantly faster for most tasks.
 
-**Headless mode** removes the permission prompts. The agent runs from start to finish without stopping, making it significantly faster for tasks you trust it to handle autonomously.
+**Interactive mode** is available as an alternative. In interactive mode, when the agent wants to perform a sensitive operation (such as editing a file or running a shell command), it pauses and asks for your permission. This is safer but requires you to stay attentive.
 
-### Enabling Headless Mode
+### Switching to Interactive Mode
 
-You can enable headless mode in two ways:
+You can switch to interactive mode in two ways:
 
-- **Globally** — go to **Settings** and enable the headless mode toggle. This applies to all quick agents across all projects.
-- **Per project** — open the project's settings and enable headless mode there. This overrides the global setting for that project only.
+- **Globally** — go to **Settings** and disable the headless mode toggle. This applies to all quick agents across all projects.
+- **Per project** — open the project's settings and select interactive mode. This overrides the global setting for that project only.
 
 ### How Headless Mode Works
 
-| Behavior | Interactive Mode (default) | Headless Mode |
-|----------|---------------------------|---------------|
-| Permission prompts | Agent pauses and waits for approval | Agent proceeds automatically |
-| File edits | Require approval before writing | Applied immediately |
-| Shell commands | Require approval before executing | Executed immediately |
-| Completion summary | Standard summary | Richer summary with full tool call details |
-| Speed | Slower (waits for human input) | Faster (no interruptions) |
+| Behavior | Headless Mode (default) | Interactive Mode |
+|----------|-------------------------|------------------|
+| Permission prompts | Agent proceeds automatically | Agent pauses and waits for approval |
+| File edits | Applied immediately | Require approval before writing |
+| Shell commands | Executed immediately | Require approval before executing |
+| Completion summary | Richer summary with full tool call details | Standard summary |
+| Speed | Faster (no interruptions) | Slower (waits for human input) |
 
-Headless mode is best suited for low-risk tasks where you are comfortable letting the agent act without supervision. For tasks that involve destructive operations (deleting files, force-pushing branches, modifying production configuration), interactive mode provides an important safety net.
+Interactive mode is best suited for tasks that involve destructive operations (deleting files, force-pushing branches, modifying production configuration), where the safety net of permission prompts is valuable.
 
 ### Quick Agent Defaults
 
