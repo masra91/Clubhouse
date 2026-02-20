@@ -526,17 +526,32 @@ describe('headless-manager', () => {
         CLUBHOUSE_AGENT_ID: 'test-agent',
       });
 
-      expect(mockCpSpawn).toHaveBeenCalledWith(
-        '/usr/local/bin/claude',
-        ['-p', 'test'],
-        expect.objectContaining({
-          cwd: '/project',
-          env: expect.objectContaining({
-            ANTHROPIC_API_KEY: 'sk-test',
-            CLUBHOUSE_AGENT_ID: 'test-agent',
-          }),
-        })
-      );
+      if (process.platform === 'win32') {
+        // On Windows, binary is wrapped through cmd.exe
+        expect(mockCpSpawn).toHaveBeenCalledWith(
+          'cmd.exe',
+          expect.arrayContaining(['/d', '/s', '/c']),
+          expect.objectContaining({
+            cwd: '/project',
+            env: expect.objectContaining({
+              ANTHROPIC_API_KEY: 'sk-test',
+              CLUBHOUSE_AGENT_ID: 'test-agent',
+            }),
+          })
+        );
+      } else {
+        expect(mockCpSpawn).toHaveBeenCalledWith(
+          '/usr/local/bin/claude',
+          ['-p', 'test'],
+          expect.objectContaining({
+            cwd: '/project',
+            env: expect.objectContaining({
+              ANTHROPIC_API_KEY: 'sk-test',
+              CLUBHOUSE_AGENT_ID: 'test-agent',
+            }),
+          })
+        );
+      }
 
       // CLAUDECODE and CLAUDE_CODE_ENTRYPOINT should be removed
       const envArg = (mockCpSpawn.mock.calls[0] as any[])[2].env;
