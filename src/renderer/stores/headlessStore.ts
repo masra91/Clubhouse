@@ -13,14 +13,14 @@ interface HeadlessState {
 }
 
 export const useHeadlessStore = create<HeadlessState>((set, get) => ({
-  enabled: false,
+  enabled: true,
   projectOverrides: {},
 
   loadSettings: async () => {
     try {
       const settings = await window.clubhouse.app.getHeadlessSettings();
       set({
-        enabled: settings?.enabled ?? false,
+        enabled: settings?.enabled ?? true,
         projectOverrides: settings?.projectOverrides ?? {},
       });
     } catch {
