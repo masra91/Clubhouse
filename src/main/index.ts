@@ -36,37 +36,53 @@ if (require('electron-squirrel-startup')) {
   app.quit();
 }
 
-const THEME_BG_COLORS: Record<string, string> = {
-  'catppuccin-mocha': '#1e1e2e',
-  'catppuccin-latte': '#eff1f5',
-  'solarized-dark': '#002b36',
-  'terminal': '#0a0a0a',
-  'nord': '#2e3440',
-  'dracula': '#282a36',
-  'tokyo-night': '#1a1b26',
-  'gruvbox-dark': '#282828',
+// Maps theme IDs to their mantle (title bar) and text colors for the native window chrome.
+// mantle = title bar background, text = window control symbol color.
+export const THEME_TITLE_BAR_COLORS: Record<string, { bg: string; mantle: string; text: string }> = {
+  'catppuccin-mocha': { bg: '#1e1e2e', mantle: '#181825', text: '#cdd6f4' },
+  'catppuccin-latte': { bg: '#eff1f5', mantle: '#e6e9ef', text: '#4c4f69' },
+  'solarized-dark':   { bg: '#002b36', mantle: '#001f27', text: '#839496' },
+  'terminal':         { bg: '#0a0a0a', mantle: '#050505', text: '#00ff00' },
+  'nord':             { bg: '#2e3440', mantle: '#272c36', text: '#d8dee9' },
+  'dracula':          { bg: '#282a36', mantle: '#1e1f29', text: '#f8f8f2' },
+  'tokyo-night':      { bg: '#1a1b26', mantle: '#16161e', text: '#a9b1d6' },
+  'gruvbox-dark':     { bg: '#282828', mantle: '#1d2021', text: '#ebdbb2' },
 };
 
-function getThemeBgColor(): string {
+function getThemeColors(): { bg: string; mantle: string; text: string } {
   try {
     const { themeId } = getThemeSettings();
-    return THEME_BG_COLORS[themeId] || '#1e1e2e';
+    return THEME_TITLE_BAR_COLORS[themeId] || THEME_TITLE_BAR_COLORS['catppuccin-mocha'];
   } catch {
-    return '#1e1e2e';
+    return THEME_TITLE_BAR_COLORS['catppuccin-mocha'];
   }
 }
 
 let mainWindow: BrowserWindow | null = null;
 
 const createWindow = (): void => {
+  const isWin = process.platform === 'win32';
+  const themeColors = getThemeColors();
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 900,
     minHeight: 600,
     show: false,
-    titleBarStyle: 'hiddenInset',
-    backgroundColor: getThemeBgColor(),
+    // macOS: hide the native title bar but keep traffic lights
+    // Windows: use titleBarOverlay to replace native title bar with themed controls
+    ...(isWin
+      ? {
+          titleBarStyle: 'hidden',
+          titleBarOverlay: {
+            color: themeColors.mantle,
+            symbolColor: themeColors.text,
+            height: 38,
+          },
+        }
+      : { titleBarStyle: 'hiddenInset' as const }),
+    backgroundColor: themeColors.bg,
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       contextIsolation: true,
