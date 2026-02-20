@@ -124,7 +124,7 @@ describe('pty-manager', () => {
       expect(getBuffer('agent_b')).toBe('data_b');
     });
 
-    it('suppresses data while command is pending', () => {
+    it('suppresses shell startup data and auto-fires pending command', () => {
       spawn('agent_suppress', '/test', '/usr/local/bin/claude', []);
       const onDataCb = mockProcess.onData.mock.calls[0][0];
       onDataCb('shell startup noise');
@@ -133,12 +133,40 @@ describe('pty-manager', () => {
         // On Windows, binary is spawned directly — no pending command, no suppression
         expect(getBuffer('agent_suppress')).toBe('shell startup noise');
       } else {
-        // On Unix, data is suppressed until resize fires the pending command
+        // On Unix, startup data is suppressed and the pending command fires immediately
         expect(getBuffer('agent_suppress')).toBe('');
-        resize('agent_suppress', 120, 30);
+        expect(mockProcess.write).toHaveBeenCalledWith(
+          expect.stringContaining('exec ')
+        );
+        // Subsequent data flows through normally
         onDataCb('real data');
         expect(getBuffer('agent_suppress')).toBe('real data');
       }
+    });
+
+    it('auto-fires pending command on first shell data without requiring resize', () => {
+      if (process.platform === 'win32') return; // Unix-only behavior
+
+      spawn('agent_autofire', '/test', '/usr/local/bin/claude', ['--model', 'opus']);
+      const onDataCb = mockProcess.onData.mock.calls[0][0];
+
+      // Before any data, command hasn't fired
+      expect(mockProcess.write).not.toHaveBeenCalledWith(
+        expect.stringContaining('exec ')
+      );
+
+      // Shell emits startup data — triggers command auto-fire
+      onDataCb('Last login: Wed Feb 19');
+      expect(mockProcess.write).toHaveBeenCalledWith(
+        expect.stringContaining("exec '/usr/local/bin/claude' '--model' 'opus'")
+      );
+
+      // Subsequent resize does NOT re-fire the command
+      mockProcess.write.mockClear();
+      resize('agent_autofire', 200, 50);
+      expect(mockProcess.write).not.toHaveBeenCalledWith(
+        expect.stringContaining('exec ')
+      );
     });
   });
 
