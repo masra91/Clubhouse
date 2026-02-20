@@ -13,6 +13,8 @@ import { manifest as wikiManifest } from './wiki/manifest';
 import * as wikiModule from './wiki/main';
 import { manifest as kanbossManifest } from './kanboss/manifest';
 import * as kanbossModule from './kanboss/main';
+import { manifest as btopManifest } from './btop/manifest';
+import * as btopModule from './btop/main';
 
 export interface BuiltinPlugin {
   manifest: PluginManifest;
@@ -24,6 +26,7 @@ const DEFAULT_ENABLED_IDS: ReadonlySet<string> = new Set([
   'hub',
   'terminal',
   'files',
+  'btop',
 ]);
 
 export function getBuiltinPlugins(): BuiltinPlugin[] {
@@ -35,6 +38,7 @@ export function getBuiltinPlugins(): BuiltinPlugin[] {
     { manifest: issuesManifest, module: issuesModule },
     { manifest: wikiManifest, module: wikiModule },
     { manifest: kanbossManifest, module: kanbossModule },
+    { manifest: btopManifest, module: btopModule },
   ];
 }
 

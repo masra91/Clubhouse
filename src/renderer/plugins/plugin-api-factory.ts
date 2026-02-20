@@ -940,10 +940,9 @@ function createBadgesAPI(ctx: PluginContext): BadgesAPI {
 }
 
 function createProcessAPI(ctx: PluginContext, manifest?: PluginManifest): ProcessAPI {
-  const { projectPath, pluginId } = ctx;
-  if (!projectPath) {
-    throw new Error('ProcessAPI requires projectPath');
-  }
+  // App-scoped plugins have no projectPath; use '/' as a safe fallback CWD
+  const projectPath = ctx.projectPath || '/';
+  const { pluginId } = ctx;
   const allowedCommands = manifest?.allowedCommands ?? [];
   return {
     async exec(command, args, options?) {
@@ -1031,7 +1030,7 @@ export function createPluginAPI(ctx: PluginContext, mode?: PluginRenderMode, man
       ctx.pluginId, manifest, () => createFilesAPI(ctx, manifest),
     ),
     process: gated(
-      projectAvailable && !!ctx.projectPath, scopeLabel, 'process', 'process',
+      true, scopeLabel, 'process', 'process',
       ctx.pluginId, manifest, () => createProcessAPI(ctx, manifest),
     ),
     badges: gated(
