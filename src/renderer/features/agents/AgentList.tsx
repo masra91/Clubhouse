@@ -38,6 +38,7 @@ export function AgentList() {
   const [mission, setMission] = useState('');
   const [quickModel, setQuickModel] = useState('default');
   const [quickOrchestrator, setQuickOrchestrator] = useState('');
+  const [quickFreeAgentMode, setQuickFreeAgentMode] = useState(false);
   const missionInputRef = useRef<HTMLInputElement>(null);
   const dropdownBtnRef = useRef<HTMLDivElement>(null);
   const [, setTick] = useState(0);
@@ -115,15 +116,17 @@ export function AgentList() {
     const selectedModel = quickModel;
     const parentId = quickTargetParentId;
     const selectedOrchestrator = quickOrchestrator || undefined;
+    const freeMode = quickFreeAgentMode || undefined;
     setShowMissionInput(false);
     try {
-      await spawnQuickAgent(activeProject.id, activeProject.path, mission.trim(), selectedModel, parentId || undefined, parentId ? undefined : selectedOrchestrator);
+      await spawnQuickAgent(activeProject.id, activeProject.path, mission.trim(), selectedModel, parentId || undefined, parentId ? undefined : selectedOrchestrator, freeMode);
     } catch (err) {
       console.error('Failed to spawn quick agent:', err);
     }
     setMission('');
     setQuickModel('default');
     setQuickOrchestrator('');
+    setQuickFreeAgentMode(false);
     setQuickTargetParentId(null);
   };
 
@@ -132,15 +135,16 @@ export function AgentList() {
     setMission('');
     setQuickModel('default');
     setQuickOrchestrator('');
+    setQuickFreeAgentMode(false);
     setQuickTargetParentId(null);
   };
 
-  const handleCreateDurable = async (name: string, color: string, model: string, useWorktree: boolean, orchestrator?: string) => {
+  const handleCreateDurable = async (name: string, color: string, model: string, useWorktree: boolean, orchestrator?: string, freeAgentMode?: boolean) => {
     if (!activeProject) return;
     setShowDialog(false);
     try {
       const config = await window.clubhouse.agent.createDurable(
-        activeProject.path, name, color, model !== 'default' ? model : undefined, useWorktree, orchestrator
+        activeProject.path, name, color, model !== 'default' ? model : undefined, useWorktree, orchestrator, freeAgentMode
       );
       await spawnDurableAgent(activeProject.id, activeProject.path, config, false);
     } catch (err) {
@@ -201,71 +205,97 @@ export function AgentList() {
   // Get the parent durable agent name for the mission input label
   const targetParentAgent = quickTargetParentId ? agents[quickTargetParentId] : null;
 
-  const renderMissionInput = (isNested: boolean) => (
-    <div className={`py-3 border-b border-surface-0/50 space-y-2 ${isNested ? 'pl-7 pr-3' : 'px-3'}`}>
-      {targetParentAgent && (
-        <div className="text-[10px] text-ctp-overlay0">
-          Quick agent in {targetParentAgent.name}'s worktree
-        </div>
-      )}
-      <input
-        ref={missionInputRef}
-        type="text"
-        value={mission}
-        onChange={(e) => setMission(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && mission.trim()) handleMissionSubmit();
-          if (e.key === 'Escape') handleCancelMission();
-        }}
-        placeholder="What should this agent do?"
-        className="w-full px-2 py-1.5 text-xs rounded border border-surface-0
-          bg-ctp-base text-ctp-text placeholder:text-ctp-overlay0
-          focus:outline-none focus:border-indigo-500"
-      />
-      <div className="flex gap-1.5">
-        <select
-          value={quickModel}
-          onChange={(e) => setQuickModel(e.target.value)}
-          className="flex-1 min-w-0 px-1.5 py-1 text-[10px] rounded bg-surface-0 border border-surface-2
-            text-ctp-text focus:outline-none focus:border-indigo-500"
-        >
-          {MODEL_OPTIONS.map((opt) => (
-            <option key={opt.id} value={opt.id}>{opt.label}</option>
-          ))}
-        </select>
-        {!isNested && enabledOrchestrators.length > 1 && (
+  const renderMissionInput = (isNested: boolean) => {
+    // Resolve orchestrator for capabilities check
+    const resolvedOrchId = isNested
+      ? targetParentAgent?.orchestrator || enabledOrchestrators[0]?.id
+      : quickOrchestrator || enabledOrchestrators[0]?.id;
+    const resolvedOrch = allOrchestrators.find((o) => o.id === resolvedOrchId);
+    const supportsPermissions = resolvedOrch?.capabilities?.permissions ?? false;
+
+    return (
+      <div className={`py-3 border-b border-surface-0/50 space-y-2 ${isNested ? 'pl-7 pr-3' : 'px-3'}`}>
+        {targetParentAgent && (
+          <div className="text-[10px] text-ctp-overlay0">
+            Quick agent in {targetParentAgent.name}'s worktree
+          </div>
+        )}
+        <input
+          ref={missionInputRef}
+          type="text"
+          value={mission}
+          onChange={(e) => setMission(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && mission.trim()) handleMissionSubmit();
+            if (e.key === 'Escape') handleCancelMission();
+          }}
+          placeholder="What should this agent do?"
+          className="w-full px-2 py-1.5 text-xs rounded border border-surface-0
+            bg-ctp-base text-ctp-text placeholder:text-ctp-overlay0
+            focus:outline-none focus:border-indigo-500"
+        />
+        <div className="flex gap-1.5">
           <select
-            value={quickOrchestrator || enabledOrchestrators[0]?.id}
-            onChange={(e) => setQuickOrchestrator(e.target.value)}
+            value={quickModel}
+            onChange={(e) => setQuickModel(e.target.value)}
             className="flex-1 min-w-0 px-1.5 py-1 text-[10px] rounded bg-surface-0 border border-surface-2
               text-ctp-text focus:outline-none focus:border-indigo-500"
           >
-            {enabledOrchestrators.map((o) => (
-              <option key={o.id} value={o.id}>{o.displayName}</option>
+            {MODEL_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>{opt.label}</option>
             ))}
           </select>
-        )}
-      </div>
-      <div className="flex gap-1.5">
-        <button
-          onClick={handleMissionSubmit}
-          disabled={!mission.trim()}
-          className="flex-1 px-2 py-1 text-[10px] rounded bg-indigo-500/20 text-indigo-300
-            hover:bg-indigo-500/30 transition-colors cursor-pointer
-            disabled:opacity-40 disabled:cursor-not-allowed"
+          {!isNested && enabledOrchestrators.length > 1 && (
+            <select
+              value={quickOrchestrator || enabledOrchestrators[0]?.id}
+              onChange={(e) => setQuickOrchestrator(e.target.value)}
+              className="flex-1 min-w-0 px-1.5 py-1 text-[10px] rounded bg-surface-0 border border-surface-2
+                text-ctp-text focus:outline-none focus:border-indigo-500"
+            >
+              {enabledOrchestrators.map((o) => (
+                <option key={o.id} value={o.id}>{o.displayName}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        {/* Free Agent Mode toggle */}
+        <label
+          className={`flex items-center gap-1.5 ${supportsPermissions ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+          title={supportsPermissions ? 'Skip all permission prompts' : 'Not supported by this orchestrator'}
         >
-          Start
-        </button>
-        <button
-          onClick={handleCancelMission}
-          className="px-2 py-1 text-[10px] rounded border border-surface-0
-            hover:bg-surface-0 transition-colors cursor-pointer text-ctp-subtext1"
-        >
-          Cancel
-        </button>
+          <input
+            type="checkbox"
+            checked={quickFreeAgentMode}
+            onChange={(e) => setQuickFreeAgentMode(e.target.checked)}
+            disabled={!supportsPermissions}
+            className="w-3 h-3 rounded border-surface-2 bg-surface-0 text-red-500 focus:ring-red-500 accent-red-500"
+          />
+          <span className="text-[10px] text-ctp-subtext0">Free Agent Mode</span>
+          {quickFreeAgentMode && supportsPermissions && (
+            <span className="text-[10px] text-red-400">skip all permissions</span>
+          )}
+        </label>
+        <div className="flex gap-1.5">
+          <button
+            onClick={handleMissionSubmit}
+            disabled={!mission.trim()}
+            className="flex-1 px-2 py-1 text-[10px] rounded bg-indigo-500/20 text-indigo-300
+              hover:bg-indigo-500/30 transition-colors cursor-pointer
+              disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Start
+          </button>
+          <button
+            onClick={handleCancelMission}
+            className="px-2 py-1 text-[10px] rounded border border-surface-0
+              hover:bg-surface-0 transition-colors cursor-pointer text-ctp-subtext1"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   if (!activeProject) {
     return (

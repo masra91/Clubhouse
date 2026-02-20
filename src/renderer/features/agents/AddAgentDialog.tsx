@@ -5,7 +5,7 @@ import { useOrchestratorStore } from '../../stores/orchestratorStore';
 
 interface Props {
   onClose: () => void;
-  onCreate: (name: string, color: string, model: string, useWorktree: boolean, orchestrator?: string) => void;
+  onCreate: (name: string, color: string, model: string, useWorktree: boolean, orchestrator?: string, freeAgentMode?: boolean) => void;
 }
 
 export function AddAgentDialog({ onClose, onCreate }: Props) {
@@ -13,6 +13,7 @@ export function AddAgentDialog({ onClose, onCreate }: Props) {
   const [color, setColor] = useState<string>(AGENT_COLORS[0].id);
   const [model, setModel] = useState('default');
   const [useWorktree, setUseWorktree] = useState(false);
+  const [freeAgentMode, setFreeAgentMode] = useState(false);
   const enabled = useOrchestratorStore((s) => s.enabled);
   const allOrchestrators = useOrchestratorStore((s) => s.allOrchestrators);
   const availability = useOrchestratorStore((s) => s.availability);
@@ -21,10 +22,13 @@ export function AddAgentDialog({ onClose, onCreate }: Props) {
   const selectedAvail = availability[orchestrator];
   const { options: MODEL_OPTIONS, loading: modelsLoading } = useModelOptions(orchestrator);
 
+  const selectedOrch = allOrchestrators.find((o) => o.id === orchestrator);
+  const supportsPermissions = selectedOrch?.capabilities?.permissions ?? false;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onCreate(name.trim(), color, model, useWorktree, orchestrator);
+    onCreate(name.trim(), color, model, useWorktree, orchestrator, freeAgentMode || undefined);
   };
 
   return (
@@ -124,7 +128,7 @@ export function AddAgentDialog({ onClose, onCreate }: Props) {
           </label>
 
           {/* Use Worktree */}
-          <label className="flex items-center gap-2 mb-4 cursor-pointer">
+          <label className="flex items-center gap-2 mb-3 cursor-pointer">
             <input
               type="checkbox"
               checked={useWorktree}
@@ -134,6 +138,24 @@ export function AddAgentDialog({ onClose, onCreate }: Props) {
             <span className="text-xs text-ctp-subtext0 uppercase tracking-wider">Use git worktree</span>
             <span className="text-[10px] text-ctp-subtext0/70 ml-1">
               (isolated branch + directory)
+            </span>
+          </label>
+
+          {/* Free Agent Mode */}
+          <label
+            className={`flex items-center gap-2 mb-4 ${supportsPermissions ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+            title={supportsPermissions ? 'Skip all permission prompts when running' : 'Not supported by this orchestrator'}
+          >
+            <input
+              type="checkbox"
+              checked={freeAgentMode}
+              onChange={(e) => setFreeAgentMode(e.target.checked)}
+              disabled={!supportsPermissions}
+              className="w-4 h-4 rounded border-surface-2 bg-surface-0 text-red-500 focus:ring-red-500 accent-red-500"
+            />
+            <span className="text-xs text-ctp-subtext0 uppercase tracking-wider">Free Agent Mode</span>
+            <span className="text-[10px] text-ctp-subtext0/70 ml-1">
+              {supportsPermissions ? '(skip all permissions)' : '(not supported)'}
             </span>
           </label>
 

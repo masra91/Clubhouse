@@ -267,6 +267,21 @@ describe('createDurable', () => {
     expect(vi.mocked(execSync)).not.toHaveBeenCalled();
   });
 
+  it('includes freeAgentMode when true', () => {
+    const config = createDurable(PROJECT_PATH, 'free-agent', 'indigo', 'default', true, undefined, true);
+    expect(config.freeAgentMode).toBe(true);
+  });
+
+  it('omits freeAgentMode when false', () => {
+    const config = createDurable(PROJECT_PATH, 'no-free', 'indigo', 'default', true, undefined, false);
+    expect(config).not.toHaveProperty('freeAgentMode');
+  });
+
+  it('omits freeAgentMode when undefined', () => {
+    const config = createDurable(PROJECT_PATH, 'default-free', 'indigo');
+    expect(config).not.toHaveProperty('freeAgentMode');
+  });
+
   it('ensureGitignore skips when all patterns already present', () => {
     vi.mocked(fs.existsSync).mockImplementation((p: any) => {
       const s = String(p);
@@ -760,6 +775,58 @@ describe('updateDurableConfig', () => {
     const result = getDurableConfig(PROJECT_PATH, 'durable_defmodel');
     expect(result).not.toBeNull();
     expect(result!.model).toBeUndefined();
+  });
+
+  it('persists freeAgentMode when set to true', () => {
+    const agents = [
+      { id: 'durable_fam', name: 'fam-agent', color: 'indigo', createdAt: '2024-01-01' },
+    ];
+    const writtenData: Record<string, string> = {};
+    const agentsJsonPath = path.join(PROJECT_PATH, '.clubhouse', 'agents.json');
+    writtenData[agentsJsonPath] = JSON.stringify(agents);
+
+    vi.mocked(fs.existsSync).mockImplementation((p: any) => {
+      if (String(p).endsWith('agents.json')) return true;
+      return false;
+    });
+    vi.mocked(fs.readFileSync).mockImplementation((p: any) => {
+      return writtenData[String(p)] || '[]';
+    });
+    vi.mocked(fs.writeFileSync).mockImplementation((p: any, data: any) => {
+      writtenData[String(p)] = String(data);
+    });
+
+    updateDurableConfig(PROJECT_PATH, 'durable_fam', { freeAgentMode: true });
+
+    const result = getDurableConfig(PROJECT_PATH, 'durable_fam');
+    expect(result).not.toBeNull();
+    expect(result!.freeAgentMode).toBe(true);
+  });
+
+  it('removes freeAgentMode field when set to false', () => {
+    const agents = [
+      { id: 'durable_fam_off', name: 'fam-off', color: 'indigo', freeAgentMode: true, createdAt: '2024-01-01' },
+    ];
+    const writtenData: Record<string, string> = {};
+    const agentsJsonPath = path.join(PROJECT_PATH, '.clubhouse', 'agents.json');
+    writtenData[agentsJsonPath] = JSON.stringify(agents);
+
+    vi.mocked(fs.existsSync).mockImplementation((p: any) => {
+      if (String(p).endsWith('agents.json')) return true;
+      return false;
+    });
+    vi.mocked(fs.readFileSync).mockImplementation((p: any) => {
+      return writtenData[String(p)] || '[]';
+    });
+    vi.mocked(fs.writeFileSync).mockImplementation((p: any, data: any) => {
+      writtenData[String(p)] = String(data);
+    });
+
+    updateDurableConfig(PROJECT_PATH, 'durable_fam_off', { freeAgentMode: false });
+
+    const result = getDurableConfig(PROJECT_PATH, 'durable_fam_off');
+    expect(result).not.toBeNull();
+    expect(result!.freeAgentMode).toBeUndefined();
   });
 });
 

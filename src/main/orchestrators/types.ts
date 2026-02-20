@@ -8,6 +8,7 @@ export interface SpawnOpts {
   allowedTools?: string[];
   resume?: boolean;
   agentId?: string;
+  freeAgentMode?: boolean;
 }
 
 export interface HeadlessOpts extends SpawnOpts {

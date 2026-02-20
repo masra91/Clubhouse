@@ -291,6 +291,44 @@
   animation: stuck-pulse 2s ease-in-out infinite;
 }
 
+/* Headless agent orbit animation for list item avatar */
+@keyframes headless-orbit {
+  0% {
+    box-shadow: 0 -12px 0 -5px rgba(137, 180, 250, 0.6),
+                12px 0 0 -5px rgba(137, 180, 250, 0.2),
+                0 12px 0 -5px rgba(137, 180, 250, 0.0),
+                -12px 0 0 -5px rgba(137, 180, 250, 0.2);
+  }
+  25% {
+    box-shadow: 0 -12px 0 -5px rgba(137, 180, 250, 0.2),
+                12px 0 0 -5px rgba(137, 180, 250, 0.6),
+                0 12px 0 -5px rgba(137, 180, 250, 0.2),
+                -12px 0 0 -5px rgba(137, 180, 250, 0.0);
+  }
+  50% {
+    box-shadow: 0 -12px 0 -5px rgba(137, 180, 250, 0.0),
+                12px 0 0 -5px rgba(137, 180, 250, 0.2),
+                0 12px 0 -5px rgba(137, 180, 250, 0.6),
+                -12px 0 0 -5px rgba(137, 180, 250, 0.2);
+  }
+  75% {
+    box-shadow: 0 -12px 0 -5px rgba(137, 180, 250, 0.2),
+                12px 0 0 -5px rgba(137, 180, 250, 0.0),
+                0 12px 0 -5px rgba(137, 180, 250, 0.2),
+                -12px 0 0 -5px rgba(137, 180, 250, 0.6);
+  }
+  100% {
+    box-shadow: 0 -12px 0 -5px rgba(137, 180, 250, 0.6),
+                12px 0 0 -5px rgba(137, 180, 250, 0.2),
+                0 12px 0 -5px rgba(137, 180, 250, 0.0),
+                -12px 0 0 -5px rgba(137, 180, 250, 0.2);
+  }
+}
+
+.animate-headless-orbit {
+  animation: headless-orbit 1.5s linear infinite;
+}
+
 /* Help content markdown styles */
 .help-content h1 {
   font-size: 1.5rem;

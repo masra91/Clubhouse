@@ -156,6 +156,39 @@ describe('ClaudeCodeProvider', () => {
       expect(args).toContain('Bash(git:*)');
       expect(args[args.length - 1]).toBe('Deploy it');
     });
+
+    it('adds --dangerously-skip-permissions when freeAgentMode is true', async () => {
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+        freeAgentMode: true,
+      });
+      expect(args).toContain('--dangerously-skip-permissions');
+    });
+
+    it('does not add --dangerously-skip-permissions when freeAgentMode is false', async () => {
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+        freeAgentMode: false,
+      });
+      expect(args).not.toContain('--dangerously-skip-permissions');
+    });
+
+    it('does not add --dangerously-skip-permissions when freeAgentMode is undefined', async () => {
+      const { args } = await provider.buildSpawnCommand({ cwd: '/p' });
+      expect(args).not.toContain('--dangerously-skip-permissions');
+    });
+
+    it('places --dangerously-skip-permissions before other flags', async () => {
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+        freeAgentMode: true,
+        model: 'opus',
+        mission: 'Fix bug',
+      });
+      expect(args[0]).toBe('--dangerously-skip-permissions');
+      expect(args).toContain('--model');
+      expect(args[args.length - 1]).toBe('Fix bug');
+    });
   });
 
   describe('getExitCommand', () => {

@@ -99,6 +99,23 @@ export function AgentSettingsView({ agent }: Props) {
     await removeAgentIcon(agent.id, activeProject.path);
   };
 
+  const handleFreeAgentModeChange = async (enabled: boolean) => {
+    if (!projectPath) return;
+    setFreeAgentMode(enabled);
+    await window.clubhouse.agent.updateDurableConfig(projectPath, agent.id, { freeAgentMode: enabled });
+    // Update in-memory store so UI reflects immediately
+    useAgentStore.setState((s) => {
+      const existing = s.agents[agent.id];
+      if (!existing) return s;
+      return {
+        agents: {
+          ...s.agents,
+          [agent.id]: { ...existing, freeAgentMode: enabled || undefined },
+        },
+      };
+    });
+  };
+
   const handleOrchestratorChange = async (value: string) => {
     if (!projectPath) return;
     await window.clubhouse.agent.updateDurableConfig(projectPath, agent.id, { orchestrator: value });
@@ -144,11 +161,15 @@ export function AgentSettingsView({ agent }: Props) {
   const [permSaving, setPermSaving] = useState(false);
   const [permLoaded, setPermLoaded] = useState(false);
 
+  // Free Agent Mode state (main agent)
+  const [freeAgentMode, setFreeAgentMode] = useState(agent.freeAgentMode ?? false);
+
   // Quick Agent Defaults state
   const projectPath = projects.find((p) => p.id === agent.projectId)?.path;
   const [qadSystemPrompt, setQadSystemPrompt] = useState('');
   const [qadAllowedTools, setQadAllowedTools] = useState('');
   const [qadDefaultModel, setQadDefaultModel] = useState('');
+  const [qadFreeAgentMode, setQadFreeAgentMode] = useState(false);
   const [qadDirty, setQadDirty] = useState(false);
   const [qadSaving, setQadSaving] = useState(false);
   const [qadLoaded, setQadLoaded] = useState(false);
@@ -174,9 +195,11 @@ export function AgentSettingsView({ agent }: Props) {
           setQadSystemPrompt(defaults.systemPrompt || '');
           setQadAllowedTools((defaults.allowedTools || []).join('\n'));
           setQadDefaultModel(defaults.defaultModel || '');
+          setQadFreeAgentMode(defaults.freeAgentMode ?? false);
         }
-        // Sync agent model from disk
+        // Sync agent model and free agent mode from disk
         setAgentModel(config?.model || 'default');
+        setFreeAgentMode(config?.freeAgentMode ?? false);
         setQadLoaded(true);
       } catch {
         setQadLoaded(true);
@@ -264,6 +287,7 @@ export function AgentSettingsView({ agent }: Props) {
     const tools = qadAllowedTools.split('\n').map((l) => l.trim()).filter(Boolean);
     if (tools.length > 0) defaults.allowedTools = tools;
     if (qadDefaultModel && qadDefaultModel !== 'default') defaults.defaultModel = qadDefaultModel;
+    if (qadFreeAgentMode) defaults.freeAgentMode = true;
     await window.clubhouse.agent.updateDurableConfig(projectPath, agent.id, { quickAgentDefaults: defaults });
     setQadDirty(false);
     setQadSaving(false);
@@ -546,6 +570,44 @@ export function AgentSettingsView({ agent }: Props) {
               </section>
             )}
 
+            {/* Free Agent Mode Section */}
+            <section>
+              <h3 className="text-xs font-semibold text-ctp-subtext0 uppercase tracking-wider mb-2">Free Agent Mode</h3>
+              <label
+                className={`flex items-center gap-2 ${
+                  !isRunning && (capabilities?.permissions ?? false)
+                    ? 'cursor-pointer'
+                    : 'cursor-not-allowed opacity-50'
+                }`}
+                title={
+                  !(capabilities?.permissions ?? false)
+                    ? 'Not supported by this orchestrator'
+                    : isRunning
+                    ? 'Stop agent to change this setting'
+                    : 'Skip all permission prompts when running'
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={freeAgentMode}
+                  onChange={(e) => handleFreeAgentModeChange(e.target.checked)}
+                  disabled={isRunning || !(capabilities?.permissions ?? false)}
+                  className="w-4 h-4 rounded border-surface-2 bg-surface-0 text-red-500 focus:ring-red-500 accent-red-500"
+                />
+                <span className="text-sm text-ctp-text">Skip all permission prompts</span>
+              </label>
+              {freeAgentMode && (capabilities?.permissions ?? false) && (
+                <p className="mt-1.5 text-[10px] text-red-400">
+                  This agent will run with full access — no tool approvals required.
+                </p>
+              )}
+              {!(capabilities?.permissions ?? false) && (
+                <p className="mt-1.5 text-[10px] text-ctp-subtext0/60">
+                  Not supported by {orchestratorInfo?.displayName || 'this orchestrator'}.
+                </p>
+              )}
+            </section>
+
             {/* Permissions Section */}
             {permLoaded && (
               <section>
@@ -650,6 +712,36 @@ export function AgentSettingsView({ agent }: Props) {
                       <option key={opt.id} value={opt.id}>{opt.label}</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label
+                    className={`flex items-center gap-2 ${
+                      !isRunning && (capabilities?.permissions ?? false)
+                        ? 'cursor-pointer'
+                        : 'cursor-not-allowed opacity-50'
+                    }`}
+                    title={
+                      !(capabilities?.permissions ?? false)
+                        ? 'Not supported by this orchestrator'
+                        : isRunning
+                        ? 'Stop agent to change this setting'
+                        : 'Default free agent mode for quick agents spawned by this agent'
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={qadFreeAgentMode}
+                      onChange={(e) => { setQadFreeAgentMode(e.target.checked); setQadDirty(true); }}
+                      disabled={isRunning || !(capabilities?.permissions ?? false)}
+                      className="w-4 h-4 rounded border-surface-2 bg-surface-0 text-red-500 focus:ring-red-500 accent-red-500"
+                    />
+                    <span className="text-xs text-ctp-subtext0">Free Agent Mode by default</span>
+                  </label>
+                  {!(capabilities?.permissions ?? false) && (
+                    <p className="mt-1 text-[10px] text-ctp-subtext0/60">
+                      Not supported by {orchestratorInfo?.displayName || 'this orchestrator'}.
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
