@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { IPC } from '../shared/ipc-channels';
 
 const api = {
+  platform: process.platform as 'darwin' | 'win32' | 'linux',
   pty: {
     spawnShell: (id: string, projectPath: string) =>
       ipcRenderer.invoke(IPC.PTY.SPAWN_SHELL, id, projectPath),
