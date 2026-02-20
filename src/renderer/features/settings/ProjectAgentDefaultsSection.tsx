@@ -123,6 +123,22 @@ export function ProjectAgentDefaultsSection({ projectPath, clubhouseMode }: Prop
             </span>
           </div>
 
+          {/* Default Free Agent Mode */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={freeAgentMode}
+              onChange={(e) => { setFreeAgentMode(e.target.checked); setDirty(true); }}
+              className="w-4 h-4 rounded border-surface-2 bg-surface-0 text-red-500 focus:ring-red-500 accent-red-500"
+            />
+            <span className="text-xs text-ctp-subtext0">Free Agent Mode by default</span>
+          </label>
+          {freeAgentMode && (
+            <p className="text-[10px] text-red-400 pl-6">
+              New agents will skip all permission prompts by default.
+            </p>
+          )}
+
           {/* Default instructions */}
           <div>
             <label className="block text-xs text-ctp-subtext0 mb-1">Default Instructions</label>
@@ -172,21 +188,6 @@ export function ProjectAgentDefaultsSection({ projectPath, clubhouseMode }: Prop
             />
           </div>
 
-          {/* Default Free Agent Mode */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={freeAgentMode}
-              onChange={(e) => { setFreeAgentMode(e.target.checked); setDirty(true); }}
-              className="w-4 h-4 rounded border-surface-2 bg-surface-0 text-red-500 focus:ring-red-500 accent-red-500"
-            />
-            <span className="text-xs text-ctp-subtext0">Free Agent Mode by default</span>
-          </label>
-          {freeAgentMode && (
-            <p className="text-[10px] text-red-400 pl-6">
-              New agents will skip all permission prompts by default.
-            </p>
-          )}
         </div>
       )}
     </div>

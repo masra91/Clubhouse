@@ -569,6 +569,43 @@ export function AgentSettingsView({ agent }: Props) {
                   ))}
                 </select>
               </div>
+
+              {/* Free Agent Mode */}
+              <div>
+                <label
+                  className={`flex items-center gap-2 ${
+                    !isRunning && (capabilities?.permissions ?? false)
+                      ? 'cursor-pointer'
+                      : 'cursor-not-allowed opacity-50'
+                  }`}
+                  title={
+                    !(capabilities?.permissions ?? false)
+                      ? 'Not supported by this orchestrator'
+                      : isRunning
+                      ? 'Stop agent to change this setting'
+                      : 'Skip all permission prompts when running'
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={freeAgentMode}
+                    onChange={(e) => handleFreeAgentModeChange(e.target.checked)}
+                    disabled={isRunning || !(capabilities?.permissions ?? false)}
+                    className="w-4 h-4 rounded border-surface-2 bg-surface-0 text-red-500 focus:ring-red-500 accent-red-500"
+                  />
+                  <span className="text-sm text-ctp-text">Free Agent Mode</span>
+                </label>
+                {freeAgentMode && (capabilities?.permissions ?? false) && (
+                  <p className="mt-1 text-[10px] text-red-400 pl-6">
+                    This agent will run with full access — no tool approvals required.
+                  </p>
+                )}
+                {!(capabilities?.permissions ?? false) && (
+                  <p className="mt-1 text-[10px] text-ctp-subtext0/60 pl-6">
+                    Not supported by {orchestratorInfo?.displayName || 'this orchestrator'}.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </section>
@@ -762,44 +799,6 @@ export function AgentSettingsView({ agent }: Props) {
                 pathLabel={mcpPathLabel}
               />
             )}
-
-            {/* Free Agent Mode Section */}
-            <section>
-              <h3 className="text-xs font-semibold text-ctp-subtext0 uppercase tracking-wider mb-2">Free Agent Mode</h3>
-              <label
-                className={`flex items-center gap-2 ${
-                  !isRunning && (capabilities?.permissions ?? false)
-                    ? 'cursor-pointer'
-                    : 'cursor-not-allowed opacity-50'
-                }`}
-                title={
-                  !(capabilities?.permissions ?? false)
-                    ? 'Not supported by this orchestrator'
-                    : isRunning
-                    ? 'Stop agent to change this setting'
-                    : 'Skip all permission prompts when running'
-                }
-              >
-                <input
-                  type="checkbox"
-                  checked={freeAgentMode}
-                  onChange={(e) => handleFreeAgentModeChange(e.target.checked)}
-                  disabled={isRunning || !(capabilities?.permissions ?? false)}
-                  className="w-4 h-4 rounded border-surface-2 bg-surface-0 text-red-500 focus:ring-red-500 accent-red-500"
-                />
-                <span className="text-sm text-ctp-text">Skip all permission prompts</span>
-              </label>
-              {freeAgentMode && (capabilities?.permissions ?? false) && (
-                <p className="mt-1.5 text-[10px] text-red-400">
-                  This agent will run with full access — no tool approvals required.
-                </p>
-              )}
-              {!(capabilities?.permissions ?? false) && (
-                <p className="mt-1.5 text-[10px] text-ctp-subtext0/60">
-                  Not supported by {orchestratorInfo?.displayName || 'this orchestrator'}.
-                </p>
-              )}
-            </section>
 
             {/* Permissions Section (hidden when managed) */}
             {!isManagedByClubhouse && permLoaded && (
