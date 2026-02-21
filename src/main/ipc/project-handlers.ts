@@ -30,7 +30,7 @@ export function registerProjectHandlers(): void {
     const win = BrowserWindow.getFocusedWindow();
     if (!win) return null;
     const result = await dialog.showOpenDialog(win, {
-      properties: ['openDirectory'],
+      properties: ['openDirectory', 'createDirectory'],
       title: 'Select Project Directory',
     });
     if (result.canceled || result.filePaths.length === 0) return null;
