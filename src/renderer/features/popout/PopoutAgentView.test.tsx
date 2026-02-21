@@ -1,8 +1,18 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { PopoutAgentView } from './PopoutAgentView';
 
+const noop = () => {};
+
 describe('PopoutAgentView', () => {
+  beforeEach(() => {
+    // Ensure required mock functions exist
+    window.clubhouse.pty.onExit = vi.fn().mockReturnValue(noop);
+    window.clubhouse.agent.onHookEvent = vi.fn().mockReturnValue(noop);
+    window.clubhouse.agent.killAgent = vi.fn().mockResolvedValue(undefined);
+    window.clubhouse.pty.kill = vi.fn().mockResolvedValue(undefined);
+  });
+
   it('renders "No agent specified" when no agentId', () => {
     render(<PopoutAgentView />);
     expect(screen.getByText('No agent specified')).toBeInTheDocument();
@@ -20,11 +30,8 @@ describe('PopoutAgentView', () => {
   });
 
   it('calls killAgent when stop is clicked', () => {
-    const killAgent = vi.fn().mockResolvedValue(undefined);
-    window.clubhouse.agent.killAgent = killAgent;
-
     render(<PopoutAgentView agentId="agent-1" projectId="proj-1" />);
     fireEvent.click(screen.getByTestId('popout-stop-button'));
-    expect(killAgent).toHaveBeenCalledWith('agent-1', 'proj-1');
+    expect(window.clubhouse.agent.killAgent).toHaveBeenCalledWith('agent-1', 'proj-1');
   });
 });

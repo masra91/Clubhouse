@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+// Define webpack globals before import
+(globalThis as any).MAIN_WINDOW_WEBPACK_ENTRY = 'http://localhost:3000';
+(globalThis as any).MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY = '/path/to/preload.js';
+
 // Mock electron modules before importing handler
 vi.mock('electron', () => {
   const mockWindows: any[] = [];

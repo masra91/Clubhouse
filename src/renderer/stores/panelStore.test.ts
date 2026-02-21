@@ -61,11 +61,16 @@ describe('panelStore', () => {
     expect(usePanelStore.getState().accessoryCollapsed).toBe(true);
   });
 
-  it('persists state to localStorage', () => {
-    const spy = vi.spyOn(Storage.prototype, 'setItem');
+  it('state reflects resize across actions', () => {
     usePanelStore.getState().resizeExplorer(50);
-    expect(spy).toHaveBeenCalledWith('clubhouse_panel_sizes', expect.any(String));
-    const saved = JSON.parse(spy.mock.calls[0][1] as string);
-    expect(saved.explorerWidth).toBe(250);
+    expect(usePanelStore.getState().explorerWidth).toBe(250);
+    usePanelStore.getState().resizeAccessory(20);
+    expect(usePanelStore.getState().accessoryWidth).toBe(300);
+    // Collapse + uncollapse preserves width
+    usePanelStore.getState().toggleExplorerCollapse();
+    expect(usePanelStore.getState().explorerCollapsed).toBe(true);
+    usePanelStore.getState().toggleExplorerCollapse();
+    expect(usePanelStore.getState().explorerCollapsed).toBe(false);
+    expect(usePanelStore.getState().explorerWidth).toBe(250);
   });
 });

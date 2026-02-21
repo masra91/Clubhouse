@@ -412,8 +412,6 @@ const api = {
       return () => { ipcRenderer.removeListener(IPC.APP.UPDATE_STATUS_CHANGED, listener); };
     },
   },
-};
-
   window: {
     createPopout: (params: { type: 'agent' | 'hub'; agentId?: string; projectId?: string; title?: string }) =>
       ipcRenderer.invoke(IPC.WINDOW.CREATE_POPOUT, params),
