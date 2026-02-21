@@ -8,6 +8,7 @@ interface AudioState {
   speaking: boolean;
   speakingAgentId: string | null;
   availableVoices: VoiceInfo[];
+  /** Populated by VoiceSelector (Task 13) for per-agent voice overrides. */
   agentVoiceAssignments: Record<string, VoiceConfig>;
 
   loadSettings: () => Promise<void>;
@@ -28,8 +29,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   agentVoiceAssignments: {},
 
   loadSettings: async () => {
-    const settings = await window.clubhouse.audio.getSettings();
-    set({ settings });
+    try {
+      const settings = await window.clubhouse.audio.getSettings();
+      set({ settings });
+    } catch {
+      // IPC failure; keep current state
+    }
   },
 
   saveSettings: async (partial) => {
@@ -37,7 +42,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     if (!current) return;
     const merged = { ...current, ...partial };
     set({ settings: merged });
-    await window.clubhouse.audio.saveSettings(merged);
+    try {
+      await window.clubhouse.audio.saveSettings(merged);
+    } catch {
+      set({ settings: current }); // rollback on failure
+    }
   },
 
   setRecording: (recording) => set({ recording }),
@@ -47,7 +56,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
     set({ speaking, speakingAgentId: speaking ? (agentId ?? null) : null }),
 
   loadVoices: async () => {
-    const voices = await window.clubhouse.audio.getVoices();
-    set({ availableVoices: voices });
+    try {
+      const voices = await window.clubhouse.audio.getVoices();
+      set({ availableVoices: voices });
+    } catch {
+      // IPC failure; keep current voices list
+    }
   },
 }));

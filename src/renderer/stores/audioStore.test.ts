@@ -136,6 +136,26 @@ describe('audioStore', () => {
     expect(useAudioStore.getState().speakingAgentId).toBeNull();
   });
 
+  it('loadSettings handles IPC failure gracefully', async () => {
+    mockGetSettings.mockRejectedValue(new Error('IPC fail'));
+    await useAudioStore.getState().loadSettings();
+    expect(useAudioStore.getState().settings).toBeNull();
+  });
+
+  it('saveSettings rolls back on IPC failure', async () => {
+    await useAudioStore.getState().loadSettings();
+    const original = useAudioStore.getState().settings;
+    mockSaveSettings.mockRejectedValue(new Error('IPC fail'));
+    await useAudioStore.getState().saveSettings({ enabled: true });
+    expect(useAudioStore.getState().settings).toEqual(original);
+  });
+
+  it('loadVoices handles IPC failure gracefully', async () => {
+    mockGetVoices.mockRejectedValue(new Error('IPC fail'));
+    await useAudioStore.getState().loadVoices();
+    expect(useAudioStore.getState().availableVoices).toEqual([]);
+  });
+
   it('loadVoices fetches and stores available voices', async () => {
     const mockVoices = [
       { voiceId: 'v1', voiceName: 'Voice One', language: 'en' },
