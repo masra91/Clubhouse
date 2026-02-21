@@ -63,10 +63,10 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      # macOS/Windows: full make validates packaging + provides webpack output for e2e
-      # Linux: package only — deb/rpm makers fail due to binary name casing
+      # E2E only needs webpack output, not distributable installers.
+      # Packaging is validated separately by the release workflow.
       - name: Build app
-        run: ${{ runner.os == 'Linux' && 'npx electron-forge package' || 'npm run make' }}
+        run: npx electron-forge package
       - name: Fix Electron sandbox permissions (Linux)
         if: runner.os == 'Linux'
         run: |
