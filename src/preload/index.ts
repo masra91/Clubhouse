@@ -347,6 +347,16 @@ const api = {
       ipcRenderer.on(IPC.APP.UPDATE_STATUS_CHANGED, listener);
       return () => { ipcRenderer.removeListener(IPC.APP.UPDATE_STATUS_CHANGED, listener); };
     },
+    toggleFullscreen: (): Promise<boolean> =>
+      ipcRenderer.invoke(IPC.APP.TOGGLE_FULLSCREEN),
+    getFullscreen: (): Promise<boolean> =>
+      ipcRenderer.invoke(IPC.APP.GET_FULLSCREEN),
+    onFullscreenChanged: (callback: (isFullscreen: boolean) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, isFullscreen: boolean) =>
+        callback(isFullscreen);
+      ipcRenderer.on(IPC.APP.FULLSCREEN_CHANGED, listener);
+      return () => { ipcRenderer.removeListener(IPC.APP.FULLSCREEN_CHANGED, listener); };
+    },
   },
 };
 

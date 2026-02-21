@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { app, ipcMain, shell } from 'electron';
+import { app, ipcMain, shell, BrowserWindow } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
 import { ArchInfo, BadgeSettings, LogEntry, LoggingSettings, NotificationSettings } from '../../shared/types';
 import * as notificationService from '../services/notification-service';
@@ -126,6 +126,20 @@ export function registerAppHandlers(): void {
 
   ipcMain.handle(IPC.APP.GET_VERSION_HISTORY, () => {
     return autoUpdateService.getVersionHistory();
+  });
+
+  ipcMain.handle(IPC.APP.TOGGLE_FULLSCREEN, () => {
+    const win = BrowserWindow.getFocusedWindow();
+    if (win) {
+      win.setFullScreen(!win.isFullScreen());
+      return win.isFullScreen();
+    }
+    return false;
+  });
+
+  ipcMain.handle(IPC.APP.GET_FULLSCREEN, () => {
+    const win = BrowserWindow.getFocusedWindow();
+    return win ? win.isFullScreen() : false;
   });
 
   // --- Logging ---

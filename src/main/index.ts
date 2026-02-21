@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog } from 'electron';
+import { IPC } from '../shared/ipc-channels';
 import { registerAllHandlers } from './ipc';
 import { killAll } from './services/pty-manager';
 import { restoreAll } from './services/config-pipeline';
@@ -65,6 +66,7 @@ const createWindow = (): void => {
     minWidth: 900,
     minHeight: 600,
     show: false,
+    fullscreen: true,
     titleBarStyle: 'hiddenInset',
     backgroundColor: getThemeBgColor(),
     webPreferences: {
@@ -79,6 +81,13 @@ const createWindow = (): void => {
   // Show window once the renderer is ready (avoids white flash on startup).
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
+  });
+
+  mainWindow.on('enter-full-screen', () => {
+    mainWindow?.webContents.send(IPC.APP.FULLSCREEN_CHANGED, true);
+  });
+  mainWindow.on('leave-full-screen', () => {
+    mainWindow?.webContents.send(IPC.APP.FULLSCREEN_CHANGED, false);
   });
 
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {

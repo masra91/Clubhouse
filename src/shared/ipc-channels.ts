@@ -124,6 +124,9 @@ export const IPC = {
     GET_PENDING_RELEASE_NOTES: 'app:get-pending-release-notes',
     CLEAR_PENDING_RELEASE_NOTES: 'app:clear-pending-release-notes',
     GET_VERSION_HISTORY: 'app:get-version-history',
+    TOGGLE_FULLSCREEN: 'app:toggle-fullscreen',
+    GET_FULLSCREEN: 'app:get-fullscreen',
+    FULLSCREEN_CHANGED: 'app:fullscreen-changed',
   },
   PLUGIN: {
     DISCOVER_COMMUNITY: 'plugin:discover-community',
