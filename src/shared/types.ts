@@ -61,6 +61,7 @@ export interface Agent {
   orchestrator?: OrchestratorId;
   headless?: boolean;
   freeAgentMode?: boolean;
+  voiceConfig?: VoiceConfig;
 }
 
 export interface CompletedQuickAgent {
@@ -130,6 +131,7 @@ export interface DurableAgentConfig {
   orchestrator?: OrchestratorId;
   freeAgentMode?: boolean;
   clubhouseModeOverride?: boolean;
+  voiceId?: string;
 }
 
 export interface ClubhouseModeSettings {
@@ -177,7 +179,7 @@ export interface NotificationSettings {
   playSound: boolean;
 }
 
-export type SettingsSubPage = 'project' | 'notifications' | 'logging' | 'display' | 'orchestrators' | 'plugins' | 'plugin-detail' | 'about' | 'updates' | 'whats-new' | 'getting-started';
+export type SettingsSubPage = 'project' | 'notifications' | 'logging' | 'display' | 'orchestrators' | 'plugins' | 'plugin-detail' | 'about' | 'updates' | 'whats-new' | 'getting-started' | 'audio';
 
 // --- Auto-update types ---
 
@@ -447,4 +449,68 @@ export interface DeleteResult {
   message: string;
 }
 
+// --- Audio / Voice types ---
 
+export type STTBackendId = 'whisper-local' | 'parakeet-local' | 'openai-cloud' | (string & {});
+export type TTSBackendId = 'piper-local' | 'openai-cloud' | (string & {});
+export type OutputKind = 'response' | 'tool_summary' | 'error' | 'status_change';
+
+export interface VoiceConfig {
+  voiceId: string;
+  voiceName: string;
+  backend: TTSBackendId;
+  speed?: number;
+}
+
+export interface VoiceInfo {
+  voiceId: string;
+  voiceName: string;
+  language: string;
+  gender?: 'male' | 'female' | 'neutral';
+  sampleAudioUrl?: string;
+}
+
+export interface TTSFilter {
+  speakResponses: boolean;
+  speakToolSummaries: boolean;
+  speakErrors: boolean;
+  speakStatus: boolean;
+}
+
+export interface AudioSettings {
+  enabled: boolean;
+  sttBackend: STTBackendId;
+  ttsBackend: TTSBackendId;
+  inputDevice?: string;
+  outputDevice?: string;
+  activationMode: 'push-to-talk' | 'vad';
+  vadSensitivity?: number;
+  ttsFilter: TTSFilter;
+  globalKeybind?: string;
+  routingMode: 'focused' | 'smart';
+}
+
+export interface STTOpts {
+  language?: string;
+  sampleRate?: number;
+  channels?: number;
+}
+
+export interface STTResult {
+  text: string;
+  confidence?: number;
+  language?: string;
+  durationMs: number;
+}
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  kind: 'stt' | 'tts';
+  sizeBytes: number;
+  language: string;
+  downloaded: boolean;
+  localPath?: string;
+  remoteUrl: string;
+  sha256: string;
+}
