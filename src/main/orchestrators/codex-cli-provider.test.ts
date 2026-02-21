@@ -6,6 +6,7 @@ vi.mock('fs', () => ({
   readFileSync: vi.fn(() => { throw new Error('ENOENT'); }),
   writeFileSync: vi.fn(),
   mkdirSync: vi.fn(),
+  unlinkSync: vi.fn(),
 }));
 
 vi.mock('child_process', () => ({
