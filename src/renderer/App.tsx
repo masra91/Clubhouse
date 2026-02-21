@@ -537,7 +537,7 @@ export function App() {
           )}
           {!isFullWidth && (
             <ResizeDivider
-              onResize={(delta) => resizeAccessory(-delta)}
+              onResize={resizeAccessory}
               onToggleCollapse={toggleAccessoryCollapse}
               collapsed={accessoryCollapsed}
               collapseDirection="left"
