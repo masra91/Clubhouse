@@ -56,6 +56,7 @@ describe('audioStore', () => {
       speakingAgentId: null,
       availableVoices: [],
       agentVoiceAssignments: {},
+      micPermission: 'unknown',
     });
   });
 
@@ -168,5 +169,74 @@ describe('audioStore', () => {
     const state = useAudioStore.getState();
     expect(state.availableVoices).toEqual(mockVoices);
     expect(mockGetVoices).toHaveBeenCalled();
+  });
+
+  describe('checkMicPermission', () => {
+    const mockQuery = vi.fn();
+
+    beforeEach(() => {
+      mockQuery.mockReset();
+      Object.defineProperty(navigator, 'permissions', {
+        configurable: true,
+        value: { query: mockQuery },
+      });
+    });
+
+    it('starts with unknown micPermission', () => {
+      expect(useAudioStore.getState().micPermission).toBe('unknown');
+    });
+
+    it('sets micPermission to granted when permissions API reports granted', async () => {
+      const mockStatus = { state: 'granted', onchange: null };
+      mockQuery.mockResolvedValue(mockStatus);
+
+      await useAudioStore.getState().checkMicPermission();
+
+      expect(useAudioStore.getState().micPermission).toBe('granted');
+    });
+
+    it('sets micPermission to denied when permissions API reports denied', async () => {
+      const mockStatus = { state: 'denied', onchange: null };
+      mockQuery.mockResolvedValue(mockStatus);
+
+      await useAudioStore.getState().checkMicPermission();
+
+      expect(useAudioStore.getState().micPermission).toBe('denied');
+    });
+
+    it('sets micPermission to prompt when permissions API reports prompt', async () => {
+      const mockStatus = { state: 'prompt', onchange: null };
+      mockQuery.mockResolvedValue(mockStatus);
+
+      await useAudioStore.getState().checkMicPermission();
+
+      expect(useAudioStore.getState().micPermission).toBe('prompt');
+    });
+
+    it('falls back to unknown when permissions API is not supported', async () => {
+      mockQuery.mockRejectedValue(new TypeError('not supported'));
+
+      await useAudioStore.getState().checkMicPermission();
+
+      expect(useAudioStore.getState().micPermission).toBe('unknown');
+    });
+
+    it('updates micPermission when status changes via onchange', async () => {
+      let changeHandler: (() => void) | null = null;
+      const mockStatus = {
+        state: 'prompt',
+        set onchange(fn: (() => void) | null) { changeHandler = fn; },
+        get onchange() { return changeHandler; },
+      };
+      mockQuery.mockResolvedValue(mockStatus);
+
+      await useAudioStore.getState().checkMicPermission();
+      expect(useAudioStore.getState().micPermission).toBe('prompt');
+
+      // Simulate permission change
+      (mockStatus as { state: string }).state = 'granted';
+      changeHandler!();
+      expect(useAudioStore.getState().micPermission).toBe('granted');
+    });
   });
 });

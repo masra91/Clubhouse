@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { AudioSettings, VoiceConfig, VoiceInfo } from '../../shared/types';
 
+export type MicPermissionState = 'granted' | 'denied' | 'prompt' | 'unknown';
+
 interface AudioState {
   settings: AudioSettings | null;
   recording: boolean;
@@ -10,6 +12,7 @@ interface AudioState {
   availableVoices: VoiceInfo[];
   /** Populated by VoiceSelector (Task 13) for per-agent voice overrides. */
   agentVoiceAssignments: Record<string, VoiceConfig>;
+  micPermission: MicPermissionState;
 
   loadSettings: () => Promise<void>;
   saveSettings: (partial: Partial<AudioSettings>) => Promise<void>;
@@ -17,6 +20,7 @@ interface AudioState {
   setTranscribing: (transcribing: boolean) => void;
   setSpeaking: (speaking: boolean, agentId?: string) => void;
   loadVoices: () => Promise<void>;
+  checkMicPermission: () => Promise<void>;
 }
 
 export const useAudioStore = create<AudioState>((set, get) => ({
@@ -27,6 +31,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   speakingAgentId: null,
   availableVoices: [],
   agentVoiceAssignments: {},
+  micPermission: 'unknown',
 
   loadSettings: async () => {
     try {
@@ -61,6 +66,19 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       set({ availableVoices: voices });
     } catch {
       // IPC failure; keep current voices list
+    }
+  },
+
+  checkMicPermission: async () => {
+    try {
+      const status = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      set({ micPermission: status.state as MicPermissionState });
+      status.onchange = () => {
+        set({ micPermission: status.state as MicPermissionState });
+      };
+    } catch {
+      // permissions.query not supported; fall back to unknown
+      set({ micPermission: 'unknown' });
     }
   },
 }));

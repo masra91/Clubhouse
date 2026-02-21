@@ -3,18 +3,22 @@ import { useAudioStore } from '../../../stores/audioStore';
 import { useAgentStore } from '../../../stores/agentStore';
 
 export function AudioControlBar() {
-  const { settings, recording, transcribing, speaking, speakingAgentId, setRecording, setTranscribing, setSpeaking, loadSettings } = useAudioStore();
+  const { settings, recording, transcribing, speaking, speakingAgentId, micPermission, setRecording, setTranscribing, setSpeaking, loadSettings, checkMicPermission } = useAudioStore();
   const agents = useAgentStore((s) => Object.values(s.agents));
   const speakingAgent = agents.find((a) => a.id === speakingAgentId);
 
   useEffect(() => { loadSettings(); }, [loadSettings]);
+  useEffect(() => { checkMicPermission(); }, [checkMicPermission]);
 
   if (!settings?.enabled) return null;
 
+  const micDenied = micPermission === 'denied';
+
   const handleMouseDown = useCallback(() => {
+    if (micDenied) return;
     if (settings.activationMode !== 'push-to-talk') return;
     setRecording(true);
-  }, [settings?.activationMode, setRecording]);
+  }, [micDenied, settings?.activationMode, setRecording]);
 
   const handleMouseUp = useCallback(() => {
     if (!recording) return;
@@ -29,22 +33,34 @@ export function AudioControlBar() {
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        disabled={micDenied}
         className={`
-          w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer
-          ${recording
-            ? 'bg-red-500 text-white animate-pulse'
+          w-7 h-7 rounded-full flex items-center justify-center transition-all
+          ${micDenied
+            ? 'bg-ctp-red/20 text-ctp-red cursor-not-allowed'
+            : recording
+            ? 'bg-red-500 text-white animate-pulse cursor-pointer'
             : transcribing
-            ? 'bg-ctp-yellow text-white'
-            : 'bg-surface-1 text-ctp-subtext0 hover:bg-surface-2 hover:text-ctp-text'
+            ? 'bg-ctp-yellow text-white cursor-pointer'
+            : 'bg-surface-1 text-ctp-subtext0 hover:bg-surface-2 hover:text-ctp-text cursor-pointer'
           }
         `}
         title={
-          recording ? 'Recording... Release to send'
+          micDenied ? 'Microphone access denied. Go to System Settings > Privacy & Security > Microphone to grant access.'
+            : recording ? 'Recording... Release to send'
             : transcribing ? 'Transcribing...'
             : `Hold to talk (${settings.globalKeybind || 'Space'})`
         }
       >
-        {transcribing ? (
+        {micDenied ? (
+          /* Mic-off / warning icon */
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="1" y1="1" x2="23" y2="23" />
+            <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6" />
+            <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.12 1.5-.35 2.18" />
+            <line x1="12" y1="19" x2="12" y2="22" />
+          </svg>
+        ) : transcribing ? (
           <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
           </svg>
