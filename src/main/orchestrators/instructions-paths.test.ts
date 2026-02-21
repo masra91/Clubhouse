@@ -23,6 +23,7 @@ vi.mock('../util/shell', () => ({
 import * as fs from 'fs';
 import { ClaudeCodeProvider } from './claude-code-provider';
 import { CopilotCliProvider } from './copilot-cli-provider';
+import { CodexCliProvider } from './codex-cli-provider';
 import { OpenCodeProvider } from './opencode-provider';
 
 describe('Instructions path resolution', () => {
@@ -31,7 +32,7 @@ describe('Instructions path resolution', () => {
     // Default: binaries found at standard paths
     vi.mocked(fs.existsSync).mockImplementation((p) => {
       const s = String(p);
-      return s.endsWith('/claude') || s.endsWith('/copilot') || s.endsWith('/opencode');
+      return s.endsWith('/claude') || s.endsWith('/copilot') || s.endsWith('/codex') || s.endsWith('/opencode');
     });
   });
 
@@ -121,6 +122,48 @@ describe('Instructions path resolution', () => {
     it('returns empty string when file missing', () => {
       vi.mocked(fs.readFileSync).mockImplementation(() => { throw new Error('ENOENT'); });
       expect(provider.readInstructions('/project')).toBe('');
+    });
+  });
+
+  describe('CodexCliProvider', () => {
+    let provider: CodexCliProvider;
+
+    beforeEach(() => {
+      provider = new CodexCliProvider();
+    });
+
+    it('reads from AGENTS.md at project root', () => {
+      vi.mocked(fs.readFileSync).mockReturnValue('codex instructions');
+      const result = provider.readInstructions('/project');
+      expect(result).toBe('codex instructions');
+      expect(fs.readFileSync).toHaveBeenCalledWith(
+        path.join('/project', 'AGENTS.md'),
+        'utf-8'
+      );
+    });
+
+    it('writes to AGENTS.md at project root', () => {
+      provider.writeInstructions('/project', 'new codex instructions');
+
+      expect(fs.writeFileSync).toHaveBeenCalledWith(
+        path.join('/project', 'AGENTS.md'),
+        'new codex instructions',
+        'utf-8'
+      );
+    });
+
+    it('returns empty string when file missing', () => {
+      vi.mocked(fs.readFileSync).mockImplementation(() => { throw new Error('ENOENT'); });
+      expect(provider.readInstructions('/project')).toBe('');
+    });
+
+    it('round-trip: write then read returns same content', () => {
+      const content = 'Codex-specific instructions\nWith multiple lines';
+      provider.writeInstructions('/project', content);
+
+      vi.mocked(fs.readFileSync).mockReturnValue(content);
+      const result = provider.readInstructions('/project');
+      expect(result).toBe(content);
     });
   });
 

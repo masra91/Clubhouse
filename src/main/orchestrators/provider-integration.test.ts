@@ -23,12 +23,13 @@ vi.mock('../util/shell', () => ({
 import * as fs from 'fs';
 import { ClaudeCodeProvider } from './claude-code-provider';
 import { CopilotCliProvider } from './copilot-cli-provider';
+import { CodexCliProvider } from './codex-cli-provider';
 import { OpenCodeProvider } from './opencode-provider';
 
 /** Check if path's basename matches a known binary name (with or without Windows extensions) */
 function isKnownBinary(p: string | Buffer | URL): boolean {
   const base = path.basename(String(p));
-  const names = ['claude', 'copilot', 'opencode'];
+  const names = ['claude', 'copilot', 'codex', 'opencode'];
   const exts = ['', '.exe', '.cmd'];
   return names.some(n => exts.some(e => base === n + e));
 }
@@ -77,6 +78,31 @@ describe('Provider integration tests', () => {
       const pIdx = args.indexOf('-p');
       expect(args[pIdx + 1]).toContain('Context info');
       expect(args[pIdx + 1]).toContain('Fix bug');
+    });
+
+    it('CodexCli: generates correct flags for model and mission', async () => {
+      const provider = new CodexCliProvider();
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+        model: 'gpt-5.3-codex',
+        mission: 'Fix bug',
+        systemPrompt: 'Context info',
+      });
+
+      expect(args).toContain('--model');
+      expect(args[args.indexOf('--model') + 1]).toBe('gpt-5.3-codex');
+      // Codex combines system prompt and mission into a single positional arg
+      const lastArg = args[args.length - 1];
+      expect(lastArg).toContain('Context info');
+      expect(lastArg).toContain('Fix bug');
+    });
+
+    it('CodexCli: no args when no options', async () => {
+      const provider = new CodexCliProvider();
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+      });
+      expect(args).toEqual([]);
     });
 
     it('OpenCode: passes model flag when provided', async () => {
@@ -133,6 +159,24 @@ describe('Provider integration tests', () => {
         freeAgentMode: false,
       });
       expect(args).not.toContain('--yolo');
+    });
+
+    it('CodexCli: adds --full-auto when freeAgentMode is true', async () => {
+      const provider = new CodexCliProvider();
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+        freeAgentMode: true,
+      });
+      expect(args).toContain('--full-auto');
+    });
+
+    it('CodexCli: no --full-auto when freeAgentMode is false', async () => {
+      const provider = new CodexCliProvider();
+      const { args } = await provider.buildSpawnCommand({
+        cwd: '/p',
+        freeAgentMode: false,
+      });
+      expect(args).not.toContain('--full-auto');
     });
 
     it('OpenCode: no permission-related flag regardless of freeAgentMode', async () => {
@@ -264,6 +308,32 @@ describe('Provider integration tests', () => {
       expect(result).toBeNull();
     });
 
+    it('CodexCli: generates headless command with exec --json --full-auto and text outputKind', async () => {
+      const provider = new CodexCliProvider();
+      const result = await provider.buildHeadlessCommand!({
+        cwd: '/p',
+        mission: 'Fix the bug',
+        model: 'gpt-5.3-codex',
+        systemPrompt: 'Be thorough',
+      });
+
+      expect(result).not.toBeNull();
+      expect(result!.outputKind).toBe('text');
+      const { args } = result!;
+      expect(args[0]).toBe('exec');
+      expect(args[1]).toBe('Be thorough\n\nFix the bug');
+      expect(args).toContain('--json');
+      expect(args).toContain('--full-auto');
+      expect(args).toContain('--model');
+      expect(args[args.indexOf('--model') + 1]).toBe('gpt-5.3-codex');
+    });
+
+    it('CodexCli: returns null when no mission', async () => {
+      const provider = new CodexCliProvider();
+      const result = await provider.buildHeadlessCommand!({ cwd: '/p' });
+      expect(result).toBeNull();
+    });
+
     it('OpenCode: generates headless command with run --format json and text outputKind', async () => {
       const provider = new OpenCodeProvider();
       const result = await provider.buildHeadlessCommand!({
@@ -369,6 +439,12 @@ describe('Provider integration tests', () => {
       );
     });
 
+    it('CodexCli: writeHooksConfig is a no-op', async () => {
+      const provider = new CodexCliProvider();
+      await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
+      expect(fs.writeFileSync).not.toHaveBeenCalled();
+    });
+
     it('OpenCode: writeHooksConfig is a no-op', async () => {
       const provider = new OpenCodeProvider();
       await provider.writeHooksConfig('/project', 'http://127.0.0.1:9999/hook');
@@ -403,6 +479,23 @@ describe('Provider integration tests', () => {
       expect(perms).toContain('Bash(git:*)');
       expect(perms).toContain('Bash(npm:*)');
       expect(perms).toContain('Bash(npx:*)');
+    });
+
+    it('CodexCli durable agents get shell-scoped permissions', () => {
+      const provider = new CodexCliProvider();
+      const perms = provider.getDefaultPermissions('durable');
+      expect(perms).toContain('shell(git:*)');
+      expect(perms).toContain('shell(npm:*)');
+      expect(perms).toContain('shell(npx:*)');
+      expect(perms).not.toContain('apply_patch');
+    });
+
+    it('CodexCli quick agents get shell and apply_patch permissions', () => {
+      const provider = new CodexCliProvider();
+      const perms = provider.getDefaultPermissions('quick');
+      expect(perms).toContain('shell(*)');
+      expect(perms).toContain('apply_patch');
+      expect(perms).toContain('shell(git:*)');
     });
 
     it('OpenCode quick agents get lowercase tool permissions', () => {
@@ -468,6 +561,22 @@ describe('Provider integration tests', () => {
       expect(event!.toolInput).toEqual({ path: '/foo' });
     });
 
+    it('CodexCli: maps agent-turn-complete to stop', () => {
+      const provider = new CodexCliProvider();
+      const event = provider.parseHookEvent({
+        type: 'agent-turn-complete',
+        'last-assistant-message': 'All done',
+      });
+      expect(event).not.toBeNull();
+      expect(event!.kind).toBe('stop');
+      expect(event!.message).toBe('All done');
+    });
+
+    it('CodexCli: returns null for unknown event type', () => {
+      const provider = new CodexCliProvider();
+      expect(provider.parseHookEvent({ type: 'something-else' })).toBeNull();
+    });
+
     it('OpenCode: uses kind field directly', () => {
       const provider = new OpenCodeProvider();
       expect(provider.parseHookEvent({ kind: 'pre_tool', toolName: 'bash' })?.kind).toBe('pre_tool');
@@ -476,7 +585,7 @@ describe('Provider integration tests', () => {
     });
 
     it('all providers return null for unknown event', () => {
-      const providers = [new ClaudeCodeProvider(), new CopilotCliProvider(), new OpenCodeProvider()];
+      const providers = [new ClaudeCodeProvider(), new CopilotCliProvider(), new CodexCliProvider(), new OpenCodeProvider()];
       for (const p of providers) {
         expect(p.parseHookEvent(null)).toBeNull();
         expect(p.parseHookEvent('not-object')).toBeNull();
@@ -484,6 +593,8 @@ describe('Provider integration tests', () => {
       // Claude and Copilot return null for unknown hook_event_name
       expect(new ClaudeCodeProvider().parseHookEvent({ hook_event_name: 'Unknown' })).toBeNull();
       expect(new CopilotCliProvider().parseHookEvent({ hook_event_name: 'Unknown' })).toBeNull();
+      // Codex returns null for unknown type
+      expect(new CodexCliProvider().parseHookEvent({ type: 'unknown' })).toBeNull();
       // OpenCode returns null when kind is missing
       expect(new OpenCodeProvider().parseHookEvent({ hook_event_name: 'Unknown' })).toBeNull();
     });
@@ -507,6 +618,15 @@ describe('Provider integration tests', () => {
       expect(provider.conventions.localInstructionsFile).toBe('copilot-instructions.md');
       expect(provider.conventions.mcpConfigFile).toBe('.github/mcp.json');
       expect(provider.conventions.localSettingsFile).toBe('hooks/hooks.json');
+    });
+
+    it('CodexCli uses .codex/ with AGENTS.md', () => {
+      const provider = new CodexCliProvider();
+      expect(provider.conventions.configDir).toBe('.codex');
+      expect(provider.conventions.localInstructionsFile).toBe('AGENTS.md');
+      expect(provider.conventions.legacyInstructionsFile).toBe('AGENTS.md');
+      expect(provider.conventions.mcpConfigFile).toBe('.codex/config.toml');
+      expect(provider.conventions.localSettingsFile).toBe('config.toml');
     });
 
     it('OpenCode uses .opencode/ with opencode.json', () => {
@@ -539,6 +659,15 @@ describe('Provider integration tests', () => {
       expect(caps.permissions).toBe(true);
     });
 
+    it('CodexCli: headless and permissions, no hooks or structuredOutput', () => {
+      const caps = new CodexCliProvider().getCapabilities();
+      expect(caps.headless).toBe(true);
+      expect(caps.structuredOutput).toBe(false);
+      expect(caps.hooks).toBe(false);
+      expect(caps.sessionResume).toBe(true);
+      expect(caps.permissions).toBe(true);
+    });
+
     it('OpenCode: no hooks or permissions', () => {
       const caps = new OpenCodeProvider().getCapabilities();
       expect(caps.headless).toBe(true);
@@ -550,7 +679,7 @@ describe('Provider integration tests', () => {
 
     it('all providers return an object with all required keys', () => {
       const requiredKeys = ['headless', 'structuredOutput', 'hooks', 'sessionResume', 'permissions'];
-      const providers = [new ClaudeCodeProvider(), new CopilotCliProvider(), new OpenCodeProvider()];
+      const providers = [new ClaudeCodeProvider(), new CopilotCliProvider(), new CodexCliProvider(), new OpenCodeProvider()];
       for (const p of providers) {
         const caps = p.getCapabilities();
         for (const key of requiredKeys) {
@@ -673,6 +802,16 @@ describe('Provider integration tests', () => {
       const provider = new OpenCodeProvider();
       const options = await provider.getModelOptions();
       expect(options).toEqual([{ id: 'default', label: 'Default' }]);
+    });
+
+    it('CodexCli: falls back to static list with codex models when binary not found', async () => {
+      const provider = new CodexCliProvider();
+      const options = await provider.getModelOptions();
+      const ids = options.map(o => o.id);
+      expect(ids).toContain('default');
+      expect(ids).toContain('gpt-5.3-codex');
+      expect(ids).toContain('gpt-5.2-codex');
+      expect(ids).toContain('codex-mini-latest');
     });
 
     it('ClaudeCode: falls back to static list when binary not found', async () => {
