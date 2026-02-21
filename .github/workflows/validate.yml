@@ -51,7 +51,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     # Linux is untested — allow it to fail without blocking the PR
     continue-on-error: ${{ matrix.os == 'ubuntu-latest' }}
-    needs: [typecheck, unit-and-component]
     strategy:
       fail-fast: false
       matrix:
@@ -62,6 +61,10 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - name: Exclude workspace from Windows Defender
+        if: runner.os == 'Windows'
+        run: Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+        shell: pwsh
       - run: npm ci
       # E2E only needs webpack output, not distributable installers.
       # Packaging is validated separately by the release workflow.
