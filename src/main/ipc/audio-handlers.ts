@@ -1,7 +1,8 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import { IPC } from '../../shared/ipc-channels';
-import { AudioSettings } from '../../shared/types';
+import { AudioSettings, Agent, OutputKind } from '../../shared/types';
 import { AudioService } from '../services/audio/audio-service';
+import { appLog } from '../services/log-service';
 
 let audioService: AudioService | null = null;
 
@@ -23,21 +24,32 @@ export function registerAudioHandlers(): void {
     service.updateSettings(settings);
   });
 
+  ipcMain.handle(IPC.AUDIO.START_RECORDING, () => {
+    // Recording buffer is managed via RECORDING_DATA stream; no main-process action needed.
+  });
+
   ipcMain.on(IPC.AUDIO.RECORDING_DATA, (_event, chunk: Buffer) => {
     service.onRecordingData(chunk);
   });
 
-  ipcMain.handle(IPC.AUDIO.STOP_RECORDING, async (_event, agents: any[], focusedAgentId: string | null) => {
+  ipcMain.handle(IPC.AUDIO.STOP_RECORDING, async (_event, agents: Agent[], focusedAgentId: string | null) => {
     return service.onRecordingStop(agents, focusedAgentId);
   });
 
   ipcMain.handle(IPC.AUDIO.SPEAK, async (_event, agentId: string, text: string, kind: string) => {
-    const audio = await service.onAgentOutput(agentId, text, kind as any);
-    if (audio) {
-      const win = BrowserWindow.getAllWindows()[0];
-      if (win) {
-        win.webContents.send(IPC.AUDIO.SPEAK_AUDIO, audio);
+    try {
+      const audio = await service.onAgentOutput(agentId, text, kind as OutputKind);
+      if (audio) {
+        const win = BrowserWindow.getAllWindows()[0];
+        if (win) {
+          win.webContents.send(IPC.AUDIO.SPEAK_AUDIO, audio);
+        }
       }
+    } catch (err) {
+      appLog('audio:ipc', 'error', 'Speak failed', {
+        meta: { agentId, error: err instanceof Error ? err.message : String(err) },
+      });
+      throw err;
     }
   });
 
@@ -52,5 +64,19 @@ export function registerAudioHandlers(): void {
     } catch {
       return [];
     }
+  });
+
+  ipcMain.handle(IPC.AUDIO.GET_MODELS, async () => {
+    // Stub: model management will be implemented in a future task.
+    return [];
+  });
+
+  ipcMain.handle(IPC.AUDIO.DOWNLOAD_MODEL, async () => {
+    // Stub: model download will be implemented in a future task.
+  });
+
+  ipcMain.handle(IPC.AUDIO.ROUTE_SPEECH, async () => {
+    // Stub: speech routing will be implemented in a future task.
+    return null;
   });
 }
