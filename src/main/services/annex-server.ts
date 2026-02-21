@@ -7,8 +7,11 @@ import * as annexSettings from './annex-settings';
 import * as projectStore from './project-store';
 import * as agentConfig from './agent-config';
 import * as ptyManager from './pty-manager';
+import * as themeService from './theme-service';
+import { getAvailableOrchestrators } from './agent-system';
 import { appLog } from './log-service';
-import type { AnnexStatus, AgentHookEvent } from '../../shared/types';
+import { THEMES } from '../../renderer/themes';
+import type { AnnexStatus, AgentHookEvent, ThemeColors } from '../../shared/types';
 
 let httpServer: http.Server | null = null;
 let wss: WebSocketServer | null = null;
@@ -45,21 +48,47 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
   res.end(json);
 }
 
+function getThemeColors(): ThemeColors {
+  const { themeId } = themeService.getSettings();
+  const theme = THEMES[themeId];
+  return theme ? theme.colors : THEMES['catppuccin-mocha'].colors;
+}
+
+function getOrchestratorsMap(): Record<string, { displayName: string; shortName: string; badge?: string }> {
+  const result: Record<string, { displayName: string; shortName: string; badge?: string }> = {};
+  for (const o of getAvailableOrchestrators()) {
+    result[o.id] = { displayName: o.displayName, shortName: o.shortName, badge: o.badge };
+  }
+  return result;
+}
+
+function mapDurableAgent(d: ReturnType<typeof agentConfig.listDurable>[number]) {
+  return {
+    id: d.id,
+    name: d.name,
+    kind: 'durable' as const,
+    color: d.color,
+    branch: d.branch,
+    model: d.model,
+    orchestrator: d.orchestrator || null,
+    freeAgentMode: d.freeAgentMode || false,
+    icon: d.icon || null,
+  };
+}
+
 function buildSnapshot(): object {
   const projects = projectStore.list();
   const agents: Record<string, unknown[]> = {};
   for (const proj of projects) {
     const durables = agentConfig.listDurable(proj.path);
-    agents[proj.id] = durables.map((d) => ({
-      id: d.id,
-      name: d.name,
-      kind: 'durable',
-      color: d.color,
-      branch: d.branch,
-      model: d.model,
-    }));
+    agents[proj.id] = durables.map(mapDurableAgent);
   }
-  return { projects, agents };
+  return {
+    projects,
+    agents,
+    theme: getThemeColors(),
+    orchestrators: getOrchestratorsMap(),
+  };
 }
 
 function broadcastWs(message: object): void {
@@ -123,6 +152,7 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
       version: '1',
       deviceName: settings.deviceName,
       agentCount: projects.reduce((sum, p) => sum + agentConfig.listDurable(p.path).length, 0),
+      orchestratorCount: getAvailableOrchestrators().length,
     });
     return;
   }
@@ -144,14 +174,7 @@ function handleRequest(req: http.IncomingMessage, res: http.ServerResponse): voi
       return;
     }
     const durables = agentConfig.listDurable(project.path);
-    sendJson(res, 200, durables.map((d) => ({
-      id: d.id,
-      name: d.name,
-      kind: 'durable',
-      color: d.color,
-      branch: d.branch,
-      model: d.model,
-    })));
+    sendJson(res, 200, durables.map(mapDurableAgent));
     return;
   }
 
@@ -298,6 +321,11 @@ export function getStatus(): AnnexStatus {
     pin: currentPin,
     connectedCount: wss ? wss.clients.size : 0,
   };
+}
+
+/** Broadcast theme change to all connected WS clients. */
+export function broadcastThemeChanged(): void {
+  broadcastWs({ type: 'theme:changed', payload: getThemeColors() });
 }
 
 export function regeneratePin(): void {
