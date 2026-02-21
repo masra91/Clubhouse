@@ -25,11 +25,13 @@ export async function launchApp() {
   });
 
   // Dismiss the onboarding modal if it already appeared before localStorage was set.
+  // The modal appears after a 500ms timer in App.tsx, so wait long enough for it to fire
+  // on slow CI (especially Windows), then check and dismiss.
   const onboardingBackdrop = rendererWindow.locator('[data-testid="onboarding-backdrop"]');
-  const isVisible = await onboardingBackdrop.isVisible({ timeout: 1_000 }).catch(() => false);
+  const isVisible = await onboardingBackdrop.isVisible({ timeout: 2_000 }).catch(() => false);
   if (isVisible) {
     await rendererWindow.locator('[data-testid="onboarding-skip"]').click();
-    await rendererWindow.waitForTimeout(300);
+    await onboardingBackdrop.waitFor({ state: 'hidden', timeout: 2_000 }).catch(() => {});
   }
 
   return { electronApp, window: rendererWindow };
