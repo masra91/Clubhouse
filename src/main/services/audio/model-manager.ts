@@ -65,7 +65,7 @@ export class ModelManager {
     const ext = kind === 'stt' ? '.bin' : '.onnx';
     const resolved = path.resolve(this.basePath, kind, `${modelId}${ext}`);
     const kindDir = path.join(this.basePath, kind);
-    if (!resolved.startsWith(kindDir)) {
+    if (!resolved.startsWith(kindDir + path.sep)) {
       throw new Error(`Invalid model ID: ${modelId}`);
     }
     return resolved;
