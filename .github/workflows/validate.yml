@@ -67,6 +67,11 @@ jobs:
       # Linux: package only — deb/rpm makers fail due to binary name casing
       - name: Build app
         run: ${{ runner.os == 'Linux' && 'npx electron-forge package' || 'npm run make' }}
+      - name: Fix Electron sandbox permissions (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
       - name: Run E2E tests (Linux)
         if: runner.os == 'Linux'
         run: xvfb-run --auto-servernum npx playwright test
