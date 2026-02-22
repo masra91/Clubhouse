@@ -2,12 +2,15 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { AgentTerminal } from '../agents/AgentTerminal';
 import { SleepingAgent } from '../agents/SleepingAgent';
 import { AgentAvatarWithRing } from '../agents/AgentAvatar';
+import { QuickAgentGhost } from '../agents/QuickAgentGhost';
 import { useAgentStore } from '../../stores/agentStore';
-import { useProjectStore } from '../../stores/projectStore';
+import { useQuickAgentStore } from '../../stores/quickAgentStore';
+import type { AgentDetailedStatus } from '../../../shared/types';
 import type { PaneNode, LeafPane, SplitPane } from '../../plugins/builtin/hub/pane-tree';
 import {
   syncCounterToTree,
   collectLeaves,
+  findLeaf,
   splitPane as splitPaneOp,
   closePane as closePaneOp,
   swapPanes as swapPanesOp,
@@ -31,6 +34,7 @@ interface ProjectInfo {
 
 const PANE_PREFIX = 'hub';
 const EDGE_THRESHOLD = 32;
+const EMPTY_COMPLETED: import('../../../shared/types').CompletedQuickAgent[] = [];
 
 type SplitEdge = 'top' | 'bottom' | 'left' | 'right';
 const EDGE_ICONS: Record<SplitEdge, string> = { top: '\u2191', bottom: '\u2193', left: '\u2190', right: '\u2192' };
@@ -44,6 +48,7 @@ interface PaneCallbacks {
   onSwap: (sourceId: string, targetId: string) => void;
   onAssign: (paneId: string, agentId: string | null) => void;
   onFocus: (paneId: string) => void;
+  onZoom: (paneId: string) => void;
 }
 
 // ── Main Component ────────────────────────────────────────────────────
@@ -51,9 +56,15 @@ interface PaneCallbacks {
 export function PopoutHubView({ hubId, projectId }: PopoutHubViewProps) {
   const [paneTree, setPaneTree] = useState<PaneNode | null>(null);
   const [focusedPaneId, setFocusedPaneId] = useState('');
+  const [zoomedPaneId, setZoomedPaneId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const loadDurableAgents = useAgentStore((s) => s.loadDurableAgents);
+  const agentDetailedStatus = useAgentStore((s) => s.agentDetailedStatus);
+  const agents = useAgentStore((s) => s.agents);
+  const loadCompleted = useQuickAgentStore((s) => s.loadCompleted);
+  const completedAgents = useQuickAgentStore((s) => projectId ? (s.completedAgents[projectId] ?? EMPTY_COMPLETED) : EMPTY_COMPLETED);
+  const dismissCompleted = useQuickAgentStore((s) => s.dismissCompleted);
 
   useEffect(() => {
     loadHubData();
@@ -78,9 +89,12 @@ export function PopoutHubView({ hubId, projectId }: PopoutHubViewProps) {
         }
       }
 
-      // Populate agent store with durable agents for this project
+      // Populate agent store with durable agents and completed quick agents for this project
       if (projectId && projectPath) {
         await loadDurableAgents(projectId, projectPath);
+      }
+      if (projectId) {
+        loadCompleted(projectId);
       }
 
       const instances = await window.clubhouse.plugin.storageRead({
@@ -139,6 +153,10 @@ export function PopoutHubView({ hubId, projectId }: PopoutHubViewProps) {
     setPaneTree((prev) => prev ? setSplitRatioOp(prev, splitId, ratio) : prev);
   }, []);
 
+  const handleZoom = useCallback((paneId: string) => {
+    setZoomedPaneId((prev) => prev === paneId ? null : paneId);
+  }, []);
+
   // ── Render ────────────────────────────────────────────────────────
 
   if (loading) {
@@ -162,14 +180,21 @@ export function PopoutHubView({ hubId, projectId }: PopoutHubViewProps) {
       <PopoutPaneTree
         tree={paneTree}
         focusedPaneId={focusedPaneId}
+        zoomedPaneId={zoomedPaneId}
         callbacks={{
           onSplit: handleSplit,
           onClose: handleClose,
           onSwap: handleSwap,
           onAssign: handleAssign,
           onFocus: setFocusedPaneId,
+          onZoom: handleZoom,
         }}
         onSplitResize={handleSplitResize}
+        detailedStatuses={agentDetailedStatus}
+        completedAgents={completedAgents}
+        projectId={projectId}
+        dismissCompleted={dismissCompleted}
+        agents={agents}
       />
     </div>
   );
@@ -177,14 +202,43 @@ export function PopoutHubView({ hubId, projectId }: PopoutHubViewProps) {
 
 // ── Recursive pane tree renderer ──────────────────────────────────────
 
-function PopoutPaneTree({ tree, focusedPaneId, callbacks, onSplitResize }: {
+function PopoutPaneTree({ tree, focusedPaneId, zoomedPaneId, callbacks, onSplitResize, detailedStatuses, completedAgents, projectId, dismissCompleted, agents }: {
   tree: PaneNode;
   focusedPaneId: string;
+  zoomedPaneId?: string | null;
   callbacks: PaneCallbacks;
   onSplitResize: (splitId: string, ratio: number) => void;
+  detailedStatuses: Record<string, AgentDetailedStatus>;
+  completedAgents: import('../../../shared/types').CompletedQuickAgent[];
+  projectId?: string;
+  dismissCompleted: (projectId: string, agentId: string) => void;
+  agents: Record<string, import('../../../shared/types').Agent>;
 }) {
   const leafCount = useMemo(() => collectLeaves(tree).length, [tree]);
   const canClose = leafCount > 1;
+
+  // Zoom mode: render only the zoomed leaf at full size
+  if (zoomedPaneId) {
+    const zoomedLeaf = findLeaf(tree, zoomedPaneId);
+    if (zoomedLeaf) {
+      return (
+        <div className="w-full h-full overflow-hidden">
+          <PopoutLeafPane
+            pane={zoomedLeaf}
+            focused={true}
+            canClose={canClose}
+            callbacks={callbacks}
+            isZoomed={true}
+            detailedStatuses={detailedStatuses}
+            completedAgents={completedAgents}
+            projectId={projectId}
+            dismissCompleted={dismissCompleted}
+            agents={agents}
+          />
+        </div>
+      );
+    }
+  }
 
   if (tree.type === 'leaf') {
     return (
@@ -193,6 +247,12 @@ function PopoutPaneTree({ tree, focusedPaneId, callbacks, onSplitResize }: {
         focused={tree.id === focusedPaneId}
         canClose={canClose}
         callbacks={callbacks}
+        isZoomed={false}
+        detailedStatuses={detailedStatuses}
+        completedAgents={completedAgents}
+        projectId={projectId}
+        dismissCompleted={dismissCompleted}
+        agents={agents}
       />
     );
   }
@@ -204,18 +264,28 @@ function PopoutPaneTree({ tree, focusedPaneId, callbacks, onSplitResize }: {
       canClose={canClose}
       callbacks={callbacks}
       onSplitResize={onSplitResize}
+      detailedStatuses={detailedStatuses}
+      completedAgents={completedAgents}
+      projectId={projectId}
+      dismissCompleted={dismissCompleted}
+      agents={agents}
     />
   );
 }
 
 // ── Split pane with resizable divider ─────────────────────────────────
 
-function PopoutSplitPane({ split, focusedPaneId, canClose, callbacks, onSplitResize }: {
+function PopoutSplitPane({ split, focusedPaneId, canClose, callbacks, onSplitResize, detailedStatuses, completedAgents, projectId, dismissCompleted, agents }: {
   split: SplitPane;
   focusedPaneId: string;
   canClose: boolean;
   callbacks: PaneCallbacks;
   onSplitResize: (splitId: string, ratio: number) => void;
+  detailedStatuses: Record<string, AgentDetailedStatus>;
+  completedAgents: import('../../../shared/types').CompletedQuickAgent[];
+  projectId?: string;
+  dismissCompleted: (projectId: string, agentId: string) => void;
+  agents: Record<string, import('../../../shared/types').Agent>;
 }) {
   const isHorizontal = split.direction === 'horizontal';
   const ratio = split.ratio ?? 0.5;
@@ -256,7 +326,7 @@ function PopoutSplitPane({ split, focusedPaneId, canClose, callbacks, onSplitRes
       className={`flex ${isHorizontal ? 'flex-row' : 'flex-col'} w-full h-full min-w-0 min-h-0`}
     >
       <div className="min-w-0 min-h-0 overflow-hidden" style={{ [sizeProp]: `calc(${ratio * 100}% - 2px)` }}>
-        <PopoutPaneTree tree={split.children[0]} focusedPaneId={focusedPaneId} callbacks={callbacks} onSplitResize={onSplitResize} />
+        <PopoutPaneTree tree={split.children[0]} focusedPaneId={focusedPaneId} callbacks={callbacks} onSplitResize={onSplitResize} detailedStatuses={detailedStatuses} completedAgents={completedAgents} projectId={projectId} dismissCompleted={dismissCompleted} agents={agents} />
       </div>
       <div
         className={`flex-shrink-0 bg-surface-2 hover:bg-ctp-accent/40 transition-colors ${
@@ -266,7 +336,7 @@ function PopoutSplitPane({ split, focusedPaneId, canClose, callbacks, onSplitRes
         onMouseDown={handleDividerMouseDown}
       />
       <div className="min-w-0 min-h-0 overflow-hidden" style={{ [sizeProp]: `calc(${(1 - ratio) * 100}% - 2px)` }}>
-        <PopoutPaneTree tree={split.children[1]} focusedPaneId={focusedPaneId} callbacks={callbacks} onSplitResize={onSplitResize} />
+        <PopoutPaneTree tree={split.children[1]} focusedPaneId={focusedPaneId} callbacks={callbacks} onSplitResize={onSplitResize} detailedStatuses={detailedStatuses} completedAgents={completedAgents} projectId={projectId} dismissCompleted={dismissCompleted} agents={agents} />
       </div>
     </div>
   );
@@ -274,18 +344,35 @@ function PopoutSplitPane({ split, focusedPaneId, canClose, callbacks, onSplitRes
 
 // ── Leaf pane — mirrors HubPane rendering ─────────────────────────────
 
-function PopoutLeafPane({ pane, focused, canClose, callbacks }: {
+function PopoutLeafPane({ pane, focused, canClose, callbacks, isZoomed, detailedStatuses, completedAgents, projectId, dismissCompleted, agents: allAgents }: {
   pane: LeafPane;
   focused: boolean;
   canClose: boolean;
   callbacks: PaneCallbacks;
+  isZoomed?: boolean;
+  detailedStatuses: Record<string, AgentDetailedStatus>;
+  completedAgents: import('../../../shared/types').CompletedQuickAgent[];
+  projectId?: string;
+  dismissCompleted: (projectId: string, agentId: string) => void;
+  agents: Record<string, import('../../../shared/types').Agent>;
 }) {
-  const agent = useAgentStore((s) => pane.agentId ? s.agents[pane.agentId] ?? null : null);
+  const agent = pane.agentId ? allAgents[pane.agentId] ?? null : null;
   const killAgent = useAgentStore((s) => s.killAgent);
   const [hoveredEdge, setHoveredEdge] = useState<SplitEdge | null>(null);
   const [paneHovered, setPaneHovered] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const paneRef = useRef<HTMLDivElement>(null);
+
+  // Completed quick agent lookup
+  const completed = useMemo(
+    () => pane.agentId ? completedAgents.find((c) => c.id === pane.agentId) ?? null : null,
+    [completedAgents, pane.agentId],
+  );
+
+  // Detailed status for border highlighting
+  const detailedStatus = pane.agentId ? (detailedStatuses[pane.agentId] ?? null) : null;
+  const isPermission = detailedStatus?.state === 'needs_permission';
+  const isToolError = detailedStatus?.state === 'tool_error';
 
   // ── Drag handlers ───────────────────────────────────────────────
 
@@ -356,18 +443,24 @@ function PopoutLeafPane({ pane, focused, canClose, callbacks }: {
     else setHoveredEdge(null);
   }, []);
 
-  // ── Border styling ──────────────────────────────────────────────
+  // ── Border styling (matches HubPane: permission=orange, toolError=yellow, focused=indigo) ──
 
-  const borderColor = focused ? 'rgb(99,102,241)' : 'transparent';
-  const borderWidth = focused ? 2 : 1;
-  const borderFallback = !focused ? 'rgb(var(--ctp-surface2) / 1)' : undefined;
+  const borderColor = isPermission
+    ? 'rgb(249,115,22)'
+    : isToolError
+      ? 'rgb(234,179,8)'
+      : focused
+        ? 'rgb(99,102,241)'
+        : 'transparent';
+  const borderWidth = (isPermission || isToolError || focused) ? 2 : 1;
+  const borderFallback = (!isPermission && !isToolError && !focused) ? 'rgb(var(--ctp-surface2) / 1)' : undefined;
 
   const expanded = paneHovered;
 
   return (
     <div
       ref={paneRef}
-      className="relative w-full h-full flex flex-col rounded-sm overflow-hidden"
+      className={`relative w-full h-full flex flex-col rounded-sm overflow-hidden ${isPermission ? 'animate-pulse' : ''}`}
       style={{
         boxShadow: `inset 0 0 0 ${borderWidth}px ${borderFallback || borderColor}`,
       }}
@@ -387,6 +480,14 @@ function PopoutLeafPane({ pane, focused, canClose, callbacks }: {
           ) : (
             <SleepingAgent agent={agent} />
           )
+        ) : completed ? (
+          <QuickAgentGhost
+            completed={completed}
+            onDismiss={() => {
+              if (projectId) dismissCompleted(projectId, completed.id);
+              callbacks.onAssign(pane.id, null);
+            }}
+          />
         ) : (
           <div className="relative w-full h-full">
             {canClose && (
@@ -399,6 +500,7 @@ function PopoutLeafPane({ pane, focused, canClose, callbacks }: {
                 &times;
               </button>
             )}
+            <PopoutAgentPicker agents={allAgents} onPick={(agentId) => callbacks.onAssign(pane.id, agentId)} />
           </div>
         )}
       </div>
@@ -438,6 +540,14 @@ function PopoutLeafPane({ pane, focused, canClose, callbacks }: {
                   >
                     View
                   </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); callbacks.onZoom(pane.id); }}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-surface-1 text-ctp-subtext0 hover:bg-surface-2 hover:text-ctp-text"
+                    title={isZoomed ? 'Restore pane' : 'Zoom pane'}
+                    data-testid="zoom-button"
+                  >
+                    {isZoomed ? 'Restore' : 'Zoom'}
+                  </button>
                   {agent.status === 'running' && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleKill(); }}
@@ -475,6 +585,69 @@ function PopoutLeafPane({ pane, focused, canClose, callbacks }: {
           <EdgeIndicator edge="right" active={hoveredEdge === 'right'} onSplit={handleEdgeSplit} />
         </>
       )}
+    </div>
+  );
+}
+
+// ── Simple agent picker for empty panes ───────────────────────────────
+
+function PopoutAgentPicker({ agents, onPick }: {
+  agents: Record<string, import('../../../shared/types').Agent>;
+  onPick: (agentId: string) => void;
+}) {
+  const agentList = useMemo(() => Object.values(agents), [agents]);
+  const durableAgents = useMemo(() => agentList.filter((a) => a.kind === 'durable'), [agentList]);
+  const quickAgents = useMemo(() => agentList.filter((a) => a.kind === 'quick' && a.status === 'running'), [agentList]);
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="flex flex-col items-center justify-center min-h-full p-4 text-ctp-subtext0">
+        <div className="w-full max-w-xs space-y-3">
+          <div className="text-xs font-medium text-ctp-subtext1 uppercase tracking-wider mb-2">
+            Assign an agent
+          </div>
+
+          {durableAgents.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-ctp-overlay0 mb-1">Durable</div>
+              {durableAgents.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={(e) => { e.stopPropagation(); onPick(a.id); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-0 hover:bg-surface-1 text-left transition-colors"
+                >
+                  <AgentAvatarWithRing agent={a} />
+                  <span className="text-xs text-ctp-text truncate flex-1">{a.name}</span>
+                  <span className={`text-[10px] ${a.status === 'running' ? 'text-green-400' : a.status === 'error' ? 'text-red-400' : 'text-ctp-overlay0'}`}>
+                    {a.status}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {quickAgents.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-[10px] uppercase tracking-wider text-ctp-overlay0 mb-1">Quick</div>
+              {quickAgents.map((a) => (
+                <button
+                  key={a.id}
+                  onClick={(e) => { e.stopPropagation(); onPick(a.id); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-0 hover:bg-surface-1 text-left transition-colors"
+                >
+                  <AgentAvatarWithRing agent={a} />
+                  <span className="text-xs text-ctp-text truncate flex-1">{a.name}</span>
+                  <span className="text-[10px] text-green-400">running</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {durableAgents.length === 0 && quickAgents.length === 0 && (
+            <div className="text-xs text-ctp-overlay0 text-center py-4">No agents available</div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
