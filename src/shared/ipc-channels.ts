@@ -188,6 +188,9 @@ export const IPC = {
     LIST_POPOUTS: 'window:list-popouts',
     FOCUS_MAIN: 'window:focus-main',
     NAVIGATE_TO_AGENT: 'window:navigate-to-agent',
+    GET_AGENT_STATE: 'window:get-agent-state',
+    REQUEST_AGENT_STATE: 'window:request-agent-state',
+    AGENT_STATE_RESPONSE: 'window:agent-state-response',
   },
   MARKETPLACE: {
     FETCH_REGISTRY: 'marketplace:fetch-registry',

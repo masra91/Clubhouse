@@ -502,6 +502,23 @@ const api = {
       ipcRenderer.on(IPC.WINDOW.NAVIGATE_TO_AGENT, listener);
       return () => { ipcRenderer.removeListener(IPC.WINDOW.NAVIGATE_TO_AGENT, listener); };
     },
+    getAgentState: (): Promise<{
+      agents: Record<string, unknown>;
+      agentDetailedStatus: Record<string, unknown>;
+      agentIcons: Record<string, string>;
+    }> =>
+      ipcRenderer.invoke(IPC.WINDOW.GET_AGENT_STATE),
+    onRequestAgentState: (callback: (requestId: string) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, requestId: string) => callback(requestId);
+      ipcRenderer.on(IPC.WINDOW.REQUEST_AGENT_STATE, listener);
+      return () => { ipcRenderer.removeListener(IPC.WINDOW.REQUEST_AGENT_STATE, listener); };
+    },
+    respondAgentState: (requestId: string, state: {
+      agents: Record<string, unknown>;
+      agentDetailedStatus: Record<string, unknown>;
+      agentIcons: Record<string, string>;
+    }) =>
+      ipcRenderer.send(IPC.WINDOW.AGENT_STATE_RESPONSE, requestId, state),
   },
 };
 

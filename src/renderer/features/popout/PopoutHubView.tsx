@@ -59,7 +59,6 @@ export function PopoutHubView({ hubId, projectId }: PopoutHubViewProps) {
   const [zoomedPaneId, setZoomedPaneId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const loadDurableAgents = useAgentStore((s) => s.loadDurableAgents);
   const agentDetailedStatus = useAgentStore((s) => s.agentDetailedStatus);
   const agents = useAgentStore((s) => s.agents);
   const loadCompleted = useQuickAgentStore((s) => s.loadCompleted);
@@ -89,10 +88,8 @@ export function PopoutHubView({ hubId, projectId }: PopoutHubViewProps) {
         }
       }
 
-      // Populate agent store with durable agents and completed quick agents for this project
-      if (projectId && projectPath) {
-        await loadDurableAgents(projectId, projectPath);
-      }
+      // Agent state is now synced from the main window by PopoutWindow.
+      // We only need to load completed quick agents (localStorage-backed).
       if (projectId) {
         loadCompleted(projectId);
       }
