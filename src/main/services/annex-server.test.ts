@@ -61,6 +61,7 @@ import * as ptyManagerModule from './pty-manager';
 import * as agentSystem from './agent-system';
 import * as eventReplay from './annex-event-replay';
 import * as permissionQueue from './annex-permission-queue';
+import { generateQuickName } from '../../shared/name-generator';
 import Bonjour from 'bonjour-service';
 
 function request(port: number, method: string, path: string, body?: object, headers?: Record<string, string>): Promise<{ status: number; body: string }> {
@@ -100,6 +101,7 @@ function authHeaders(token: string): Record<string, string> {
 
 describe('annex-server', () => {
   beforeEach(() => {
+    // Re-apply mock return values after mockReset clears them
     vi.mocked(annexSettings.getSettings).mockReturnValue({ enabled: false, deviceName: 'Test Machine' });
     vi.mocked(projectStore.list).mockReturnValue([]);
     vi.mocked(agentConfigModule.listDurable).mockReturnValue([]);
@@ -107,6 +109,8 @@ describe('annex-server', () => {
     vi.mocked(ptyManagerModule.isRunning).mockReturnValue(false);
     vi.mocked(agentSystem.isHeadlessAgent).mockReturnValue(false);
     vi.mocked(agentSystem.spawnAgent).mockResolvedValue(undefined);
+    vi.mocked(agentSystem.getAvailableOrchestrators).mockReturnValue([]);
+    vi.mocked(generateQuickName).mockReturnValue('swift-fox');
     mockBonjour.publish.mockReturnValue(mockBonjourService);
     vi.mocked(Bonjour).mockImplementation(() => mockBonjour as any);
   });
