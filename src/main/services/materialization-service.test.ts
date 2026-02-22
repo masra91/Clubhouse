@@ -356,7 +356,7 @@ describe('materialization-service', () => {
       );
       expect(skillWrites).toHaveLength(3);
 
-      const paths = skillWrites.map((call) => call[0] as string);
+      const paths = skillWrites.map((call) => (call[0] as string).replace(/\\/g, '/'));
       expect(paths.some((p) => p.includes('/mission/'))).toBe(true);
       expect(paths.some((p) => p.includes('/create-pr/'))).toBe(true);
       expect(paths.some((p) => p.includes('/go-standby/'))).toBe(true);
@@ -414,16 +414,17 @@ describe('materialization-service', () => {
       );
       expect(skillWrites).toHaveLength(3);
 
-      const missionWrite = skillWrites.find((call) => (call[0] as string).includes('/mission/'));
+      const normalize = (call: unknown[]) => (call[0] as string).replace(/\\/g, '/');
+      const missionWrite = skillWrites.find((call) => normalize(call).includes('/mission/'));
       expect(missionWrite![1]).toContain('Mission Skill');
       expect(missionWrite![1]).toContain('/create-pr');
 
-      const createPrWrite = skillWrites.find((call) => (call[0] as string).includes('/create-pr/'));
+      const createPrWrite = skillWrites.find((call) => normalize(call).includes('/create-pr/'));
       expect(createPrWrite![1]).toContain('Create Pull Request');
       expect(createPrWrite![1]).toContain('@@If(github)');
       expect(createPrWrite![1]).toContain('@@If(azure-devops)');
 
-      const goStandbyWrite = skillWrites.find((call) => (call[0] as string).includes('/go-standby/'));
+      const goStandbyWrite = skillWrites.find((call) => normalize(call).includes('/go-standby/'));
       expect(goStandbyWrite![1]).toContain('Go Standby');
       expect(goStandbyWrite![1]).toContain('@@StandbyBranch');
     });
