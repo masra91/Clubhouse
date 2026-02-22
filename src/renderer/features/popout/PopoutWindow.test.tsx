@@ -63,6 +63,7 @@ describe('PopoutWindow', () => {
       agentIcons: { 'a1': 'data:image/png;base64,...' },
     });
     window.clubhouse.pty.onExit = vi.fn().mockReturnValue(noop);
+    window.clubhouse.pty.onData = vi.fn().mockReturnValue(noop);
     window.clubhouse.agent.onHookEvent = vi.fn().mockReturnValue(noop);
     window.clubhouse.window.getAgentState = getAgentStateMock;
     window.clubhouse.window.getPopoutParams = vi.fn().mockReturnValue({
@@ -142,5 +143,114 @@ describe('PopoutWindow', () => {
     await waitFor(() => {
       expect(screen.getByTestId('popout-hub-view')).toBeInTheDocument();
     });
+  });
+
+  it('subscribes to pty data events on mount', async () => {
+    render(<PopoutWindow />);
+    expect(window.clubhouse.pty.onData).toHaveBeenCalled();
+  });
+
+  it('transitions sleeping agent to running on pty data', async () => {
+    // Pre-populate store with a sleeping agent
+    mockAgentState.agents = {
+      'a1': { id: 'a1', name: 'sleepy', status: 'sleeping', kind: 'durable', projectId: 'p1', color: 'blue' },
+    };
+
+    let dataCallback: (agentId: string, data: string) => void = () => {};
+    (window.clubhouse.pty.onData as any).mockImplementation((cb: any) => {
+      dataCallback = cb;
+      return noop;
+    });
+
+    render(<PopoutWindow />);
+    await waitFor(() => {
+      expect(screen.getByTestId('popout-hub-view')).toBeInTheDocument();
+    });
+
+    // Simulate PTY data arriving for the sleeping agent
+    dataCallback('a1', 'some terminal output');
+
+    expect(mockSetState).toHaveBeenCalledWith(expect.any(Function));
+    // Find the setState call that's a function (the data listener uses functional update)
+    const funcCall = mockSetState.mock.calls.find(
+      (call: any[]) => typeof call[0] === 'function',
+    );
+    expect(funcCall).toBeTruthy();
+
+    // Invoke the functional update with sleeping agent state
+    const updater = funcCall![0];
+    const result = updater({
+      agents: { 'a1': { id: 'a1', status: 'sleeping', kind: 'durable' } },
+      agentSpawnedAt: {},
+    });
+    expect(result.agents['a1'].status).toBe('running');
+    expect(result.agents['a1'].exitCode).toBeUndefined();
+  });
+
+  it('does not re-transition agent after first pty data event', async () => {
+    mockAgentState.agents = {
+      'a1': { id: 'a1', name: 'sleepy', status: 'sleeping', kind: 'durable', projectId: 'p1', color: 'blue' },
+    };
+
+    let dataCallback: (agentId: string, data: string) => void = () => {};
+    (window.clubhouse.pty.onData as any).mockImplementation((cb: any) => {
+      dataCallback = cb;
+      return noop;
+    });
+
+    render(<PopoutWindow />);
+    await waitFor(() => {
+      expect(screen.getByTestId('popout-hub-view')).toBeInTheDocument();
+    });
+
+    mockSetState.mockClear();
+
+    // First data event triggers transition
+    dataCallback('a1', 'data1');
+    const callsAfterFirst = mockSetState.mock.calls.length;
+    expect(callsAfterFirst).toBeGreaterThan(0);
+
+    mockSetState.mockClear();
+
+    // Second data event should be a no-op (agent already in awakened set)
+    dataCallback('a1', 'data2');
+    expect(mockSetState).not.toHaveBeenCalled();
+  });
+
+  it('resets pty data tracking on agent exit', async () => {
+    mockAgentState.agents = {
+      'a1': { id: 'a1', name: 'sleepy', status: 'sleeping', kind: 'durable', projectId: 'p1', color: 'blue' },
+    };
+
+    let dataCallback: (agentId: string, data: string) => void = () => {};
+    let exitCallback: (agentId: string, exitCode: number) => void = () => {};
+    (window.clubhouse.pty.onData as any).mockImplementation((cb: any) => {
+      dataCallback = cb;
+      return noop;
+    });
+    (window.clubhouse.pty.onExit as any).mockImplementation((cb: any) => {
+      exitCallback = cb;
+      return noop;
+    });
+
+    render(<PopoutWindow />);
+    await waitFor(() => {
+      expect(screen.getByTestId('popout-hub-view')).toBeInTheDocument();
+    });
+
+    // First data event → transitions
+    dataCallback('a1', 'data1');
+
+    // Agent exits → reset tracking
+    exitCallback('a1', 0);
+
+    mockSetState.mockClear();
+
+    // Update agent back to sleeping for next cycle
+    mockAgentState.agents['a1'].status = 'sleeping';
+
+    // Data event after exit → should transition again
+    dataCallback('a1', 'data-after-wake');
+    expect(mockSetState).toHaveBeenCalledWith(expect.any(Function));
   });
 });

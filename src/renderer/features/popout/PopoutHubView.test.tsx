@@ -41,6 +41,14 @@ vi.mock('../../stores/agentStore', () => ({
   }),
 }));
 
+const mockLoadProjects = vi.fn().mockResolvedValue(undefined);
+
+vi.mock('../../stores/projectStore', () => ({
+  useProjectStore: (selector: (s: any) => any) => selector({
+    loadProjects: mockLoadProjects,
+  }),
+}));
+
 let mockCompletedAgents: Record<string, any[]> = {};
 
 vi.mock('../../stores/quickAgentStore', () => ({
@@ -101,6 +109,7 @@ describe('PopoutHubView', () => {
     for (const key of Object.keys(mockAgents)) delete mockAgents[key];
     mockDetailedStatuses = {};
     mockCompletedAgents = {};
+    mockLoadProjects.mockClear();
 
     window.clubhouse.pty.onExit = vi.fn().mockReturnValue(noop);
     window.clubhouse.agent.onHookEvent = vi.fn().mockReturnValue(noop);
@@ -247,5 +256,16 @@ describe('PopoutHubView', () => {
 
     render(<PopoutHubView hubId="hub-1" projectId="proj-1" />);
     expect(await screen.findByText('No agents available')).toBeInTheDocument();
+  });
+
+  // ── Project store loading (wake button fix) ─────────────────────────
+
+  it('loads the project store during initialization', async () => {
+    setupHubMocks({ type: 'leaf', id: 'pane-1', agentId: null });
+
+    render(<PopoutHubView hubId="hub-1" projectId="proj-1" />);
+    await screen.findByText('Assign an agent');
+
+    expect(mockLoadProjects).toHaveBeenCalledTimes(1);
   });
 });
