@@ -41,6 +41,9 @@ const config: ForgeConfig = {
     extendInfo: {
       CFBundleDisplayName: 'Clubhouse',
       NSUserNotificationAlertStyle: 'alert',
+      NSLocalNetworkUsageDescription:
+        'Clubhouse uses your local network to discover and connect to Annex companion devices.',
+      NSBonjourServices: ['_clubhouse-annex._tcp.'],
     },
     osxSign: {
       identity: process.env.APPLE_SIGNING_IDENTITY || '-',
