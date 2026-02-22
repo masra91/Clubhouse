@@ -30,6 +30,7 @@ vi.mock('../../stores/agentStore', () => ({
     agentDetailedStatus: {},
     killAgent: vi.fn(),
     spawnDurableAgent: vi.fn(),
+    loadDurableAgents: vi.fn().mockResolvedValue(undefined),
   }),
 }));
 
@@ -51,6 +52,16 @@ vi.mock('../../plugins/builtin/hub/pane-tree', () => ({
     }
     return result;
   },
+  getFirstLeafId: (tree: any) => {
+    if (tree.type === 'leaf') return tree.id;
+    return tree.children?.[0]?.id || '';
+  },
+  splitPane: vi.fn((tree: any) => tree),
+  closePane: vi.fn((tree: any) => tree),
+  swapPanes: vi.fn((tree: any) => tree),
+  assignAgent: vi.fn((tree: any) => tree),
+  setSplitRatio: vi.fn((tree: any) => tree),
+  createLeaf: vi.fn(() => ({ type: 'leaf', id: 'new-pane', agentId: null })),
 }));
 
 describe('PopoutHubView', () => {
@@ -162,5 +173,95 @@ describe('PopoutHubView', () => {
 
     render(<PopoutHubView hubId="hub-1" projectId="proj-1" />);
     expect(await screen.findByText('my-agent')).toBeInTheDocument();
+  });
+
+  it('renders agent avatar in floating chip', async () => {
+    mockAgents['agent-1'] = {
+      id: 'agent-1', name: 'avatar-agent', status: 'running',
+      kind: 'durable', projectId: 'proj-1', color: 'blue',
+    };
+
+    const paneTree = {
+      type: 'leaf' as const,
+      id: 'pane-1',
+      agentId: 'agent-1',
+      projectId: 'proj-1',
+    };
+
+    window.clubhouse.plugin = {
+      ...window.clubhouse.plugin,
+      storageRead: vi.fn().mockResolvedValue([{ id: 'hub-1', paneTree }]),
+    };
+    window.clubhouse.project = {
+      ...window.clubhouse.project,
+      list: vi.fn().mockResolvedValue([{ id: 'proj-1', name: 'Test', path: '/test' }]),
+    };
+
+    render(<PopoutHubView hubId="hub-1" projectId="proj-1" />);
+    expect(await screen.findByTestId('agent-avatar')).toBeInTheDocument();
+  });
+
+  it('renders edge split indicators on hover', async () => {
+    mockAgents['agent-1'] = {
+      id: 'agent-1', name: 'hover-agent', status: 'running',
+      kind: 'durable', projectId: 'proj-1', color: 'red',
+    };
+
+    const paneTree = {
+      type: 'leaf' as const,
+      id: 'pane-1',
+      agentId: 'agent-1',
+      projectId: 'proj-1',
+    };
+
+    window.clubhouse.plugin = {
+      ...window.clubhouse.plugin,
+      storageRead: vi.fn().mockResolvedValue([{ id: 'hub-1', paneTree }]),
+    };
+    window.clubhouse.project = {
+      ...window.clubhouse.project,
+      list: vi.fn().mockResolvedValue([{ id: 'proj-1', name: 'Test', path: '/test' }]),
+    };
+
+    render(<PopoutHubView hubId="hub-1" projectId="proj-1" />);
+    // Wait for content to render
+    await screen.findByTestId('agent-terminal-agent-1');
+
+    // Find the pane container and trigger mouse enter
+    const paneContainer = screen.getByTestId('agent-terminal-agent-1').closest('[class*="rounded-sm"]');
+    expect(paneContainer).toBeTruthy();
+    fireEvent.mouseEnter(paneContainer!);
+
+    // Edge indicators should appear (Split Up, Split Down, Split Left, Split Right)
+    expect(screen.getByTitle('Split Up')).toBeInTheDocument();
+    expect(screen.getByTitle('Split Down')).toBeInTheDocument();
+    expect(screen.getByTitle('Split Left')).toBeInTheDocument();
+    expect(screen.getByTitle('Split Right')).toBeInTheDocument();
+  });
+
+  it('shows empty pane for unassigned panes', async () => {
+    const paneTree = {
+      type: 'leaf' as const,
+      id: 'pane-1',
+      agentId: null,
+    };
+
+    window.clubhouse.plugin = {
+      ...window.clubhouse.plugin,
+      storageRead: vi.fn().mockResolvedValue([{ id: 'hub-1', paneTree }]),
+    };
+    window.clubhouse.project = {
+      ...window.clubhouse.project,
+      list: vi.fn().mockResolvedValue([{ id: 'proj-1', name: 'Test', path: '/test' }]),
+    };
+
+    render(<PopoutHubView hubId="hub-1" projectId="proj-1" />);
+    // Empty pane should not show agent terminal or sleeping agent
+    await screen.findByText('Loading hub...'); // Initial loading state
+    // Wait for load to complete — the pane renders without content
+    await vi.waitFor(() => {
+      expect(screen.queryByText('Loading hub...')).not.toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('agent-terminal-pane-1')).not.toBeInTheDocument();
   });
 });
