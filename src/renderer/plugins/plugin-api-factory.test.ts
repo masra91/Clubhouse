@@ -985,12 +985,12 @@ describe('plugin-api-factory', () => {
         expect(result.deny).toEqual(['Bash(rm:*)']);
       });
 
-      it('permission methods denied without agent-config.permissions', () => {
+      it('permission methods denied without agent-config.permissions', async () => {
         const manifest = makeAllPermsManifest({
           permissions: ['agent-config'], // no agent-config.permissions
         });
         const limited = createPluginAPI(makeCtx(), undefined, manifest);
-        expect(() => limited.agentConfig.addPermissionAllowRules(['x'])).toThrow();
+        await expect(limited.agentConfig.addPermissionAllowRules(['x'])).rejects.toThrow();
       });
     });
 
@@ -1032,12 +1032,12 @@ describe('plugin-api-factory', () => {
         expect(result).toEqual({ 'my-server': { command: 'python' } });
       });
 
-      it('MCP methods denied without agent-config.mcp', () => {
+      it('MCP methods denied without agent-config.mcp', async () => {
         const manifest = makeAllPermsManifest({
           permissions: ['agent-config'], // no agent-config.mcp
         });
         const limited = createPluginAPI(makeCtx(), undefined, manifest);
-        expect(() => limited.agentConfig.injectMcpServers({})).toThrow();
+        await expect(limited.agentConfig.injectMcpServers({})).rejects.toThrow();
       });
     });
 
