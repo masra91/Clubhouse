@@ -119,4 +119,40 @@ export function registerWindowHandlers(): void {
       }
     }
   });
+
+  // Relay agent state from the main window to a requesting popout window.
+  // The popout invokes GET_AGENT_STATE → main process sends REQUEST_AGENT_STATE
+  // to the main renderer → main renderer responds via AGENT_STATE_RESPONSE.
+  ipcMain.handle(IPC.WINDOW.GET_AGENT_STATE, (_event) => {
+    return new Promise((resolve) => {
+      const mainWindow = BrowserWindow.getAllWindows().find(
+        (w) => !popoutWindows.has(w.id) && !w.isDestroyed(),
+      );
+      if (!mainWindow) {
+        resolve({ agents: {}, agentDetailedStatus: {}, agentIcons: {} });
+        return;
+      }
+
+      const requestId = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`;
+
+      const timeout = setTimeout(() => {
+        ipcMain.removeAllListeners(`${IPC.WINDOW.AGENT_STATE_RESPONSE}:${requestId}`);
+        resolve({ agents: {}, agentDetailedStatus: {}, agentIcons: {} });
+      }, 5000);
+
+      ipcMain.once(`${IPC.WINDOW.AGENT_STATE_RESPONSE}:${requestId}` as any, (_e: any, state: any) => {
+        clearTimeout(timeout);
+        resolve(state);
+      });
+
+      mainWindow.webContents.send(IPC.WINDOW.REQUEST_AGENT_STATE, requestId);
+    });
+  });
+
+  // Forward state responses from the main renderer back to the correct
+  // ipcMain.once listener keyed by requestId.
+  ipcMain.on(IPC.WINDOW.AGENT_STATE_RESPONSE, (_event, requestId: string, state: any) => {
+    // Re-emit on the keyed channel so the handle() above resolves
+    ipcMain.emit(`${IPC.WINDOW.AGENT_STATE_RESPONSE}:${requestId}`, _event, state);
+  });
 }

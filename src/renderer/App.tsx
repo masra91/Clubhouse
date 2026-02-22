@@ -158,6 +158,20 @@ export function App() {
     return () => remove();
   }, []);
 
+  // Respond to agent state requests from pop-out windows so they can
+  // mirror the same agents, detailed statuses, and icons.
+  useEffect(() => {
+    const remove = window.clubhouse.window.onRequestAgentState((requestId: string) => {
+      const state = useAgentStore.getState();
+      window.clubhouse.window.respondAgentState(requestId, {
+        agents: state.agents,
+        agentDetailedStatus: state.agentDetailedStatus,
+        agentIcons: state.agentIcons,
+      });
+    });
+    return () => remove();
+  }, []);
+
   // Navigate to agent when requested from a pop-out window
   useEffect(() => {
     const remove = window.clubhouse.window.onNavigateToAgent((agentId: string) => {
